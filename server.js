@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXUSDEV BACK-END API — SERVIDOR COMPLETO PRONTO PARA PRODUÇÃO (RENDER/RAILWAY)
+// NEXUSDEV BACK-END API v2.0 — AUTENTICAÇÃO CLOUD, CERTIFICADOS, RANKING & TUTOR
 // ============================================================================
 
 require('dotenv').config();
@@ -9,6 +9,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
@@ -32,7 +33,7 @@ app.use(express.json({ limit: '2mb' }));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 400,
   message: { error: 'Muitas requisições. Tente novamente mais tarde.' }
 });
 app.use('/api/', apiLimiter);
@@ -46,10 +47,14 @@ if (!MONGO_URI) {
     .catch((err) => console.error('❌ Erro ao conectar ao MongoDB:', err.message));
 }
 
+// ============================================================================
+// SCHEMA DE USUÁRIOS, PROGRESSO, RANKING E CERTIFICADOS
+// ============================================================================
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    passwordHash: { type: String, default: '' },
     avatar: { type: String, default: '' },
     googleId: { type: String, default: '' },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
@@ -58,7 +63,10 @@ const userSchema = new mongoose.Schema(
     lastActiveDate: { type: String, default: () => new Date().toISOString().slice(0, 10) },
     completedIds: { type: [String], default: [] },
     savedCodeMap: { type: mongoose.Schema.Types.Mixed, default: {} },
-    certificateCode: { type: String, unique: true, sparse: true }
+    certificateCode: { type: String, unique: true, sparse: true },
+    certificateIssuedAt: { type: Date, default: null },
+    githubUrl: { type: String, default: '' },
+    liveUrl: { type: String, default: '' }
   },
   { timestamps: true }
 );
@@ -79,6 +87,25 @@ function signUserToken(user) {
   );
 }
 
+function formatUserResponse(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar,
+    provider: user.googleId ? 'google' : 'email',
+    xp: user.xp,
+    streak: user.streak,
+    completedIds: user.completedIds,
+    savedCodeMap: user.savedCodeMap,
+    certificateCode: user.certificateCode,
+    certificateIssuedAt: user.certificateIssuedAt,
+    githubUrl: user.githubUrl,
+    liveUrl: user.liveUrl,
+    createdAt: user.createdAt
+  };
+}
+
 async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -96,8 +123,74 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// ============================================================================
+// ROTAS DE SAÚDE E AUTENTICAÇÃO (E-MAIL/SENHA + GOOGLE OAUTH)
+// ============================================================================
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'online', service: 'NexusDev API', timestamp: new Date().toISOString() });
+  res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+    }
+    if (password.length < 4) {
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 4 caracteres.' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await User.findOne({ email: normalizedEmail });
+    if (existing) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado. Faça login.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      certificateCode: generateCertificateCode(name, 0)
+    });
+
+    const token = signUserToken(user);
+    return res.status(201).json({ token, user: formatUserResponse(user) });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao criar conta no servidor.' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Informe e-mail e senha.' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (user.lastActiveDate !== today) {
+      user.streak += 1;
+      user.lastActiveDate = today;
+      await user.save();
+    }
+
+    const token = signUserToken(user);
+    return res.json({ token, user: formatUserResponse(user) });
+  } catch {
+    return res.status(500).json({ error: 'Erro ao realizar login.' });
+  }
 });
 
 app.post('/api/auth/google', async (req, res) => {
@@ -133,41 +226,19 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const token = signUserToken(user);
-
-    return res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        xp: user.xp,
-        streak: user.streak,
-        completedIds: user.completedIds,
-        savedCodeMap: user.savedCodeMap,
-        certificateCode: user.certificateCode
-      }
-    });
-  } catch (err) {
+    return res.json({ token, user: formatUserResponse(user) });
+  } catch {
     return res.status(401).json({ error: 'Falha ao validar conta Google.' });
   }
 });
 
 app.get('/api/me', requireAuth, async (req, res) => {
-  const user = req.user;
-  res.json({
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar,
-    xp: user.xp,
-    streak: user.streak,
-    completedIds: user.completedIds,
-    savedCodeMap: user.savedCodeMap,
-    certificateCode: user.certificateCode
-  });
+  res.json(formatUserResponse(req.user));
 });
 
+// ============================================================================
+// PROGRESSO, RANKING SEMANAL, CERTIFICADOS PÚBLICOS E TUTOR IA CONTEXTUAL
+// ============================================================================
 app.post('/api/progress/complete', requireAuth, async (req, res) => {
   try {
     const { challengeId, files } = req.body;
@@ -207,6 +278,135 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/certificates/issue', requireAuth, async (req, res) => {
+  try {
+    const { studentName, githubUrl, liveUrl } = req.body;
+    const user = req.user;
+
+    if (studentName && studentName.trim()) {
+      user.name = studentName.trim();
+    }
+    if (githubUrl) user.githubUrl = githubUrl.trim();
+    if (liveUrl) user.liveUrl = liveUrl.trim();
+    if (!user.certificateCode) {
+      user.certificateCode = generateCertificateCode(user.name, user.completedIds.length);
+    }
+    user.certificateIssuedAt = new Date();
+    await user.save();
+
+    return res.json({
+      verified: true,
+      code: user.certificateCode,
+      studentName: user.name,
+      completedCount: user.completedIds.length,
+      xp: user.xp,
+      issuedAt: user.certificateIssuedAt,
+      githubUrl: user.githubUrl,
+      liveUrl: user.liveUrl
+    });
+  } catch {
+    return res.status(500).json({ error: 'Erro ao emitir certificado.' });
+  }
+});
+
+// Rota pública para recrutadores validarem certificados via link ou QR Code
+app.get('/api/certificates/:code', async (req, res) => {
+  try {
+    const code = req.params.code.trim().toUpperCase();
+    const user = await User.findOne({ certificateCode: code });
+    if (!user) {
+      return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
+    }
+    return res.json({
+      valid: true,
+      code: user.certificateCode,
+      studentName: user.name,
+      completedCount: user.completedIds.length,
+      xp: user.xp,
+      issuedAt: user.certificateIssuedAt || user.updatedAt,
+      githubUrl: user.githubUrl,
+      liveUrl: user.liveUrl
+    });
+  } catch {
+    return res.status(500).json({ valid: false, error: 'Erro ao consultar certificado.' });
+  }
+});
+
+// Ranking Top 15 da Comunidade
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const topUsers = await User.find({})
+      .sort({ xp: -1, streak: -1 })
+      .limit(15)
+      .select('name avatar xp streak completedIds');
+
+    const leaderboard = topUsers.map((u, idx) => ({
+      rank: idx + 1,
+      name: u.name,
+      avatar: u.avatar,
+      xp: u.xp || 0,
+      streak: u.streak || 1,
+      completedCount: Array.isArray(u.completedIds) ? u.completedIds.length : 0
+    }));
+
+    return res.json({ leaderboard });
+  } catch {
+    return res.json({ leaderboard: [] });
+  }
+});
+
+// Tutor IA Contextual (Analisa código e enunciado da aula sem entregar a resposta pronta)
+app.post('/api/tutor/analyze', (req, res) => {
+  const { challengeTitle, language, targetFunction, instructions, filesMap, failedTests } = req.body || {};
+  const tips = [];
+  const allCode = Object.values(filesMap || {}).join('\n');
+
+  if (!allCode.trim()) {
+    return res.json({
+      tips: ['O editor está vazio. Comece escrevendo a estrutura pedida nas instruções à esquerda.']
+    });
+  }
+
+  const openBraces = (allCode.match(/\{/g) || []).length;
+  const closeBraces = (allCode.match(/\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    tips.push(`Chaves desbalanceadas: você abriu ${openBraces} "{" e fechou ${closeBraces} "}".`);
+  }
+
+  if (language === 'html') {
+    const html = filesMap['index.html'] || '';
+    const css = filesMap['style.css'] || '';
+    if (instructions?.includes('<h1>') && !/<h1\b/i.test(html)) {
+      tips.push('Inclua uma tag de título principal <h1>...</h1> dentro do index.html.');
+    }
+    if (instructions?.includes('display: flex') && !/display\s*:\s*flex/i.test(css)) {
+      tips.push('Abra a aba "style.css" e adicione "display: flex;" no seletor solicitado.');
+    }
+    if (instructions?.includes('display: grid') && !/display\s*:\s*grid/i.test(css)) {
+      tips.push('Abra a aba "style.css" e ative "display: grid;" no contêiner.');
+    }
+  } else {
+    if (targetFunction && !allCode.includes(targetFunction)) {
+      tips.push(`Mantenha o nome exato da função "${targetFunction}" definida no desafio.`);
+    }
+    if (!/\breturn\b/.test(allCode) && !allCode.includes('res.status')) {
+      tips.push('Sua função precisa retornar um resultado usando a palavra-chave "return".');
+    }
+  }
+
+  if (Array.isArray(failedTests) && failedTests.length > 0 && tips.length === 0) {
+    tips.push(`Foco no critério "${failedTests[0].description}": ${failedTests[0].error}`);
+  }
+
+  if (tips.length === 0) {
+    tips.push(
+      `Excelente progresso na aula "${challengeTitle}"! Clique em "Verificar Código" para validar todos os testes.`
+    );
+  }
+
+  return res.json({ tips });
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor NexusDev rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor NexusDev v2.0 rodando na porta ${PORT}`);
 });
