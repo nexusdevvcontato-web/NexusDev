@@ -73,6 +73,18 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.model('User', userSchema);
 
+const commentSchema = new mongoose.Schema(
+  {
+    lessonId: { type: String, required: true, index: true },
+    author: { type: String, required: true, trim: true },
+    badge: { type: String, default: 'Aluno NexusDev' },
+    text: { type: String, required: true, trim: true, maxlength: 1000 }
+  },
+  { timestamps: true }
+);
+
+const Comment = mongoose.model('Comment', commentSchema);
+
 function generateCertificateCode(name, completedCount) {
   const cleanName = (name || 'ALUNO').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -405,6 +417,59 @@ app.post('/api/tutor/analyze', (req, res) => {
   }
 
   return res.json({ tips });
+});
+
+// ============================================================================
+// FÓRUM DA COMUNIDADE POR AULA (PERSISTIDO NO MONGODB)
+// ============================================================================
+app.get('/api/lessons/:lessonId/comments', async (req, res) => {
+  try {
+    const lessonId = String(req.params.lessonId || '').trim();
+    const docs = await Comment.find({ lessonId }).sort({ createdAt: -1 }).limit(50);
+    const comments = docs.map((d) => ({
+      id: d._id.toString(),
+      author: d.author,
+      badge: d.badge || 'Aluno NexusDev',
+      time: new Date(d.createdAt).toLocaleDateString('pt-BR'),
+      text: d.text
+    }));
+    return res.json({ comments });
+  } catch {
+    return res.json({ comments: [] });
+  }
+});
+
+app.post('/api/lessons/:lessonId/comments', requireAuth, async (req, res) => {
+  try {
+    const lessonId = String(req.params.lessonId || '').trim();
+    const text = String(req.body?.text || '').trim();
+    if (!lessonId || !text) {
+      return res.status(400).json({ error: 'Escreva uma mensagem válida.' });
+    }
+
+    const created = await Comment.create({
+      lessonId,
+      author: req.user.name,
+      badge: req.user.role === 'admin' ? 'Mentor NexusDev' : 'Aluno NexusDev',
+      text: text.slice(0, 1000)
+    });
+
+    req.user.xp = (req.user.xp || 0) + 10;
+    await req.user.save();
+
+    return res.status(201).json({
+      comment: {
+        id: created._id.toString(),
+        author: created.author,
+        badge: created.badge,
+        time: 'agora',
+        text: created.text
+      },
+      xp: req.user.xp
+    });
+  } catch {
+    return res.status(500).json({ error: 'Erro ao publicar comentário.' });
+  }
 });
 
 app.listen(PORT, () => {
