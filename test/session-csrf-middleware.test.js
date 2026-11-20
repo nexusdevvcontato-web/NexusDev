@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { createSessionCsrfMiddleware, readCookie, requireMatchingSession } = require('../src/modules/auth/session-csrf-middleware');
 const { createSessionCsrfToken, hashSessionCsrfToken } = require('../src/modules/auth/session-csrf-token');
 const { generateRefreshToken, hashRefreshToken } = require('../src/modules/auth/refresh-token');
+const { issueSessionAccessToken, createSessionAccessMiddleware } = require('../src/modules/auth/session-access-token');
 
 const origin = 'https://app.example.test';
 const now = new Date('2026-11-20T00:00:00.000Z');
@@ -170,5 +171,72 @@ test('rejects session credentials belonging to different users', () => {
   let called = false;
   requireMatchingSession(req, res, () => { called = true; });
   assert.equal(called, false);
+  assert.equal(res.statusCode, 403);
+});
+
+async function runCombinedSessionGuards(cookieSessionId, bearerSessionId) {
+  const refreshToken = generateRefreshToken();
+  const csrfToken = createSessionCsrfToken();
+  const secret = 's'.repeat(48);
+  const userId = 'user-123';
+  const currentTime = now;
+  const RefreshToken = {
+    findOne() {
+      return { lean: async () => ({
+        sessionId: cookieSessionId,
+        tokenHash: hashRefreshToken(refreshToken),
+        usedAt: null
+      }) };
+    }
+  };
+  const Session = {
+    findOne(query) {
+      const id = query._id;
+      const record = {
+        _id: id,
+        userId,
+        revokedAt: null,
+        expiresAt: new Date('2026-12-01T00:00:00Z'),
+        csrfTokenHash: hashSessionCsrfToken(csrfToken)
+      };
+      if (query.userId !== userId) return { lean: async () => null };
+      if (query.revokedAt !== null) return { lean: async () => null };
+      if (query.expiresAt && query.expiresAt.$gt > currentTime) return { lean: async () => record };
+      if (typeof this.select === 'function') return this;
+      return {
+        select() { return { lean: async () => record }; },
+        lean: async () => record
+      };
+    }
+  };
+  const csrf = createSessionCsrfMiddleware({
+    Session, RefreshToken, allowedOrigins: [origin], now: () => currentTime
+  });
+  const access = createSessionAccessMiddleware({
+    User: { findById: async () => ({ _id: userId }) },
+    Session,
+    secret,
+    now: () => currentTime
+  });
+  const token = issueSessionAccessToken({
+    userId, sessionId: bearerSessionId, secret,
+    now: Math.floor(currentTime.getTime() / 1000)
+  });
+  const req = request(refreshToken, csrfToken);
+  req.headers.authorization = `Bearer ${token}`;
+  const res = responseRecorder();
+  await new Promise((resolve) => csrf(req, res, () => access(req, res, () => {
+    requireMatchingSession(req, res, resolve);
+  })));
+  return res;
+}
+
+test('combined CSRF and access guards accept credentials for the same session', async () => {
+  const res = await runCombinedSessionGuards('session-a', 'session-a');
+  assert.equal(res.statusCode, 200);
+});
+
+test('combined CSRF and access guards reject credentials for different sessions', async () => {
+  const res = await runCombinedSessionGuards('session-a', 'session-b');
   assert.equal(res.statusCode, 403);
 });
