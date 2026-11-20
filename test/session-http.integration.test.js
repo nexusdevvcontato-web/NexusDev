@@ -33,6 +33,29 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const base = `http://127.0.0.1:${server.address().port}`;
     const origin = 'https://app.example.test';
 
+    const request = async (path, { method = 'GET', body, token, cookies = [], csrf } = {}) => {
+      const headers = { Origin: origin };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (cookies.length) headers.Cookie = cookies.join('; ');
+      if (csrf) headers['X-CSRF-Token'] = csrf;
+      const response = await fetch(base + path, {
+        method, headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        redirect: 'manual'
+      });
+      const payload = await response.json().catch(() => ({}));
+      const setCookieHeader = response.headers.get('set-cookie') || '';
+      const setCookies = setCookieHeader.split(/,(?=[^;,]+=)/).map(value => value.trim());
+      const cookieMap = {};
+      for (const item of setCookies) {
+        const pair = item.split(';', 1)[0];
+        const separator = pair.indexOf('=');
+        if (separator > 0) cookieMap[pair.slice(0, separator)] = pair.slice(separator + 1);
+      }
+      return { response, payload, setCookies, cookieMap };
+    };
+
     // Password-reset requests are limited both by client IP and by normalized email.
     for (let attempt = 0; attempt < 3; attempt++) {
       const resetRequest = await request('/api/auth/password-reset/request', {
@@ -60,28 +83,6 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     );
     assert.equal((await request('/api/me', { token: legacyToken })).response.status, 401);
 
-    const request = async (path, { method = 'GET', body, token, cookies = [], csrf } = {}) => {
-      const headers = { Origin: origin };
-      if (body !== undefined) headers['Content-Type'] = 'application/json';
-      if (token) headers.Authorization = `Bearer ${token}`;
-      if (cookies.length) headers.Cookie = cookies.join('; ');
-      if (csrf) headers['X-CSRF-Token'] = csrf;
-      const response = await fetch(base + path, {
-        method, headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        redirect: 'manual'
-      });
-      const payload = await response.json().catch(() => ({}));
-      const setCookieHeader = response.headers.get('set-cookie') || '';
-      const setCookies = setCookieHeader.split(/,(?=[^;,]+=)/).map(value => value.trim());
-      const cookieMap = {};
-      for (const item of setCookies) {
-        const pair = item.split(';', 1)[0];
-        const separator = pair.indexOf('=');
-        if (separator > 0) cookieMap[pair.slice(0, separator)] = pair.slice(separator + 1);
-      }
-      return { response, payload, setCookies, cookieMap };
-    };
 
     const register = async (email) => {
       const result = await request('/api/auth/session/register', {
