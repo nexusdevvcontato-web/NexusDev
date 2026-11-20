@@ -59,7 +59,10 @@ function request(refreshToken, csrfToken, requestOrigin) {
   return {
     headers: {
       origin: resolvedOrigin,
-      cookie: refreshToken ? `__Host-nexusdev_refresh=${encodeURIComponent(refreshToken)}` : '',
+      cookie: [
+        refreshToken ? `__Host-nexusdev_refresh=${encodeURIComponent(refreshToken)}` : '',
+        csrfToken ? `__Host-nexusdev_csrf=${encodeURIComponent(csrfToken)}` : ''
+      ].filter(Boolean).join('; '),
       'x-csrf-token': csrfToken
     },
     get(name) { return this.headers[name.toLowerCase()]; }
@@ -102,13 +105,16 @@ test('rejects missing, untrusted or malformed Origin before database lookup', as
 test('rejects missing cookie, missing header, invalid CSRF, expired refresh and revoked session', async () => {
   const cases = [
     { refreshToken: null, csrfToken: createSessionCsrfToken() },
+    { refreshToken: generateRefreshToken(), csrfToken: createSessionCsrfToken(), csrfCookie: 'different-token' },
     { refreshToken: generateRefreshToken(), csrfToken: undefined },
     { refreshToken: generateRefreshToken(), csrfToken: 'bad' }
   ];
   for (const item of cases) {
     const setup = makeMiddleware();
     const res = responseRecorder();
-    await setup.middleware(request(item.refreshToken, item.csrfToken), res, () => assert.fail('next não deveria ser chamado'));
+    const req = request(item.refreshToken, item.csrfToken);
+    if (item.csrfCookie) req.headers.cookie = `__Host-nexusdev_refresh=${item.refreshToken}; __Host-nexusdev_csrf=${item.csrfCookie}`;
+    await setup.middleware(req, res, () => assert.fail('next não deveria ser chamado'));
     assert.equal(res.statusCode, 403);
   }
 
