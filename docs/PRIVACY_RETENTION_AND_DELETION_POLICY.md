@@ -102,3 +102,31 @@ A validação automatizada da política de credenciais cobre:
 - correspondência de e-mail sem distinção de maiúsculas/minúsculas, mantendo a exigência de e-mail verificado.
 
 Esses testes unitários usam verificadores simulados; não substituem a verificação criptográfica real do Google, testes HTTP contra MongoDB de staging, nem validação de cookies/CORS e rate limit no ambiente implantado.
+
+
+## 10. Inventário técnico de dependências que precisam ser tratadas
+
+A revisão do código confirma que a exclusão de um documento `User` isoladamente deixaria dados relacionados:
+
+| Coleção/área | Vínculo atual | Risco se somente User for removido | Controle exigido antes da ativação |
+|---|---|---|---|
+| `Session` | `userId` | sessões e metadados permanecem até TTL | revogar todas as sessões do titular e testar revogação |
+| `RefreshToken` | `sessionId` | hashes de refresh permanecem até TTL; sessões revogadas não significam remoção imediata dos registros | revogar sessões, invalidar tokens e definir remoção/TTL dos registros |
+| `CompletionProof` | `userId`, `challengeId`, `jti` | comprovantes consumidos permanecem até TTL | verificar expiração e garantir que nenhum comprovante sobreviva além do prazo permitido |
+| `Comment` | `authorUserId` opcional | comentários novos podem continuar públicos; legado não tem vínculo seguro | remover/anomizar somente os vinculados; não atribuir legado por nome |
+| Certificado | campos no documento `User`, consulta pública por `certificateCode` | apagar usuário invalida consulta, mas cópias compartilhadas podem continuar fora do serviço | revogação pública testada e política de preservação definida |
+| Logs do Render/Vercel/MongoDB e Google | fora do documento `User` | dados operacionais podem persistir em provedores externos | revisar configurações, prazos e procedimentos dos provedores |
+
+### Portões adicionais de prontidão
+
+O módulo `evaluateDeletionReadiness` agora exige, além dos controles anteriores:
+- inventário de dados dependentes aprovado;
+- revogação de sessões testada;
+- execução idempotente testada;
+- retenção dos provedores externos revisada;
+- revogação pública de certificados testada;
+- consumo da prova de reautenticação testado.
+
+Cada controle precisa ser explicitamente `true`; valores truthy, ausência de campo ou decisões desconhecidas não satisfazem a barreira. As decisões de certificado e comentário legado continuam em allowlists fechadas.
+
+**Importante:** os campos de prontidão são declarações de aprovação/teste para a futura implementação; não representam testes já realizados nem acionam exclusão. Nenhuma rota de exclusão, job de limpeza ou alteração de dados foi criada.
