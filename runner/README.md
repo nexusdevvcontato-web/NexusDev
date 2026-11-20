@@ -47,3 +47,7 @@ The API now requires both conditions before accepting a completion proof: the le
 The proof signer independently rejects challenge IDs absent from the trusted runner registry. It parses the private key with Node's crypto API and requires an unencrypted RSA private key with a modulus of at least 2048 bits. The signer tests cover malformed, weak, non-RSA and unsupported-challenge inputs.
 
 These controls are authorization hardening, not runner deployment. The signing key is still not provisioned, no runner endpoint or Docker launcher exists, and no completion proof can be produced in the staging environment. The JavaScript editor remains disabled until the dedicated execution host, API-to-runner authentication, queue/timeout/cleanup controls, and adversarial isolation validation are complete.
+
+### Completion proof binds the exact source
+
+Every completion proof now carries a SHA-256 digest of the evaluated files. The digest is computed from a canonical JSON array of filename/content pairs sorted by filename, so object insertion order does not change the result but any source-byte change does. The API recomputes the digest from the submitted files before verifying the signature, requires exactly the registered entrypoint file, and stores the digest alongside the one-time proof identifier. A mismatched source is rejected before the proof is consumed or progress/XP is mutated. The integration test first submits altered source with a valid proof and verifies no proof record or XP is created, then submits the original source successfully.
