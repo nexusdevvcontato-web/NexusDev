@@ -49,7 +49,7 @@ test('supports typeof for values in trusted role checks without exposing globals
 });
 
 test('typeof does not make unresolved identifiers readable outside typeof', () => {
-  const source = 'function calcularPrecoComDesconto(preco, desconto) { if (typeof preco !== "number") { return 0; } return preco - desconto; }';
+  const source = 'function calcularPrecoComDesconto(preco, desconto) { if (typeof preco !== "number") { return 0; } return preco - (preco * desconto / 100); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source }), { ok: true });
   const unsafe = 'function calcularPrecoComDesconto(preco, desconto) { return process; }';
   assert.equal(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source: unsafe }).ok, false);
