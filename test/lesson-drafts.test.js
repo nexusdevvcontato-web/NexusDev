@@ -65,3 +65,27 @@ test('draft read returns an empty revision without leaking another user scope', 
   const h = harness();
   assert.deepEqual(await h.service.read('user-1', 'mod-1-aula-1'), { revision: 0, files: null, updatedAt: null });
 });
+
+test('stored malformed drafts fail closed instead of appearing as an empty revision', async () => {
+  const User = {
+    async findOneAndUpdate() { return null; },
+    findById() {
+      return { lean: async () => ({
+        savedDraftMap: {
+          'mod-1-aula-1': { revision: 1, files: { '../unexpected': 'unsafe' } }
+        }
+      }) };
+    }
+  };
+  const service = createLessonDraftService({ User });
+  await assert.rejects(service.read('user-1', 'mod-1-aula-1'), /malformed/);
+});
+
+test('stored drafts use the same per-file and total byte limits as incoming drafts', () => {
+  assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
+  assert.equal(validateDraftFiles({
+    'a.txt': 'a'.repeat(40 * 1024),
+    'b.txt': 'b'.repeat(40 * 1024),
+    'c.txt': 'c'.repeat(1)
+  }).ok, false);
+});
