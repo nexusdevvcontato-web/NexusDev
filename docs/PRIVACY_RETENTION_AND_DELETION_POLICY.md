@@ -90,3 +90,15 @@ Este módulo é uma política de transição pura: não persiste pedidos, não c
 - A prova resultante usa segredo `REAUTH_TOKEN_SECRET` distinto do segredo de sessão, expira em cinco minutos, é vinculada ao usuário e é armazenada apenas como hash para consumo único por `consumeReauthProof`.
 - Sem `REAUTH_TOKEN_SECRET`, o endpoint responde 503 e não emite prova. O segredo é opcional na configuração para não quebrar ambientes existentes, mas deve ser provisionado via secret manager antes de habilitar qualquer fluxo sensível.
 - A prova ainda não está conectada a exclusão de conta ou outra ação destrutiva. A futura rota de ação deverá consumir a prova atomicamente e exigir todos os bloqueios de prontidão já definidos. Nenhum pedido ou exclusão é criado por esta implementação.
+
+
+## 9. Matriz de testes da reautenticação
+
+A validação automatizada da política de credenciais cobre:
+- senha correta, incorreta, hash ausente, senha fora do limite e falha do comparador;
+- token Google válido, subject divergente, e-mail divergente, e-mail não verificado e falha de verificação;
+- tentativa de usar senha em conta Google ou token Google em conta local;
+- corpo malformado, campos extras e envio simultâneo de métodos;
+- correspondência de e-mail sem distinção de maiúsculas/minúsculas, mantendo a exigência de e-mail verificado.
+
+Esses testes unitários usam verificadores simulados; não substituem a verificação criptográfica real do Google, testes HTTP contra MongoDB de staging, nem validação de cookies/CORS e rate limit no ambiente implantado.
