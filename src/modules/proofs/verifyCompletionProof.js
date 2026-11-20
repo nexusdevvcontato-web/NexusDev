@@ -23,6 +23,7 @@ function verifyCompletionProof(token, { publicKey, userId, challengeId, nowSecon
   }
 
   if (!proof || typeof proof !== 'object' ||
+      typeof proof.jti !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(proof.jti) ||
       !Number.isInteger(proof.iat) ||
       !Number.isInteger(proof.exp) ||
       proof.iat > nowSeconds + CLOCK_SKEW_SECONDS ||
