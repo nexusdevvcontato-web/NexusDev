@@ -24,6 +24,7 @@ const { isRunnerSupportedChallenge, getChallengeSpec } = require('./runner/src/c
 const { hashCompletionFiles } = require('./src/modules/proofs/completion-files-hash');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
+const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/complete-lesson');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
@@ -571,32 +572,14 @@ app.post('/api/progress/complete', (req, res, next) => {
       return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
     }
 
-    // Validate the complete request before consuming its single-use proof.
-    // The unique jti record prevents concurrent replay before any progress mutation.
-    const proofConsumed = await consumeCompletionProof(CompletionProof, proofResult.proof, req.user._id);
-    if (!proofConsumed) {
-      return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
-    }
-
-    await User.updateOne(
-      { _id: req.user._id },
-      { $set: { [`savedCodeMap.${challengeId}`]: files } }
-    );
-
-    // The unique-index predicate prevents concurrent duplicate XP awards.
-    await User.findOneAndUpdate(
-      { _id: req.user._id, completedIds: { $ne: challengeId } },
-      { $addToSet: { completedIds: challengeId }, $inc: { xp: 50 } },
-      { new: true }
-    );
-
     const today = new Date().toISOString().slice(0, 10);
-    await User.updateOne(
-      { _id: req.user._id, lastActiveDate: { $ne: today } },
-      { $inc: { streak: 1 }, $set: { lastActiveDate: today } }
-    );
-
-    const user = await User.findById(req.user._id);
+    let user;
+    try {
+      user = await completeLessonAtomically({ mongoose, User, CompletionProof, userId: req.user._id, proof: proofResult.proof, challengeId, files, today });
+    } catch (error) {
+      if (error?.code === REPLAY_CODE) return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
+      throw error;
+    }
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
 
     return res.json({
