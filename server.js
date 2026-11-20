@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
+const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 
 const app = express();
 
@@ -42,6 +43,13 @@ const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de autenticação. Aguarde antes de tentar novamente.' }
+});
+const commentLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Você publicou comentários muito rapidamente. Aguarde alguns minutos.' }
 });
 app.use('/api/', apiLimiter);
 
@@ -263,36 +271,49 @@ app.get('/api/me', requireAuth, async (req, res) => {
 // ============================================================================
 app.post('/api/progress/complete', requireAuth, async (req, res) => {
   try {
-    const { challengeId, files } = req.body;
-    if (!challengeId) return res.status(400).json({ error: 'challengeId obrigatório.' });
-
-    const user = req.user;
-
-    if (files && typeof files === 'object') {
-      user.savedCodeMap = { ...(user.savedCodeMap || {}), [challengeId]: files };
+    const { challengeId, files } = req.body || {};
+    if (!isKnownChallengeId(challengeId)) {
+      return res.status(400).json({ error: 'Aula inválida ou não encontrada no currículo oficial.' });
     }
 
-    if (!user.completedIds.includes(challengeId)) {
-      user.completedIds.push(challengeId);
-      user.xp += 50;
+    if (files !== undefined) {
+      if (!files || typeof files !== 'object' || Array.isArray(files)) {
+        return res.status(400).json({ error: 'Arquivos do editor inválidos.' });
+      }
+      const entries = Object.entries(files);
+      if (entries.length > 10 || entries.some(([name, value]) =>
+        typeof name !== 'string' || name.length > 80 ||
+        !/^[a-zA-Z0-9._-]+$/.test(name) ||
+        typeof value !== 'string' || value.length > 50000
+      )) {
+        return res.status(400).json({ error: 'Os arquivos excedem os limites permitidos.' });
+      }
+      await User.updateOne(
+        { _id: req.user._id },
+        { $set: { [`savedCodeMap.${challengeId}`]: files } }
+      );
     }
+
+    // The unique-index predicate prevents concurrent duplicate XP awards.
+    await User.findOneAndUpdate(
+      { _id: req.user._id, completedIds: { $ne: challengeId } },
+      { $addToSet: { completedIds: challengeId }, $inc: { xp: 50 } },
+      { new: true }
+    );
 
     const today = new Date().toISOString().slice(0, 10);
-    if (user.lastActiveDate !== today) {
-      user.streak += 1;
-      user.lastActiveDate = today;
-    }
+    await User.updateOne(
+      { _id: req.user._id, lastActiveDate: { $ne: today } },
+      { $inc: { streak: 1 }, $set: { lastActiveDate: today } }
+    );
 
-    if (!user.certificateCode) {
-      user.certificateCode = generateCertificateCode(user.name, user.completedIds.length);
-    }
-
-    await user.save();
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
 
     return res.json({
       xp: user.xp,
       streak: user.streak,
-      completedIds: user.completedIds,
+      completedIds: user.completedIds.filter(isKnownChallengeId),
       certificateCode: user.certificateCode
     });
   } catch {
@@ -302,25 +323,51 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
 
 app.post('/api/certificates/issue', requireAuth, async (req, res) => {
   try {
-    const { studentName, githubUrl, liveUrl } = req.body;
+    const { studentName, githubUrl, liveUrl } = req.body || {};
     const user = req.user;
+    const completedCount = new Set(user.completedIds.filter(isKnownChallengeId)).size;
 
-    if (studentName && studentName.trim()) {
-      user.name = studentName.trim();
+    if (completedCount < EXPECTED_COURSE_COMPLETIONS) {
+      return res.status(403).json({
+        verified: false,
+        error: 'Conclua todas as aulas do currículo antes de emitir o certificado.',
+        completedCount,
+        requiredCount: EXPECTED_COURSE_COMPLETIONS
+      });
     }
-    if (githubUrl) user.githubUrl = githubUrl.trim();
-    if (liveUrl) user.liveUrl = liveUrl.trim();
+
+    if (studentName !== undefined &&
+        (typeof studentName !== 'string' || studentName.trim().length < 2 || studentName.trim().length > 100)) {
+      return res.status(400).json({ error: 'Nome para o certificado inválido.' });
+    }
+    const validatePortfolioUrl = (value) => {
+      if (value === undefined || value === '') return true;
+      if (typeof value !== 'string' || value.length > 2048) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    };
+    if (!validatePortfolioUrl(githubUrl) || !validatePortfolioUrl(liveUrl)) {
+      return res.status(400).json({ error: 'Os links do portfólio devem ser URLs HTTPS válidas.' });
+    }
+
+    if (studentName) user.name = studentName.trim();
+    if (githubUrl !== undefined) user.githubUrl = githubUrl;
+    if (liveUrl !== undefined) user.liveUrl = liveUrl;
     if (!user.certificateCode) {
-      user.certificateCode = generateCertificateCode(user.name, user.completedIds.length);
+      user.certificateCode = generateCertificateCode(user.name, completedCount);
     }
-    user.certificateIssuedAt = new Date();
+    if (!user.certificateIssuedAt) user.certificateIssuedAt = new Date();
     await user.save();
 
     return res.json({
       verified: true,
       code: user.certificateCode,
       studentName: user.name,
-      completedCount: user.completedIds.length,
+      completedCount,
       xp: user.xp,
       issuedAt: user.certificateIssuedAt,
       githubUrl: user.githubUrl,
@@ -336,7 +383,7 @@ app.get('/api/certificates/:code', async (req, res) => {
   try {
     const code = req.params.code.trim().toUpperCase();
     const user = await User.findOne({ certificateCode: code });
-    if (!user) {
+    if (!user || !user.certificateIssuedAt) {
       return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
     }
     return res.json({
@@ -449,24 +496,22 @@ app.get('/api/lessons/:lessonId/comments', async (req, res) => {
   }
 });
 
-app.post('/api/lessons/:lessonId/comments', requireAuth, async (req, res) => {
+app.post('/api/lessons/:lessonId/comments', requireAuth, commentLimiter, async (req, res) => {
   try {
     const lessonId = String(req.params.lessonId || '').trim();
-    const text = String(req.body?.text || '').trim();
-    if (!lessonId || !text) {
-      return res.status(400).json({ error: 'Escreva uma mensagem válida.' });
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    if (!isKnownChallengeId(lessonId) || !text || text.length > 1000) {
+      return res.status(400).json({ error: 'Aula ou mensagem inválida.' });
     }
 
     const created = await Comment.create({
       lessonId,
       author: req.user.name,
       badge: req.user.role === 'admin' ? 'Mentor NexusDev' : 'Aluno NexusDev',
-      text: text.slice(0, 1000)
+      text
     });
 
-    req.user.xp = (req.user.xp || 0) + 10;
-    await req.user.save();
-
+    // Comments no longer grant XP: otherwise users could farm rewards by spamming.
     return res.status(201).json({
       comment: {
         id: created._id.toString(),
