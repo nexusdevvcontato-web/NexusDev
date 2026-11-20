@@ -71,16 +71,39 @@ test('draft updates increment only the expected revision and stale writers recei
 });
 
 
-test('concurrent writers using the same revision cannot overwrite each other', async () => {
-  const h = harness();
+test('simultaneous writers using the same revision cannot overwrite each other', async () => {
+  let stored = null;
+  let arrivals = 0;
+  let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  const User = {
+    async findOneAndUpdate(filter, update) {
+      arrivals += 1;
+      if (arrivals === 2) release();
+      await barrier;
+      const revisionPath = 'savedDraftMap.mod-1-aula-1.revision';
+      const matches = filter.$or
+        ? filter.$or.some(condition => condition[revisionPath] === stored?.revision ||
+            (condition[revisionPath]?.$exists === false && stored === null))
+        : filter[revisionPath] === stored?.revision;
+      if (!matches) return null;
+      stored = update.$set['savedDraftMap.mod-1-aula-1'];
+      return { _id: 'user-1' };
+    },
+    findById() {
+      return { lean: async () => ({ savedDraftMap: stored ? { 'mod-1-aula-1': stored } : {} }) };
+    }
+  };
+  const service = createLessonDraftService({ User });
   const results = await Promise.all([
-    h.service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-a' }, expectedRevision: 0 }),
-    h.service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-b' }, expectedRevision: 0 })
+    service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-a' }, expectedRevision: 0 }),
+    service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-b' }, expectedRevision: 0 })
   ]);
+  assert.equal(arrivals, 2, 'both writers must reach the atomic compare-and-swap together');
   assert.equal(results.filter(result => result.ok).length, 1);
   assert.equal(results.filter(result => result.reason === 'conflict').length, 1);
-  assert.equal(h.stored.revision, 1);
-  assert.ok(['writer-a', 'writer-b'].includes(h.stored.files['index.html']));
+  assert.equal(stored.revision, 1);
+  assert.ok(['writer-a', 'writer-b'].includes(stored.files['index.html']));
 });
 
 test('draft read returns an empty revision without leaking another user scope', async () => {
