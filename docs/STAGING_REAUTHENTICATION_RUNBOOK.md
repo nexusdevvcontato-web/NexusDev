@@ -26,7 +26,21 @@ Criar manualmente duas contas descartáveis:
 
 Não usar credenciais pessoais nem contas reais de usuários. Guardar credenciais no gerenciador seguro da equipe e removê-las após a execução conforme política aprovada.
 
-## 3. Testes positivos
+## 3. Smoke test automatizado para conta local
+
+O repositório contém um smoke test manual com proteções para evitar apontar acidentalmente para produção. Ele exige hostname explicitamente marcado como `staging`, `stage` ou `preview` (ou localhost), HTTPS fora de localhost, e não imprime nem persiste a prova retornada.
+
+Com uma conta local descartável já autenticada no staging, definir as variáveis apenas no terminal seguro/secret manager:
+```sh
+STAGING_API_URL="https://api-staging.example.com" \
+STAGING_ACCESS_TOKEN="<ACCESS_TOKEN_DE_STAGING>" \
+STAGING_TEST_PASSWORD="<SENHA_DA_CONTA_DESCARTAVEL>" \
+npm run test:staging:reauth
+```
+
+O comando testa ausência de autenticação (401), senha incorreta (401), senha correta (200), `Cache-Control: no-store` e validade estrutural/TTL de cinco minutos da prova. A prova é mantida somente em memória e descartada pelo processo; não é consumida, pois ainda não existe rota de ação sensível. Não executar com contas reais.
+
+## 4. Testes positivos
 
 Para cada conta, autenticar-se normalmente e obter um access token de staging.
 
@@ -48,7 +62,7 @@ curl -i -X POST "$STAGING_API/api/auth/reauthenticate" \
 
 Esperado: HTTP 200, `Cache-Control: no-store`, `reauthToken` e `expiresIn: 300`. Não salvar token em artefatos de CI ou logs. Fazer o teste preferencialmente pela Central de Privacidade, além da chamada HTTP controlada.
 
-## 4. Testes negativos obrigatórios
+## 5. Testes negativos obrigatórios
 
 - sem access token ou access token inválido: HTTP 401;
 - segredo `REAUTH_TOKEN_SECRET` ausente: HTTP 503, sem prova;
@@ -62,7 +76,7 @@ Esperado: HTTP 200, `Cache-Control: no-store`, `reauthToken` e `expiresIn: 300`.
 - exceder limite de tentativas: rate limit deve responder 429;
 - confirmar que respostas e logs não contêm senha, ID token Google ou prova completa.
 
-## 5. Prova de uso único
+## 6. Prova de uso único
 
 O backend atualmente armazena apenas o hash do identificador da prova e a expiração no documento do usuário. Validar no staging:
 - o token é aceito apenas para o usuário vinculado;
@@ -72,7 +86,7 @@ O backend atualmente armazena apenas o hash do identificador da prova e a expira
 
 Não existe endpoint de ação sensível conectado à prova. Não simular exclusão de conta nem alterar documentos reais.
 
-## 6. Critérios de aprovação
+## 7. Critérios de aprovação
 
 A etapa só pode ser considerada validada quando:
 - CI backend e frontend concluírem com sucesso;
@@ -82,6 +96,6 @@ A etapa só pode ser considerada validada quando:
 - logs forem inspecionados sem expor credenciais;
 - resultados, versões e evidências sem segredos forem registrados.
 
-## 7. Limites
+## 8. Limites
 
 Este roteiro não autoriza deploy, migração, conexão com banco de produção, exclusão de contas, revogação de certificados ou habilitação de endpoint destrutivo. A decisão de retenção/revogação de certificados continua pendente.
