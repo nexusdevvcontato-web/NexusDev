@@ -25,6 +25,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
           createdAt: now, lastUsedAt: now, expiresAt
         }], { session: dbSession });
         await RefreshToken.create([{
+          userId,
           sessionId: session._id, tokenHash: hashRefreshToken(rawToken),
           csrfTokenHash: hashSessionCsrfToken(csrfToken),
           createdAt: now, expiresAt
@@ -81,6 +82,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
         }
         const nextExpiresAt = active.expiresAt;
         await RefreshToken.create([{
+          userId: active.userId,
           sessionId: active._id, tokenHash: hashRefreshToken(nextRawToken),
           csrfTokenHash: hashSessionCsrfToken(nextCsrfToken),
           createdAt: now, expiresAt: nextExpiresAt
@@ -97,6 +99,33 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
       await dbSession.endSession();
     }
     return outcome;
+  }
+
+  async function purgeUserRecords({ userId }) {
+    if (!userId) throw new TypeError('Identificador de usuário obrigatório.');
+    const dbSession = await mongoose.startSession();
+    let result = { sessionsDeleted: 0, refreshTokensDeleted: 0 };
+    try {
+      await dbSession.withTransaction(async () => {
+        const sessions = await Session.find({ userId })
+          .select('_id')
+          .session(dbSession)
+          .lean();
+        const sessionIds = sessions.map(item => item._id);
+        const tokenFilter = sessionIds.length
+          ? { $or: [{ userId }, { sessionId: { $in: sessionIds } }] }
+          : { userId };
+        const tokenResult = await RefreshToken.deleteMany(tokenFilter, { session: dbSession });
+        const sessionResult = await Session.deleteMany({ userId }, { session: dbSession });
+        result = {
+          sessionsDeleted: sessionResult.deletedCount || 0,
+          refreshTokensDeleted: tokenResult.deletedCount || 0
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    return result;
   }
 
   async function revoke({ sessionId, userId, reason = 'logout', now = new Date() }) {
@@ -116,7 +145,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
     return result.modifiedCount;
   }
 
-  return { create, rotate, revoke, revokeAll };
+  return { create, rotate, revoke, revokeAll, purgeUserRecords };
 }
 
 module.exports = { createSessionStore, DEFAULT_SESSION_TTL_MS };
