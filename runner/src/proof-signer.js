@@ -29,6 +29,7 @@ function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor
     purpose: PURPOSE,
     sub: userId,
     challengeId,
+    jti: crypto.randomUUID(),
     iat: now,
     exp: now + ttlSeconds
   }));
