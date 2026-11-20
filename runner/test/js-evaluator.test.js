@@ -243,3 +243,20 @@ test('rejects pass-through MongoDB updates and untrusted operator fields', () =>
   const unsafe = 'function criarAtualizacaoProduto(dados) { return { $set: dados }; }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-3', source: unsafe }), { ok: false, reason: 'tests-failed' });
 });
+
+test('builds MongoDB product documents from only the permitted fields', () => {
+  const source = String.raw`function criarDocumentoProduto(dados) {
+    return {
+      titulo: dados.titulo.trim(),
+      preco: dados.preco,
+      categoria: typeof dados.categoria === "string" && dados.categoria.trim() ? dados.categoria.trim() : "geral",
+      ativo: true
+    };
+  }`;
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-2', source }), { ok: true });
+});
+
+test('rejects MongoDB document implementations that spread untrusted input', () => {
+  const unsafe = 'function criarDocumentoProduto(dados) { return { ...dados, ativo: true }; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-2', source: unsafe }), { ok: false, reason: 'tests-failed' });
+});
