@@ -18,7 +18,8 @@ const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthe
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
-const { isRunnerSupportedChallenge } = require('./runner/src/challenge-registry');
+const { isRunnerSupportedChallenge, getChallengeSpec } = require('./runner/src/challenge-registry');
+const { hashCompletionFiles } = require('./src/modules/proofs/completion-files-hash');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
@@ -532,31 +533,34 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Esta aula ainda não possui um validador seguro habilitado.' });
     }
 
-    // Never trust a client-side "tests passed" flag. Only a separate runner can sign this proof.
+    const challengeSpec = getChallengeSpec(challengeId);
+    if (!files || typeof files !== 'object' || Array.isArray(files)) {
+      return res.status(400).json({ error: 'Os arquivos avaliados são obrigatórios.' });
+    }
+    const fileNames = Object.keys(files);
+    if (fileNames.length !== 1 || fileNames[0] !== challengeSpec.entrypoint) {
+      return res.status(400).json({ error: 'Envie somente o arquivo principal desta aula.' });
+    }
+
+    let filesHash;
+    try {
+      filesHash = hashCompletionFiles(files);
+    } catch {
+      return res.status(400).json({ error: 'Os arquivos excedem os limites ou possuem conteúdo inválido.' });
+    }
+
+    // The proof is bound to the exact files evaluated by the trusted runner.
     const proofResult = verifyCompletionProof(completionProof, {
       publicKey: LESSON_PROOF_PUBLIC_KEY,
       userId: req.user._id.toString(),
-      challengeId
+      challengeId,
+      filesHash
     });
     if (!proofResult.ok) {
       if (proofResult.reason === 'not-configured') {
         return res.status(503).json({ error: 'Validação segura de exercícios ainda não está configurada.' });
       }
       return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
-    }
-
-    if (files !== undefined) {
-      if (!files || typeof files !== 'object' || Array.isArray(files)) {
-        return res.status(400).json({ error: 'Arquivos do editor inválidos.' });
-      }
-      const entries = Object.entries(files);
-      if (entries.length > 10 || entries.some(([name, value]) =>
-        typeof name !== 'string' || name.length > 80 ||
-        !/^[a-zA-Z0-9._-]+$/.test(name) ||
-        typeof value !== 'string' || value.length > 50000
-      )) {
-        return res.status(400).json({ error: 'Os arquivos excedem os limites permitidos.' });
-      }
     }
 
     // Validate the complete request before consuming its single-use proof.
@@ -566,12 +570,10 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
     }
 
-    if (files !== undefined) {
-      await User.updateOne(
-        { _id: req.user._id },
-        { $set: { [`savedCodeMap.${challengeId}`]: files } }
-      );
-    }
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { [`savedCodeMap.${challengeId}`]: files } }
+    );
 
     // The unique-index predicate prevents concurrent duplicate XP awards.
     await User.findOneAndUpdate(
