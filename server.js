@@ -697,8 +697,10 @@ app.get('/api/certificates/:code', (req, res, next) => {
 });
 
 // Ranking Top 15 da Comunidade
-app.get('/api/leaderboard', publicReadLimiter, async (req, res) => {
+app.get('/api/leaderboard', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, publicReadLimiter, async (req, res) => {
   try {
     const topUsers = await User.find({ 'privacyPreferences.showInLeaderboard': { $ne: false } })
       .sort({ xp: -1, streak: -1, _id: 1 })
@@ -717,7 +719,7 @@ app.get('/api/leaderboard', publicReadLimiter, async (req, res) => {
 
     return res.json({ leaderboard });
   } catch {
-    return res.json({ leaderboard: [] });
+    return res.status(500).json({ error: 'Não foi possível carregar o ranking.' });
   }
 });
 
