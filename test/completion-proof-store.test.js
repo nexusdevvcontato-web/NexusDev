@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { consumeCompletionProof, UUID_PATTERN } = require('../src/modules/proofs/completion-proof-store');
+const { createCompletionProofModel, consumeCompletionProof, UUID_PATTERN, FILES_HASH_PATTERN } = require('../src/modules/proofs/completion-proof-store');
 const { hashCompletionFiles } = require('../src/modules/proofs/completion-files-hash');
 const filesHash = hashCompletionFiles({ 'index.html': '<h1>Olá, Mundo!</h1>' });
 
@@ -20,6 +20,25 @@ function fakeModel() {
     }
   };
 }
+
+
+test('requires a SHA-256 source digest in persistent proof records', () => {
+  const models = {};
+  class Schema {
+    static Types = { ObjectId: function ObjectId() {} };
+    constructor(definition, options) { this.definition = definition; this.options = options; this.indexes = []; }
+    index(fields, options) { this.indexes.push({ fields, options }); }
+  }
+  const mongoose = {
+    Schema,
+    models,
+    model(name, schema) { models[name] = { schema }; return models[name]; }
+  };
+  const model = createCompletionProofModel(mongoose);
+  assert.equal(model.schema.definition.filesHash.required, true);
+  assert.equal(FILES_HASH_PATTERN.test(filesHash), true);
+  assert.ok(model.schema.definition.filesHash.match instanceof RegExp);
+});
 
 test('consumes a valid proof identifier exactly once', async () => {
   const model = fakeModel();
