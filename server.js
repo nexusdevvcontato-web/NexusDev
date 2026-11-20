@@ -39,6 +39,7 @@ const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/m
 const { createSessionAccessMiddleware } = require('./src/modules/auth/session-access-token');
 const { createPasswordResetService, normalizeEmail } = require('./src/modules/auth/password-reset');
 const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
+const { validateDraftFiles, createLessonDraftService } = require('./src/modules/drafts/lesson-drafts');
 
 const app = express();
 // Render terminates the public connection at one trusted proxy hop.
@@ -122,6 +123,13 @@ const commentLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Você publicou comentários muito rapidamente. Aguarde alguns minutos.' }
 });
+const lessonDraftLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas alterações de rascunho. Aguarde um instante.' }
+});
 app.use('/api/', apiLimiter);
 
 // ============================================================================
@@ -145,6 +153,7 @@ const userSchema = new mongoose.Schema(
     lastActiveDate: { type: String, default: () => new Date().toISOString().slice(0, 10) },
     completedIds: { type: [String], default: [] },
     savedCodeMap: { type: mongoose.Schema.Types.Mixed, default: {} },
+    savedDraftMap: { type: mongoose.Schema.Types.Mixed, default: {} },
     certificateCode: { type: String, unique: true, sparse: true },
     certificateIssuedAt: { type: Date, default: null },
     githubUrl: { type: String, default: '' },
@@ -163,6 +172,7 @@ const userSchema = new mongoose.Schema(
 );
 
 const User = mongoose.model('User', userSchema);
+const lessonDraftService = createLessonDraftService({ User });
 
 const commentSchema = new mongoose.Schema(
   {
@@ -523,6 +533,46 @@ app.get('/api/privacy/export', (req, res, next) => {
     return res.json(buildUserDataExport(req.user, comments, sessions));
   } catch {
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
+  }
+});
+
+// Versioned drafts are private to the authenticated owner and use compare-and-swap revisions.
+app.get('/api/lessons/:lessonId/draft', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, async (req, res) => {
+  const lessonId = String(req.params.lessonId || '');
+  if (!isKnownChallengeId(lessonId)) return res.status(400).json({ error: 'Aula inválida.' });
+  try {
+    const draft = await lessonDraftService.read(req.user._id, lessonId);
+    return res.json({ draft });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível carregar o rascunho.' });
+  }
+});
+
+app.put('/api/lessons/:lessonId/draft', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, lessonDraftLimiter, async (req, res) => {
+  const lessonId = String(req.params.lessonId || '');
+  if (!isKnownChallengeId(lessonId)) return res.status(400).json({ error: 'Aula inválida.' });
+  const validation = validateDraftFiles(req.body?.files);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+  try {
+    const result = await lessonDraftService.save({
+      userId: req.user._id,
+      challengeId: lessonId,
+      files: validation.files,
+      expectedRevision: req.body?.expectedRevision
+    });
+    if (!result.ok && result.reason === 'invalid_revision') {
+      return res.status(400).json({ error: 'Revisão do rascunho inválida.' });
+    }
+    if (!result.ok) return res.status(409).json({ conflict: true, draft: result.draft });
+    return res.json({ saved: true, draft: result.draft });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível salvar o rascunho.' });
   }
 });
 
