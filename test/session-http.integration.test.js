@@ -1,6 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const jwt = require('jsonwebtoken');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = typeof sourceUri === 'string' && sourceUri.length > 0;
@@ -68,20 +67,25 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     assert.equal(throttledResetRequest.response.status, 429);
 
-    // Legacy access tokens issued before a password change must stop working.
+    // Legacy bearer tokens are rejected immediately, independent of password-change state.
     const User = mongoose.model('User');
     const legacyUser = await User.create({
       name: 'Legacy Student', email: 'legacy-password@example.test', passwordHash: 'test-hash'
     });
-    const legacyToken = jwt.sign(
+    const legacyToken = require('jsonwebtoken').sign(
       { id: legacyUser._id.toString() }, process.env.JWT_SECRET,
       { algorithm: 'HS256', expiresIn: '30d' }
     );
-    assert.equal((await request('/api/me', { token: legacyToken })).response.status, 200);
-    await User.updateOne(
-      { _id: legacyUser._id }, { $set: { passwordChangedAt: new Date(Date.now() + 1000) } }
-    );
     assert.equal((await request('/api/me', { token: legacyToken })).response.status, 401);
+    for (const [path, body] of [
+      ['/api/auth/register', { name: 'Legacy', email: 'legacy-new@example.test', password: 'Password-2026!' }],
+      ['/api/auth/login', { email: 'legacy-password@example.test', password: 'Password-2026!' }],
+      ['/api/auth/google', { credential: 'legacy-google-token' }]
+    ]) {
+      const retired = await request(path, { method: 'POST', body });
+      assert.equal(retired.response.status, 410, path);
+      assert.match(retired.response.headers.get('cache-control') || '', /no-store/i);
+    }
 
 
     const register = async (email) => {
