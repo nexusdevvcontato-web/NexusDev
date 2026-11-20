@@ -158,3 +158,44 @@ test('draft HTTP contract scopes reads and writes to the authenticated identity 
   assert.match(server, /app\.put\('\/api\/lessons\/:lessonId\/draft',[\s\S]*?res\.set\('Cache-Control', 'no-store'\)[\s\S]*?requireAuth[\s\S]*?lessonDraftService\.save\(\{[\s\S]*?userId: req\.user\._id[\s\S]*?challengeId: lessonId/);
   assert.doesNotMatch(server, /lessonDraftService\.(?:read|save)\([^\n]*req\.body\?*\.userId/);
 });
+
+
+test('draft storage is isolated by user id even when lesson and revision match', async () => {
+  const records = new Map();
+  const User = {
+    async findOneAndUpdate(filter, update) {
+      const current = records.get(String(filter._id));
+      const revision = current?.revision;
+      const revisionPath = 'savedDraftMap.mod-1-aula-1.revision';
+      const matches = filter.$or
+        ? filter.$or.some(condition => condition[revisionPath] === revision ||
+            (condition[revisionPath]?.$exists === false && revision === undefined))
+        : filter[revisionPath] === revision;
+      if (!matches) return null;
+      records.set(String(filter._id), update.$set['savedDraftMap.mod-1-aula-1']);
+      return { _id: filter._id };
+    },
+    findById(userId) {
+      return { lean: async () => ({
+        savedDraftMap: records.has(String(userId))
+          ? { 'mod-1-aula-1': records.get(String(userId)) }
+          : {}
+      }) };
+    }
+  };
+  const service = createLessonDraftService({ User });
+  await service.save({
+    userId: 'user-A', challengeId: 'mod-1-aula-1',
+    files: { 'index.html': 'private A' }, expectedRevision: 0
+  });
+  await service.save({
+    userId: 'user-B', challengeId: 'mod-1-aula-1',
+    files: { 'index.html': 'private B' }, expectedRevision: 0
+  });
+  const a = await service.read('user-A', 'mod-1-aula-1');
+  const b = await service.read('user-B', 'mod-1-aula-1');
+  assert.equal(a.revision, 1);
+  assert.equal(b.revision, 1);
+  assert.equal(a.files['index.html'], 'private A');
+  assert.equal(b.files['index.html'], 'private B');
+});
