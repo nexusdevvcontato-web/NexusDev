@@ -102,6 +102,21 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: ['   '], expected: 0 }
     ]}]
   },
+  'mod-3-aula-2': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'criarModeloCartaoProduto',
+    tests: [{ type: 'function-deep-equals', args: [{ nome: 'Teclado', preco: 199.9 }], expected: { tipo: 'article', titulo: 'Teclado', preco: 199.9 } },
+      { type: 'function-deep-equals', args: [{ nome: 'Mouse', preco: 59 }], expected: { tipo: 'article', titulo: 'Mouse', preco: 59 } }]
+  },
+  'mod-3-aula-3': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'atualizarPrecoProduto',
+    tests: [{ type: 'function-deep-equals', args: [[{ id: 1, nome: 'Teclado', preco: 100 }, { id: 2, nome: 'Mouse', preco: 50 }], 2, 65], expected: [{ id: 1, nome: 'Teclado', preco: 100 }, { id: 2, nome: 'Mouse', preco: 65 }] },
+      { type: 'does-not-mutate-input', args: [[{ id: 1, nome: 'Teclado', preco: 100 }], 1, 120] }]
+  },
+  'mod-3-aula-4': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'filtrarProdutosPorPreco',
+    tests: [{ type: 'function-deep-equals', args: [[{ nome: 'Mouse', preco: 50 }, { nome: 'Teclado', preco: 120 }, { nome: 'Monitor', preco: 900 }], 100], expected: [{ nome: 'Mouse', preco: 50 }] },
+      { type: 'function-deep-equals', args: [[{ nome: 'Monitor', preco: 900 }], 100], expected: [] }]
+  },
   'react-01-carrinho-imutavel': {
     language: 'javascript', entrypoint: 'script.js', exportName: 'adicionarAoCarrinho',
     tests: [
