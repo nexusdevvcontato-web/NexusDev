@@ -375,7 +375,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.comments.linkedCount, 1);
     assert.equal(impactA.payload.completionProofs.count, 0);
     assert.equal(impactA.payload.certificate.present, true);
-    assert.equal(impactA.payload.learning.dataPresent, false);
+    assert.equal(impactA.payload.learning.dataPresent, true);
 
     const exportA = await request('/api/privacy/export', { token: a.accessToken });
     assert.equal(exportA.response.status, 200, JSON.stringify(exportA.payload));
@@ -385,6 +385,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(exportA.payload.comments.length, impactA.payload.comments.linkedCount);
     assert.equal(exportA.payload.data.certificateIssuedAt != null, impactA.payload.certificate.present);
     assert.equal(exportA.payload.data.completedIds.length, 0);
+    assert.equal(exportA.payload.data.savedDraftMap['html-00-o-que-e-web'].revision, 2);
     const exportSerialized = JSON.stringify(exportA.payload);
     for (const forbidden of [
       'passwordHash', 'googleId', 'reauthProofHash', 'csrfTokenHash',
