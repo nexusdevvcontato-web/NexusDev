@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const jwt = require('jsonwebtoken');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = typeof sourceUri === 'string' && sourceUri.length > 0;
@@ -16,6 +18,12 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
   process.env.SESSION_ACCESS_TOKEN_SECRET = 'session-test-secret-'.padEnd(48, 's');
   process.env.REAUTH_TOKEN_SECRET = 'reauth-test-secret-'.padEnd(48, 'r');
   process.env.CORS_ORIGINS = 'https://app.example.test';
+  const completionKeys = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+  process.env.LESSON_PROOF_PUBLIC_KEY = completionKeys.publicKey;
   process.env.PORT = '43129';
 
   const mongoose = require('mongoose');
@@ -24,6 +32,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
   let server;
   try {
     await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+    await mongoose.model('CompletionProof').init();
     server = app.listen(0, '127.0.0.1');
     await new Promise((resolve, reject) => {
       server.once('listening', resolve);
@@ -144,6 +153,41 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     const a = await register('session-a@example.test');
     const b = await register('session-b@example.test');
+
+    // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
+    const aProfile = await request('/api/me', { token: a.accessToken });
+    const challengeId = 'html-00-o-que-e-web';
+    const proofNow = Math.floor(Date.now() / 1000);
+    const completionProof = jwt.sign({
+      jti: crypto.randomUUID(),
+      purpose: 'lesson-completion',
+      challengeId,
+      sub: aProfile.payload.id,
+      iss: 'nexusdev-runner',
+      aud: 'nexusdev-progress',
+      iat: proofNow,
+      exp: proofNow + 120
+    }, completionKeys.privateKey, { algorithm: 'RS256' });
+    const completionBody = {
+      challengeId,
+      files: { 'index.html': '<h1>Primeira versão</h1>' },
+      completionProof
+    };
+    const completed = await request('/api/progress/complete', {
+      method: 'POST', token: a.accessToken, body: completionBody
+    });
+    assert.equal(completed.response.status, 200, JSON.stringify(completed.payload));
+    assert.equal(completed.payload.xp, 50);
+    const savedAfterFirst = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    const replayed = await request('/api/progress/complete', {
+      method: 'POST', token: a.accessToken,
+      body: { ...completionBody, files: { 'index.html': '<h1>Conteúdo alterado no replay</h1>' } }
+    });
+    assert.equal(replayed.response.status, 403);
+    const savedAfterReplay = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    assert.equal(savedAfterReplay.xp, 50);
+    assert.deepEqual(savedAfterReplay.savedCodeMap[challengeId], savedAfterFirst.savedCodeMap[challengeId]);
+
 
     for (const token of [a.accessToken, b.accessToken]) {
       const me = await request('/api/me', { token });
