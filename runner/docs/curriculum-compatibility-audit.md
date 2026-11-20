@@ -73,3 +73,27 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 ## Critério de liberação
 
 Nenhum desafio deve emitir prova de conclusão até que: (a) a especificação corresponda ao enunciado; (b) a solução de referência passe todos os casos; (c) soluções inválidas falhem; (d) os limites e rejeições adversariais estejam testados; e (e) a execução ocorra no host isolado planejado. Esta matriz, por si só, não libera integração nem XP.
+
+## Atualização — callbacks e imutabilidade (2026-11-19)
+
+O avaliador JavaScript agora inclui suporte limitado a:
+- `map()` e `filter()` em arrays, com callbacks de uma ou duas variáveis;
+- callbacks com leitura lexical controlada dos parâmetros da função externa;
+- spread de arrays somente a partir de arrays;
+- spread de objetos somente a partir de objetos simples, copiando apenas propriedades próprias;
+- propriedades shorthand em literais de objetos;
+- limites de arrays, strings, profundidade e passos continuam aplicados.
+
+A cobertura automatizada foi ampliada para:
+- atualizar produtos com `map()` e spread de objeto sem mutação;
+- copiar arrays com spread e reduzi-los;
+- rejeitar chaves perigosas como `constructor`;
+- manter `filter()` limitado aos casos confiáveis do registry.
+
+Limitações mantidas:
+- não há execução de JavaScript arbitrário nem de métodos arbitrários;
+- spread em argumentos de chamadas continua proibido;
+- métodos como `find()`, `some()`, `sort()`, mutadores de arrays e expressões regulares ainda não são suportados;
+- o avaliador continua não sendo um sandbox de segurança e não está conectado ao serviço de execução/API.
+
+A suíte completa e o CI ainda precisam ser confirmados antes de considerar esta etapa aprovada.
