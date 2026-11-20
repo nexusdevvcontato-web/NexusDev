@@ -95,6 +95,16 @@ const reauthLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de reautenticação. Aguarde antes de tentar novamente.' }
 });
+const privacyExportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator(req) {
+    return String(req.user._id);
+  },
+  message: { error: 'Muitas exportações de dados. Aguarde 15 minutos antes de tentar novamente.' }
+});
 const tutorLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -533,7 +543,7 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
 app.get('/api/privacy/export', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
-}, requireAuth, async (req, res) => {
+}, requireAuth, privacyExportLimiter, async (req, res) => {
   try {
     // Exportação contém dados pessoais e exige uma prova recente de identidade, além da sessão.
     if (!REAUTH_TOKEN_SECRET) {
