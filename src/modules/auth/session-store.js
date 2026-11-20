@@ -1,4 +1,6 @@
+const crypto = require('node:crypto');
 const { generateRefreshToken, hashRefreshToken } = require('./refresh-token');
+const { createSessionCsrfToken, hashSessionCsrfToken } = require('./session-csrf-token');
 
 const DEFAULT_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -11,20 +13,22 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
       throw new TypeError('Parâmetros de sessão inválidos.');
     }
     const rawToken = generateRefreshToken();
+    const csrfToken = createSessionCsrfToken();
     const expiresAt = new Date(now.getTime() + ttlMs);
     const dbSession = await mongoose.startSession();
     let created;
     try {
       await dbSession.withTransaction(async () => {
         const [session] = await Session.create([{
-          userId, familyId: require('node:crypto').randomUUID(),
+          userId, familyId: crypto.randomUUID(),
+          csrfTokenHash: hashSessionCsrfToken(csrfToken),
           createdAt: now, lastUsedAt: now, expiresAt
         }], { session: dbSession });
         await RefreshToken.create([{
           sessionId: session._id, tokenHash: hashRefreshToken(rawToken),
           createdAt: now, expiresAt
         }], { session: dbSession });
-        created = { session, refreshToken: rawToken, expiresAt };
+        created = { session, refreshToken: rawToken, csrfToken, expiresAt };
       });
     } finally {
       await dbSession.endSession();
@@ -36,6 +40,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
     const tokenHash = hashRefreshToken(refreshToken);
     if (!(now instanceof Date)) throw new TypeError('Data inválida.');
     const nextRawToken = generateRefreshToken();
+    const nextCsrfToken = createSessionCsrfToken();
     const dbSession = await mongoose.startSession();
     let outcome = { status: 'invalid' };
     try {
@@ -61,7 +66,12 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
         }
         const active = await Session.findOneAndUpdate(
           { _id: consumed.sessionId, revokedAt: null, expiresAt: { $gt: now } },
-          { $set: { lastUsedAt: now } },
+          {
+            $set: {
+              lastUsedAt: now,
+              csrfTokenHash: hashSessionCsrfToken(nextCsrfToken)
+            }
+          },
           { new: true, session: dbSession }
         );
         if (!active) {
@@ -73,7 +83,13 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
           sessionId: active._id, tokenHash: hashRefreshToken(nextRawToken),
           createdAt: now, expiresAt: nextExpiresAt
         }], { session: dbSession });
-        outcome = { status: 'rotated', refreshToken: nextRawToken, session: active, expiresAt: nextExpiresAt };
+        outcome = {
+          status: 'rotated',
+          refreshToken: nextRawToken,
+          csrfToken: nextCsrfToken,
+          session: active,
+          expiresAt: nextExpiresAt
+        };
       });
     } finally {
       await dbSession.endSession();
