@@ -53,10 +53,11 @@ function makeMiddleware(overrides = {}) {
   return { middleware, refreshToken, csrfToken, session, calls };
 }
 
-function request(refreshToken, csrfToken, requestOrigin = origin) {
+function request(refreshToken, csrfToken, requestOrigin) {
+  const resolvedOrigin = arguments.length < 3 ? origin : requestOrigin;
   return {
     headers: {
-      origin: requestOrigin,
+      origin: resolvedOrigin,
       cookie: refreshToken ? `__Host-nexusdev_refresh=${encodeURIComponent(refreshToken)}` : '',
       'x-csrf-token': csrfToken
     },
