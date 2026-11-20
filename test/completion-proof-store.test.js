@@ -38,6 +38,9 @@ test('requires a SHA-256 source digest in persistent proof records', () => {
   assert.equal(model.schema.definition.filesHash.required, true);
   assert.equal(FILES_HASH_PATTERN.test(filesHash), true);
   assert.ok(model.schema.definition.filesHash.match instanceof RegExp);
+  assert.equal(model.schema.definition.jti.unique, true);
+  assert.ok(model.schema.indexes.some(index =>
+    JSON.stringify(index.fields) === JSON.stringify({ expiresAt: 1 }) && index.options?.expireAfterSeconds === 0));
 });
 
 test('consumes a valid proof identifier exactly once', async () => {

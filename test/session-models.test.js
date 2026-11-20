@@ -27,6 +27,14 @@ test('defines session persistence models and indexes', () => {
   assert.equal(models.RefreshToken.schema.definition.tokenHash.unique, true);
   assert.equal(models.RefreshToken.schema.definition.userId.required, true);
   assert.equal(models.RefreshToken.schema.definition.userId.index, true);
-  assert.ok(models.Session.schema.indexes.some(index => index.options?.expireAfterSeconds === 0));
-  assert.ok(models.RefreshToken.schema.indexes.some(index => index.options?.expireAfterSeconds === 0));
+  assert.ok(models.Session.schema.indexes.some(index =>
+    JSON.stringify(index.fields) === JSON.stringify({ expiresAt: 1 }) && index.options?.expireAfterSeconds === 0));
+  assert.ok(models.RefreshToken.schema.indexes.some(index =>
+    JSON.stringify(index.fields) === JSON.stringify({ expiresAt: 1 }) && index.options?.expireAfterSeconds === 0));
+  assert.ok(models.Session.schema.indexes.some(index =>
+    JSON.stringify(index.fields) === JSON.stringify({ userId: 1 }) || index.fields?.userId === 1));
+  assert.equal(models.Session.schema.definition.familyId.unique, true);
+  assert.equal(models.RefreshToken.schema.definition.tokenHash.unique, true);
+  assert.ok(models.RefreshToken.schema.indexes.some(index =>
+    JSON.stringify(index.fields) === JSON.stringify({ sessionId: 1, usedAt: 1 })));
 });
