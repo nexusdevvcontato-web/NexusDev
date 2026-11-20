@@ -195,6 +195,37 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.match(publicComments.response.headers.get('cache-control') || '', /no-store/i);
     assert.ok(publicComments.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
 
+    // Deletion-impact preview is private, aggregate-only, and scoped to the authenticated owner.
+    const anonymousImpact = await request('/api/privacy/deletion-impact');
+    assert.equal(anonymousImpact.response.status, 401);
+    assert.match(anonymousImpact.response.headers.get('cache-control') || '', /no-store/i);
+
+    const impactA = await request('/api/privacy/deletion-impact', { token: a.accessToken });
+    assert.equal(impactA.response.status, 200, JSON.stringify(impactA.payload));
+    assert.match(impactA.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(impactA.payload.readOnly, true);
+    assert.equal(impactA.payload.deletionEnabled, false);
+    assert.equal(impactA.payload.sessions.count, 1);
+    assert.equal(impactA.payload.comments.linkedCount, 1);
+    assert.equal(impactA.payload.completionProofs.count, 0);
+    assert.equal(impactA.payload.certificate.present, true);
+
+    const impactB = await request('/api/privacy/deletion-impact', { token: b.accessToken });
+    assert.equal(impactB.response.status, 200, JSON.stringify(impactB.payload));
+    assert.equal(impactB.payload.sessions.count, 1);
+    assert.equal(impactB.payload.comments.linkedCount, 0);
+    assert.equal(impactB.payload.completionProofs.count, 0);
+    assert.equal(impactB.payload.certificate.present, false);
+
+    const impactSerialized = JSON.stringify(impactA.payload);
+    for (const forbidden of [
+      'sessionId', 'tokenHash', 'csrfTokenHash', 'refreshToken', 'certificateCode',
+      'studentName', 'email', 'Comentário de teste de privacidade.'
+    ]) assert.equal(impactSerialized.includes(forbidden), false, forbidden);
+    assert.equal(impactA.payload.comments.legacy.status, 'not_attributable');
+    assert.equal(impactA.payload.comments.legacy.count, null);
+    assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
+
     const proofNow = Math.floor(Date.now() / 1000);
     const completionProof = jwt.sign({
       jti: crypto.randomUUID(),
