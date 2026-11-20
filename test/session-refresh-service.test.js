@@ -65,10 +65,8 @@ function setup() {
 test('refresh revokes a session whose credential version predates a password reset', async () => {
   const c = setup();
   let revoked = false;
-  const original = c.service;
   // Rebuild with a successful rotation result carrying a stale authVersion.
   const csrf = c.req.headers['x-csrf-token'];
-  const rawToken = c.req.headers.cookie.match(new RegExp(SESSION_COOKIE_NAME + '=([^;]+)'))[1];
   const mongoose = { startSession() { return {
     async withTransaction(fn) { await fn(); },
     async endSession() {}
