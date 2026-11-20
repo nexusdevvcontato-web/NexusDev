@@ -427,13 +427,17 @@ app.post('/api/auth/reauthenticate', (req, res, next) => {
 });
 
 // Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
-app.get('/api/privacy/preferences', requireAuth, (req, res) => {
+app.get('/api/privacy/preferences', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, (req, res) => {
   return res.json({ preferences: normalizePrivacyPreferences(req.user.privacyPreferences) });
 });
 
-app.put('/api/privacy/preferences', requireAuth, async (req, res) => {
+app.put('/api/privacy/preferences', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, async (req, res) => {
   const validation = validatePrivacyPreferenceUpdate(req.body);
   if (!validation.ok) return res.status(400).json({ error: validation.error });
   try {
@@ -660,8 +664,10 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
 });
 
 // Rota pública para recrutadores validarem certificados via link ou QR Code
-app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) => {
+app.get('/api/certificates/:code', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, certificateLookupLimiter, async (req, res) => {
   try {
     const code = normalizeCertificateLookupCode(req.params.code);
     if (!code) return res.status(400).json({ valid: false, error: 'Código de certificado inválido.' });
