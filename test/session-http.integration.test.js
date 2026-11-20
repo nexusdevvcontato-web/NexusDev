@@ -350,9 +350,13 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     assert.equal(certificateIssueDenied.response.status, 403);
     assert.match(certificateIssueDenied.response.headers.get('cache-control') || '', /no-store/i);
-    const repeatedCertificateIssues = await Promise.all(Array.from({ length: 5 }, () => request('/api/certificates/issue', {
-      method: 'POST', token: a.accessToken, body: {}
-    })));
+    // Send sequentially so network scheduling cannot reorder which request crosses the limit.
+    const repeatedCertificateIssues = [];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      repeatedCertificateIssues.push(await request('/api/certificates/issue', {
+        method: 'POST', token: a.accessToken, body: {}
+      }));
+    }
     assert.ok(repeatedCertificateIssues.slice(0, 4).every(result => result.response.status === 403));
     assert.equal(repeatedCertificateIssues[4].response.status, 429);
     assert.match(repeatedCertificateIssues[4].response.headers.get('cache-control') || '', /no-store/i);
