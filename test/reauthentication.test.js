@@ -37,10 +37,10 @@ test('consumes a proof atomically once and rejects reuse', async () => {
   let storedExpiry = proof.expiresAt;
   const model = {
     async findOneAndUpdate(filter, update) {
+      if (!storedHash || !storedExpiry || storedExpiry <= filter.reauthProofExpiresAt.$gt) return null;
       assert.equal(filter._id, 'user-1');
       assert.equal(filter.reauthProofHash, storedHash);
       assert.equal(filter.reauthProofExpiresAt.$gt.getTime(), now * 1000);
-      if (!storedHash || storedExpiry <= filter.reauthProofExpiresAt.$gt) return null;
       storedHash = '';
       storedExpiry = null;
       assert.deepEqual(update, { $unset: { reauthProofHash: 1, reauthProofExpiresAt: 1 } });
