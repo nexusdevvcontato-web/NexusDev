@@ -98,6 +98,21 @@ test('keeps find unavailable until its semantics are implemented', () => {
   assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: findSource }).ok, false);
 });
 
+test('evaluates GET Express controllers with isolated req/res mocks', () => {
+  const source = 'function listarProdutosController(req, res) { const produtos = [{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]; return res.status(200).json(produtos); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-4-aula-2', source }), { ok: true });
+});
+
+test('evaluates POST Express controllers for valid and invalid request bodies', () => {
+  const source = 'function criarProdutoController(req, res) { if (!req.body.titulo || req.body.preco <= 0) return res.status(400).json({ erro: "Dados inválidos" }); return res.status(201).json({ id: 101, ...req.body }); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'node-01-controller-produto', source }), { ok: true });
+});
+
+test('does not expose arbitrary response mock methods', () => {
+  const source = 'function listarProdutosController(req, res) { return res.send("unsafe"); }';
+  assert.equal(evaluateChallenge({ challengeId: 'mod-4-aula-2', source }).ok, false);
+});
+
 test('supports bounded string normalization methods in trusted email cases', () => {
   const source = 'function normalizarEmail(email) { return email.trim().toLowerCase(); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-2-aula-5', source }), { ok: true });
