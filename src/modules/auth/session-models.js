@@ -1,4 +1,4 @@
-function createSessionModels(mongoose, connection = mongoose && mongoose.connection) {
+function createSessionModels(mongoose, connection = mongoose && (mongoose.connection || mongoose)) {
   if (!mongoose || !mongoose.Schema || typeof mongoose.model !== 'function') {
     throw new TypeError('Instância Mongoose inválida.');
   }
