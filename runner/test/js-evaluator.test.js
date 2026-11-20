@@ -43,6 +43,21 @@ test('does not accept caller-supplied deep-equality or immutability test definit
   }), { ok: false, reason: 'tests-failed' });
 });
 
+test('supports immutable object spread inside a trusted map callback', () => {
+  const source = 'function atualizarPrecoProduto(produtos, id, novoPreco) { return produtos.map(produto => produto.id === id ? { ...produto, preco: novoPreco } : produto); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source }), { ok: true });
+});
+
+test('supports bounded array spread and object shorthand', () => {
+  const source = 'function somarArray(numeros) { const copia = [...numeros]; const total = copia.reduce((soma, numero) => soma + numero, 0); return total; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source }), { ok: true });
+});
+
+test('rejects unsafe spread sources and prototype-related object keys', () => {
+  const source = 'function criarModeloCartaoProduto(produto) { return { ...produto, constructor: 1 }; }';
+  assert.equal(evaluateChallenge({ challengeId: 'mod-3-aula-2', source }).ok, false);
+});
+
 test('supports bounded filter callbacks with lexical parameters', () => {
   const source = 'function filtrarProdutosPorPreco(produtos, limite) { return produtos.filter(produto => produto.preco < limite); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-4', source }), { ok: true });
