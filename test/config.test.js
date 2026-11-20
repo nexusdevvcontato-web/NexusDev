@@ -45,7 +45,7 @@ test('rejects the example placeholder as a signing secret', () => {
 });
 
 test('requires explicit CORS origins in production', () => {
-  const result = loadConfig({ NODE_ENV: 'production', CORS_ORIGINS: '', FRONTEND_URL: '' });
+  const result = loadConfig({ NODE_ENV: 'production', CORS_ORIGINS: '', FRONTEND_URL: '', SESSION_ACCESS_TOKEN_SECRET: 'session-test-secret-with-at-least-32-characters' });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /CORS_ORIGINS/);
 });
@@ -53,7 +53,8 @@ test('requires explicit CORS origins in production', () => {
 test('accepts valid configuration and comma-separated origins', () => {
   const result = loadConfig({
     NODE_ENV: 'production',
-    CORS_ORIGINS: 'https://nexusdev-frontend.vercel.app,https://www.nexusdev.com'
+    CORS_ORIGINS: 'https://nexusdev-frontend.vercel.app,https://www.nexusdev.com',
+    SESSION_ACCESS_TOKEN_SECRET: 'session-test-secret-with-at-least-32-characters'
   });
   assert.equal(result.status, 0, result.stderr);
 });
