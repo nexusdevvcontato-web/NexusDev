@@ -146,6 +146,29 @@ const CHALLENGE_SPECS = Object.freeze({
       { type: 'function-deep-equals', args: [{}], expected: { mensagem: 'Erro interno', codigo: 'INTERNAL_ERROR' } },
       { type: 'function-deep-equals', args: [{ message: 'Falha', code: 'DB_ERROR', stack: 'secret' }], expected: { mensagem: 'Falha', codigo: 'DB_ERROR' } }]
   },
+  'mod-5-aula-2': {
+    language: 'javascript', entrypoint: 'documento.js', exportName: 'criarDocumentoProduto',
+    tests: [{ type: 'function-deep-equals', args: [{ titulo: '  Teclado  ', preco: 249.9, categoria: 'Periféricos', admin: true, _id: 'forjado' }], expected: { titulo: 'Teclado', preco: 249.9, categoria: 'Periféricos', ativo: true } },
+      { type: 'function-deep-equals', args: [{ titulo: 'Mouse', preco: 50 }], expected: { titulo: 'Mouse', preco: 50, categoria: 'geral', ativo: true } },
+      { type: 'does-not-mutate-input', args: [{ titulo: '  Monitor ', preco: 900 }] }]
+  },
+  'mod-5-aula-3': {
+    language: 'javascript', entrypoint: 'atualizacao.js', exportName: 'criarAtualizacaoProduto',
+    tests: [{ type: 'function-deep-equals', args: [{ titulo: '  Mouse Gamer ', preco: 120, ativo: false, admin: true }], expected: { $set: { titulo: 'Mouse Gamer', preco: 120, ativo: false } } },
+      { type: 'function-deep-equals', args: [{ titulo: ' ', preco: -1, ativo: 'sim', role: 'admin' }], expected: { $set: {} } },
+      { type: 'function-deep-equals', args: [{ ativo: true }], expected: { $set: { ativo: true } } },
+      { type: 'does-not-mutate-input', args: [{ titulo: 'Novo', admin: false }] }]
+  },
+  'mod-5-aula-4': {
+    language: 'javascript', entrypoint: 'cadastro.js', exportName: 'validarCadastroUsuario',
+    tests: [{ type: 'function-cases', cases: [
+      { args: [{ nome: 'Ana Silva', email: 'ana@exemplo.com', senha: 'senha-forte-123' }], expected: true },
+      { args: [{ nome: ' ', email: 'ana@exemplo.com', senha: '12345678' }], expected: false },
+      { args: [{ nome: 'Ana', email: 'email-invalido', senha: '12345678' }], expected: false },
+      { args: [{ nome: 'Ana', email: 'ana@exemplo.com', senha: '1234567' }], expected: false },
+      { args: [null], expected: false }
+    ]}]
+  },
   'node-01-controller-produto': {
     language: 'javascript', entrypoint: 'produtoController.js', exportName: 'criarProdutoController',
     tests: [
