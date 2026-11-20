@@ -42,7 +42,7 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 | `mod-5-aula-4` | Validar cadastro | function-cases | Parcial | Regex de e-mail e validações de string não são suportadas. |
 | `mod-5-aula-5` | Política de senha com maiúscula/minúscula/número | function-cases | Bloqueado | Testes dependem de operações de string/regex ausentes. |
 | `mod-5-aula-6` | Extrair Bearer token | function-cases | Bloqueado | Depende de regex/validação de string não suportadas. |
-| `mod-5-aula-7` | RBAC | function-cases | Compatível com ressalva | Verifica igualdade exata entre role e perfil exigido, tipos/valores inválidos e rejeita atalhos `isAdmin`/`requestedRole` controlados pelo objeto recebido. O helper não autentica JWT nem garante que `usuario` veio de sessão confiável; o middleware de produção deve fornecer a identidade validada e consultar o perfil persistido. |
+| `mod-5-aula-7` | RBAC | function-cases | Compatível com ressalva | Verifica igualdade exata entre role e perfil exigido, tipos/valores inválidos e rejeita o atalho `isAdmin` controlado pelo objeto recebido. O helper não autentica JWT nem garante que `usuario` veio de sessão confiável; o middleware de produção deve fornecer a identidade validada e consultar o perfil persistido. |
 
 ## Conclusões verificáveis
 
