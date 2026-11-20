@@ -37,7 +37,8 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     await connection.dropDatabase();
     await Promise.all([Session.init(), RefreshToken.init()]);
     const userId = new mongoose.Types.ObjectId();
-    const created = await store.create({ userId, ttlMs: 60_000 });
+    const created = await store.create({ userId, authVersion: 7, ttlMs: 60_000 });
+    assert.equal(created.session.authVersion, 7);
     assert.ok(created.refreshToken);
     assert.match(created.csrfToken, /^[A-Za-z0-9_-]{43}$/);
     const createdRecord = await Session.findById(created.session._id).select('+csrfTokenHash').lean();

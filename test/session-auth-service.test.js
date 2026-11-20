@@ -36,6 +36,24 @@ test('session auth service sets HttpOnly refresh cookie and readable CSRF cookie
   assert.equal(cookies.every(c => !Object.hasOwn(c.options, 'domain')), true);
 });
 
+test('session auth service refuses a password login if the stored password changed after verification', async () => {
+  let sessionStarted = false;
+  const cookies = [];
+  const service = createSessionAuthService({
+    mongoose: { startSession() { sessionStarted = true; throw new Error('must not create a session'); } },
+    Session: {}, RefreshToken: {},
+    User: { async findById() { return { _id: 'user-1', passwordHash: 'new-hash', authVersion: 1 }; } },
+    accessTokenSecret: 'a'.repeat(48)
+  });
+  const result = await service.createForUser({
+    userId: 'user-1', expectedPasswordHash: 'old-hash',
+    res: { cookie(name, value) { cookies.push(name); } }
+  });
+  assert.deepEqual(result, { status: 'credentials_changed' });
+  assert.equal(sessionStarted, false);
+  assert.deepEqual(cookies, []);
+});
+
 test('session auth service rejects missing user and invalid dependencies', async () => {
   const service = createSessionAuthService({
     mongoose: { startSession() { throw new Error('must not start'); } },

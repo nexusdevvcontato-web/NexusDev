@@ -295,6 +295,7 @@ app.post('/api/auth/session/login', authLimiter, async (req, res) => {
     const activeUser = await recordDailyActivity(User, user._id, new Date().toISOString().slice(0, 10));
     if (!activeUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
     const result = await sessionAuthService.createForUser({ userId: activeUser._id, expectedPasswordHash: user.passwordHash, res });
+    if (result.status !== 'created') return res.status(401).json({ error: 'Credenciais alteradas durante o login. Entre novamente.' });
     return res.json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
   } catch {
     return res.status(500).json({ error: 'Não foi possível realizar o login.' });
