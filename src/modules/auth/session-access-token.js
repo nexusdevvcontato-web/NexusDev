@@ -13,7 +13,7 @@ function issueSessionAccessToken({ userId, sessionId, secret, now = Math.floor(D
     throw new TypeError('Parâmetros do access token de sessão inválidos.');
   }
   return jwt.sign(
-    { sub: userId, sid: sessionId, purpose: 'session-access' },
+    { sub: userId, sid: sessionId, purpose: 'session-access', iat: now },
     secret,
     {
       algorithm: 'HS256',
