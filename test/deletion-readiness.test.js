@@ -1,17 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluateDeletionReadiness } = require('../src/modules/privacy/deletion-readiness');
+const { evaluateDeletionReadiness, REQUIRED_GATES } = require('../src/modules/privacy/deletion-readiness');
 
-const approved = {
-  identityReverified: true,
-  cancellationWindowConfigured: true,
-  retentionPolicyApproved: true,
-  backupLifecycleDocumented: true,
-  auditTrailReady: true,
-  transactionalExecutionTested: true,
+const approved = Object.fromEntries(REQUIRED_GATES.map(([field]) => [field, true]));
+Object.assign(approved, {
   certificateDecision: 'revoke',
   legacyCommentDecision: 'manual_review'
-};
+});
 
 test('deletion remains blocked when no decisions or safeguards are configured', () => {
   const result = evaluateDeletionReadiness();
@@ -23,6 +18,12 @@ test('deletion remains blocked when no decisions or safeguards are configured', 
     'backup_lifecycle',
     'audit_trail',
     'transactional_execution',
+    'dependent_data_inventory',
+    'session_revocation',
+    'idempotent_execution',
+    'external_provider_retention',
+    'certificate_public_revocation',
+    'reauth_proof_consumption',
     'certificate_decision',
     'legacy_comment_decision'
   ]);
@@ -50,4 +51,18 @@ test('truthy non-boolean safeguards do not satisfy deletion gates', () => {
   });
   assert.equal(result.ready, false);
   assert.deepEqual(result.blockers, ['identity_reverification', 'retention_policy']);
+});
+
+test('each dependent-data safeguard independently blocks deletion', () => {
+  for (const [field, blocker] of REQUIRED_GATES) {
+    const input = { ...approved, [field]: false };
+    const result = evaluateDeletionReadiness(input);
+    assert.equal(result.ready, false, field);
+    assert.deepEqual(result.blockers, [blocker], field);
+  }
+});
+
+test('unknown and incomplete input never enables deletion', () => {
+  assert.equal(evaluateDeletionReadiness({ ...approved, extraApproval: true }).ready, true);
+  assert.equal(evaluateDeletionReadiness(null).ready, false);
 });
