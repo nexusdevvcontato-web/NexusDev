@@ -57,3 +57,24 @@ test('accepts valid configuration and comma-separated origins', () => {
   });
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('uses a documented default JWT lifetime and accepts a configured duration', () => {
+  const defaultResult = loadConfig();
+  assert.equal(defaultResult.status, 0, defaultResult.stderr);
+  const configured = spawnSync(process.execPath, ['-e', "process.stdout.write(require('./src/config').JWT_EXPIRES_IN)"], {
+    cwd: process.cwd(),
+    env: { PATH: process.env.PATH, NODE_ENV: 'test', MONGO_URI: 'mongodb://127.0.0.1:27017/nexusdev_test',
+      JWT_SECRET: 'test-secret-with-at-least-32-characters-long', JWT_EXPIRES_IN: '15m' },
+    encoding: 'utf8'
+  });
+  assert.equal(configured.status, 0, configured.stderr);
+  assert.equal(configured.stdout, '15m');
+});
+
+test('rejects invalid or excessively long JWT lifetimes', () => {
+  for (const value of ['', '0m', '15', '2w', '999999d', '30d;ignored']) {
+    const result = loadConfig({ JWT_EXPIRES_IN: value });
+    assert.notEqual(result.status, 0, `expected ${value} to be rejected`);
+    assert.match(result.stderr, /JWT_EXPIRES_IN/);
+  }
+});
