@@ -108,6 +108,12 @@ function executeFunction(fn, args, budget, options = {}) {
         return out;
       }
       case 'UnaryExpression': {
+        if (node.operator === 'typeof') {
+          // typeof on an unresolved identifier is safe and returns "undefined";
+          // no other identifier lookup is relaxed.
+          if (node.argument.type === 'Identifier' && !scope.has(node.argument.name)) return 'undefined';
+          return typeof evalExpr(node.argument, depth + 1);
+        }
         const value = evalExpr(node.argument, depth + 1);
         if (node.operator === '!') return !value;
         if (node.operator === '-') return bounded(-value);
