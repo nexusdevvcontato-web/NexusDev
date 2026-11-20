@@ -16,6 +16,7 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
   sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
   const refreshTokenSchema = new Schema({
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     sessionId: { type: Schema.Types.ObjectId, ref: 'Session', required: true, index: true },
     tokenHash: { type: String, required: true, unique: true },
     csrfTokenHash: { type: String, required: true, select: false, match: /^[a-f0-9]{64}$/ },
