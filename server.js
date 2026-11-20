@@ -23,11 +23,17 @@ const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
+const { createSessionModels } = require('./src/modules/auth/session-models');
+const { createSessionAuthService } = require('./src/modules/auth/session-auth-service');
+const { createSessionRefreshService } = require('./src/modules/auth/session-refresh-service');
+const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
+const { createSessionCsrfMiddleware } = require('./src/modules/auth/session-csrf-middleware');
+const { createSessionAccessMiddleware } = require('./src/modules/auth/session-access-token');
 
 const app = express();
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -138,6 +144,31 @@ const commentSchema = new mongoose.Schema(
 
 const Comment = mongoose.model('Comment', commentSchema);
 
+// Session authentication v2 is opt-in until its dedicated secret is provisioned.
+// Legacy auth endpoints remain available during the parallel migration.
+const { Session, RefreshToken } = createSessionModels(mongoose);
+const sessionAuthEnabled = Boolean(SESSION_ACCESS_TOKEN_SECRET);
+const sessionAuthService = sessionAuthEnabled ? createSessionAuthService({
+  mongoose, Session, RefreshToken, User,
+  accessTokenSecret: SESSION_ACCESS_TOKEN_SECRET
+}) : null;
+const sessionRefreshService = sessionAuthEnabled ? createSessionRefreshService({
+  mongoose, Session, RefreshToken, User,
+  accessTokenSecret: SESSION_ACCESS_TOKEN_SECRET,
+  allowedOrigins: ALLOWED_ORIGINS
+}) : null;
+const sessionManagementService = sessionAuthEnabled ? createSessionManagementService({
+  mongoose, Session, RefreshToken, allowedOrigins: ALLOWED_ORIGINS
+}) : null;
+const requireSessionAccess = sessionAuthEnabled ? createSessionAccessMiddleware({
+  User, Session, secret: SESSION_ACCESS_TOKEN_SECRET
+}) : null;
+const requireSessionCsrf = sessionAuthEnabled ? createSessionCsrfMiddleware({
+  Session, RefreshToken, allowedOrigins: ALLOWED_ORIGINS
+}) : null;
+const sessionUnavailable = (req, res) => res.status(503).set('Cache-Control', 'no-store')
+  .json({ error: 'Autenticação por sessão ainda não está configurada neste ambiente.' });
+
 function signUserToken(user) {
   return jwt.sign(
     { id: user._id.toString() },
@@ -185,6 +216,112 @@ async function requireAuth(req, res, next) {
 // ============================================================================
 // ROTAS DE SAÚDE E AUTENTICAÇÃO (E-MAIL/SENHA + GOOGLE OAUTH)
 // ============================================================================
+// Parallel session-auth API. The legacy /api/auth/* contract is intentionally unchanged.
+app.post('/api/auth/session/register', authLimiter, async (req, res) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  res.set('Cache-Control', 'no-store');
+  try {
+    const { name, email, password } = req.body || {};
+    if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 80 ||
+        typeof email !== 'string' || email.length > 254 ||
+        typeof password !== 'string' || password.length < 8 || password.length > 128 ||
+        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: 'Informe nome, e-mail e senha válidos.' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (await User.findOne({ email: normalizedEmail })) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado. Faça login.' });
+    }
+    const user = await User.create({
+      name: name.trim(), email: normalizedEmail,
+      passwordHash: await bcrypt.hash(password, 10),
+      certificateCode: generateCertificateCode(name, 0)
+    });
+    const result = await sessionAuthService.createForUser({ userId: user._id, res });
+    return res.status(201).json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível criar a conta.' });
+  }
+});
+
+app.post('/api/auth/session/login', authLimiter, async (req, res) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  res.set('Cache-Control', 'no-store');
+  try {
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || email.length > 254 ||
+        typeof password !== 'string' || password.length < 1 || password.length > 128 ||
+        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
+    }
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+    const activeUser = await recordDailyActivity(User, user._id, new Date().toISOString().slice(0, 10));
+    if (!activeUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
+    const result = await sessionAuthService.createForUser({ userId: activeUser._id, res });
+    return res.json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível realizar o login.' });
+  }
+});
+
+app.post('/api/auth/session/google', authLimiter, async (req, res) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  res.set('Cache-Control', 'no-store');
+  try {
+    const { credential } = req.body || {};
+    if (typeof credential !== 'string' || !googleClient) {
+      return res.status(400).json({ error: 'Credencial Google inválida ou não configurada.' });
+    }
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, email_verified: emailVerified, name, picture } = payload;
+    if (!googleId || !email || emailVerified !== true) {
+      return res.status(401).json({ error: 'A conta Google precisa ter e-mail verificado.' });
+    }
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      user = await User.create({
+        name: name || 'Estudante NexusDev', email: email.toLowerCase(),
+        avatar: picture || '', googleId,
+        certificateCode: generateCertificateCode(name, 0)
+      });
+    } else {
+      if (user.googleId !== googleId) return res.status(409).json({ error: 'Entre pelo método de autenticação original.' });
+      if (picture && picture !== user.avatar) await User.updateOne({ _id: user._id }, { $set: { avatar: picture } });
+      user = await recordDailyActivity(User, user._id, new Date().toISOString().slice(0, 10));
+      if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
+    }
+    const result = await sessionAuthService.createForUser({ userId: user._id, res });
+    return res.json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
+  } catch {
+    return res.status(401).json({ error: 'Falha ao validar conta Google.' });
+  }
+});
+
+app.post('/api/auth/session/refresh', (req, res) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  return sessionRefreshService.refresh(req, res);
+});
+app.post('/api/auth/session/logout', (req, res, next) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  return requireSessionCsrf(req, res, next);
+}, requireSessionAccess, (req, res) => sessionManagementService.logoutCurrent(req, res));
+app.post('/api/auth/session/logout-all', (req, res, next) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  return requireSessionCsrf(req, res, next);
+}, requireSessionAccess, (req, res) => sessionManagementService.logoutAll(req, res));
+app.get('/api/auth/session/sessions', (req, res, next) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  return requireSessionAccess(req, res, next);
+}, (req, res) => sessionManagementService.listSessions(req, res));
+app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
+  if (!sessionAuthEnabled) return sessionUnavailable(req, res);
+  return requireSessionCsrf(req, res, next);
+}, requireSessionAccess, (req, res) => sessionManagementService.revokeOne(req, res));
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
 });
