@@ -27,7 +27,8 @@ test('consumes proof and writes saved code, XP and streak inside one transaction
   assert.equal(user.xp, 50); assert.equal(deps.calls.at(-2), 'transaction:commit'); assert.equal(deps.calls.at(-1), 'session:end');
   assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'proof').length, 1);
   assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 1);
-  for (const call of deps.calls.filter(Array.isArray)) assert.ok(call[call.length - 1] === deps.calls.find(x => x === call[call.length - 1]) || call[call.length - 1] === undefined);
+  const proofCall = deps.calls.find(x => Array.isArray(x) && x[0] === 'proof');
+  assert.equal(proofCall[2], deps.calls.find(x => x && typeof x.withTransaction === 'function'));
 });
 test('duplicate proof is rejected and transaction is not committed', async () => {
   const deps = setup({ replay: true });
