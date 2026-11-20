@@ -429,6 +429,7 @@ app.get('/api/privacy/preferences', requireAuth, (req, res) => {
 });
 
 app.put('/api/privacy/preferences', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const validation = validatePrivacyPreferenceUpdate(req.body);
   if (!validation.ok) return res.status(400).json({ error: validation.error });
   try {
@@ -486,12 +487,6 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
     }
 
-    // The unique jti record makes each signed runner proof single-use, even under concurrent requests.
-    const proofConsumed = await consumeCompletionProof(CompletionProof, proofResult.proof, req.user._id);
-    if (!proofConsumed) {
-      return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
-    }
-
     if (files !== undefined) {
       if (!files || typeof files !== 'object' || Array.isArray(files)) {
         return res.status(400).json({ error: 'Arquivos do editor inválidos.' });
@@ -504,6 +499,16 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
       )) {
         return res.status(400).json({ error: 'Os arquivos excedem os limites permitidos.' });
       }
+    }
+
+    // Validate the complete request before consuming its single-use proof.
+    // The unique jti record prevents concurrent replay before any progress mutation.
+    const proofConsumed = await consumeCompletionProof(CompletionProof, proofResult.proof, req.user._id);
+    if (!proofConsumed) {
+      return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
+    }
+
+    if (files !== undefined) {
       await User.updateOne(
         { _id: req.user._id },
         { $set: { [`savedCodeMap.${challengeId}`]: files } }
