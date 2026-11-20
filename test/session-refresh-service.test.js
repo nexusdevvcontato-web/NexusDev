@@ -62,6 +62,39 @@ function setup() {
   return {service,req,res:makeRes()};
 }
 
+test('refresh revokes a session whose credential version predates a password reset', async () => {
+  const c = setup();
+  let revoked = false;
+  const original = c.service;
+  // Rebuild with a successful rotation result carrying a stale authVersion.
+  const csrf = c.req.headers['x-csrf-token'];
+  const rawToken = c.req.headers.cookie.match(new RegExp(SESSION_COOKIE_NAME + '=([^;]+)'))[1];
+  const mongoose = { startSession() { return {
+    async withTransaction(fn) { await fn(); },
+    async endSession() {}
+  }; } };
+  const Session = {
+    async updateOne() { revoked = true; return { modifiedCount: 1 }; },
+    async findOneAndUpdate() { return { _id: 'session-1', userId: 'user-1', authVersion: 2, expiresAt: new Date('2026-12-20T04:00:00.000Z') }; }
+  };
+  const RefreshToken = {
+    findOne() { return { select() { return this; }, lean: async () => ({ sessionId: 'session-1', csrfTokenHash: hashSessionCsrfToken(csrf) }) }; },
+    async findOneAndUpdate() { return { sessionId: 'session-1', userId: 'user-1' }; },
+    async create() {}
+  };
+  const service = createSessionRefreshService({
+    mongoose, Session, RefreshToken,
+    User: { async findById() { return { _id: 'user-1', authVersion: 3 }; } },
+    accessTokenSecret: 's'.repeat(48),
+    allowedOrigins: ['https://nexusdev-frontend.vercel.app'],
+    now: () => new Date('2026-11-20T04:00:00.000Z')
+  });
+  await service.refresh(c.req, c.res);
+  assert.equal(c.res.statusCode, 401);
+  assert.equal(revoked, true);
+  assert.equal(c.res.cleared.length, 2);
+});
+
 test('refresh rejects an untrusted Origin before session storage access', async () => {
   const c=setup();
   c.req.headers.origin='https://attacker.example';

@@ -88,6 +88,20 @@ function createSessionRefreshService({
         clearCookies(res);
         return res.status(401).json({ error: 'Conta não encontrada.' });
       }
+      const sessionAuthVersion = outcome.session.authVersion ?? 0;
+      const userAuthVersion = user.authVersion ?? 0;
+      if (!Number.isSafeInteger(sessionAuthVersion) || sessionAuthVersion < 0 ||
+          !Number.isSafeInteger(userAuthVersion) || userAuthVersion < 0 ||
+          sessionAuthVersion !== userAuthVersion) {
+        await store.revoke({
+          sessionId: outcome.session._id,
+          userId: outcome.session.userId,
+          reason: 'security',
+          now: currentTime
+        });
+        clearCookies(res);
+        return res.status(401).json({ error: 'Sessão invalidada por alteração de credenciais.' });
+      }
 
       const maxAgeMs = outcome.expiresAt.getTime() - currentTime.getTime();
       if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs <= 0) {
