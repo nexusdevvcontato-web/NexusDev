@@ -28,7 +28,7 @@ const { createSessionAuthService } = require('./src/modules/auth/session-auth-se
 const { createSessionRefreshService } = require('./src/modules/auth/session-refresh-service');
 const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
 const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/modules/auth/session-csrf-middleware');
-const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
+const { createSessionAccessMiddleware } = require('./src/modules/auth/session-access-token');
 const { createPasswordResetService, normalizeEmail } = require('./src/modules/auth/password-reset');
 const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
 
@@ -165,8 +165,8 @@ const commentSchema = new mongoose.Schema(
 
 const Comment = mongoose.model('Comment', commentSchema);
 
-// Session authentication v2 is opt-in until its dedicated secret is provisioned.
-// Legacy auth endpoints remain available during the parallel migration.
+// Session authentication is the only supported authenticated API path.
+// Production startup fails closed if its dedicated signing secret is missing.
 const { Session, RefreshToken } = createSessionModels(mongoose);
 const passwordResetService = GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN && GMAIL_FROM_EMAIL && FRONTEND_URL
   ? createPasswordResetService({
@@ -226,7 +226,7 @@ const requireAuth = sessionAuthEnabled
 // ============================================================================
 // ROTAS DE SAÚDE E AUTENTICAÇÃO (E-MAIL/SENHA + GOOGLE OAUTH)
 // ============================================================================
-// Parallel session-auth API. The legacy /api/auth/* contract is intentionally unchanged.
+// Session-based authentication API.
 app.post('/api/auth/session/register', authLimiter, async (req, res) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   res.set('Cache-Control', 'no-store');
