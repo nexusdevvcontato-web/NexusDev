@@ -116,6 +116,20 @@ const certificateLookupLimiter = rateLimit({
   legacyHeaders: false,
   message: { valid: false, error: 'Muitas consultas de certificados. Aguarde antes de tentar novamente.' }
 });
+const progressLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de conclusão. Aguarde antes de tentar novamente.' }
+});
+const certificateIssueLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas solicitações de emissão. Aguarde antes de tentar novamente.' }
+});
 const commentLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 5,
@@ -585,7 +599,7 @@ app.put('/api/lessons/:lessonId/draft', (req, res, next) => {
 app.post('/api/progress/complete', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
-}, requireAuth, async (req, res) => {
+}, requireAuth, progressLimiter, async (req, res) => {
   try {
     const { challengeId, files, completionProof } = req.body || {};
     if (!isKnownChallengeId(challengeId)) {
@@ -647,7 +661,10 @@ app.post('/api/progress/complete', (req, res, next) => {
   }
 });
 
-app.post('/api/certificates/issue', requireAuth, async (req, res) => {
+app.post('/api/certificates/issue', requireAuth, certificateIssueLimiter, (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     const { studentName, githubUrl, liveUrl } = req.body || {};

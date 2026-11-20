@@ -350,6 +350,11 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     assert.equal(certificateIssueDenied.response.status, 403);
     assert.match(certificateIssueDenied.response.headers.get('cache-control') || '', /no-store/i);
+    const repeatedCertificateIssues = await Promise.all(Array.from({ length: 5 }, () => request('/api/certificates/issue', {
+      method: 'POST', token: a.accessToken, body: {}
+    })));
+    assert.ok(repeatedCertificateIssues.slice(0, 4).every(result => result.response.status === 403));
+    assert.equal(repeatedCertificateIssues[4].response.status, 429);
 
     const leaderboard = await request('/api/leaderboard');
     assert.equal(leaderboard.response.status, 200);
