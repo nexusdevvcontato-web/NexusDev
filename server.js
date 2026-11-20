@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { generateCertificateCode } = require('./src/modules/certificates/code');
+const { recordDailyActivity } = require('./src/modules/users/daily-activity');
 const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
@@ -201,14 +202,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    if (user.lastActiveDate !== today) {
-      user.streak += 1;
-      user.lastActiveDate = today;
-      await user.save();
-    }
+    const activeUser = await recordDailyActivity(User, user._id, today);
+    if (!activeUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
 
-    const token = signUserToken(user);
-    return res.json({ token, user: formatUserResponse(user) });
+    const token = signUserToken(activeUser);
+    return res.json({ token, user: formatUserResponse(activeUser) });
   } catch {
     return res.status(500).json({ error: 'Erro ao realizar login.' });
   }
@@ -242,13 +240,12 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
       if (user.googleId !== googleId) {
         return res.status(409).json({ error: 'Esta conta já está vinculada a outra identidade. Entre pelo método original.' });
       }
-      const today = new Date().toISOString().slice(0, 10);
-      if (user.lastActiveDate !== today) {
-        user.streak += 1;
-        user.lastActiveDate = today;
+      if (picture && picture !== user.avatar) {
+        await User.updateOne({ _id: user._id }, { $set: { avatar: picture } });
       }
-      if (picture) user.avatar = picture;
-      await user.save();
+      const today = new Date().toISOString().slice(0, 10);
+      user = await recordDailyActivity(User, user._id, today);
+      if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
     }
 
     const token = signUserToken(user);
@@ -363,24 +360,39 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Os links do portfólio devem ser URLs HTTPS válidas.' });
     }
 
-    if (studentName) user.name = studentName.trim();
-    if (githubUrl !== undefined) user.githubUrl = githubUrl;
-    if (liveUrl !== undefined) user.liveUrl = liveUrl;
-    if (!user.certificateCode) {
-      user.certificateCode = generateCertificateCode(user.name, completedCount);
+    // Apply only explicitly validated profile fields; never save the stale auth snapshot.
+    const profileUpdate = {};
+    if (studentName) profileUpdate.name = studentName.trim();
+    if (githubUrl !== undefined) profileUpdate.githubUrl = githubUrl;
+    if (liveUrl !== undefined) profileUpdate.liveUrl = liveUrl;
+    if (Object.keys(profileUpdate).length) {
+      await User.updateOne({ _id: user._id }, { $set: profileUpdate });
     }
-    if (!user.certificateIssuedAt) user.certificateIssuedAt = new Date();
-    await user.save();
+
+    // Only one concurrent request can set the first issuance timestamp/code.
+    const candidateCode = user.certificateCode || generateCertificateCode(
+      studentName ? studentName.trim() : user.name,
+      completedCount
+    );
+    let issuedUser = await User.findOneAndUpdate(
+      { _id: user._id, certificateIssuedAt: null },
+      { $set: { certificateCode: candidateCode, certificateIssuedAt: new Date() } },
+      { new: true }
+    );
+    if (!issuedUser) issuedUser = await User.findById(user._id);
+    if (!issuedUser || !issuedUser.certificateIssuedAt) {
+      return res.status(409).json({ error: 'Não foi possível confirmar a emissão do certificado. Tente novamente.' });
+    }
 
     return res.json({
       verified: true,
-      code: user.certificateCode,
-      studentName: user.name,
-      completedCount,
-      xp: user.xp,
-      issuedAt: user.certificateIssuedAt,
-      githubUrl: user.githubUrl,
-      liveUrl: user.liveUrl
+      code: issuedUser.certificateCode,
+      studentName: issuedUser.name,
+      completedCount: new Set(issuedUser.completedIds.filter(isKnownChallengeId)).size,
+      xp: issuedUser.xp,
+      issuedAt: issuedUser.certificateIssuedAt,
+      githubUrl: issuedUser.githubUrl,
+      liveUrl: issuedUser.liveUrl
     });
   } catch {
     return res.status(500).json({ error: 'Erro ao emitir certificado.' });
