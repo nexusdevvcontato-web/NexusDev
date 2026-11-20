@@ -653,7 +653,13 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
       studentName ? studentName.trim() : user.name,
       completedCount
     );
-    const issuedUser = await issueCertificateOnce(User, user._id, candidateCode, new Date());
+    const issuedUser = await issueCertificateOnce(
+      User,
+      user._id,
+      candidateCode,
+      new Date(),
+      () => generateCertificateCode()
+    );
     if (!issuedUser || !issuedUser.certificateIssuedAt) {
       return res.status(409).json({ error: 'Não foi possível confirmar a emissão do certificado. Tente novamente.' });
     }
