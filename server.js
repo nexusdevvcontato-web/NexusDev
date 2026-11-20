@@ -16,7 +16,7 @@ const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modul
 const app = express();
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, GOOGLE_CLIENT_ID, ALLOWED_ORIGINS } = config;
+const { PORT, MONGO_URI, JWT_SECRET, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -271,9 +271,32 @@ app.get('/api/me', requireAuth, async (req, res) => {
 // ============================================================================
 app.post('/api/progress/complete', requireAuth, async (req, res) => {
   try {
-    const { challengeId, files } = req.body || {};
+    const { challengeId, files, completionProof } = req.body || {};
     if (!isKnownChallengeId(challengeId)) {
       return res.status(400).json({ error: 'Aula inválida ou não encontrada no currículo oficial.' });
+    }
+
+    // Never trust a client-side "tests passed" flag. Only a separate runner can sign this proof.
+    if (!LESSON_PROOF_PUBLIC_KEY) {
+      return res.status(503).json({ error: 'Validação segura de exercícios ainda não está configurada.' });
+    }
+    if (typeof completionProof !== 'string' || completionProof.length > 8192) {
+      return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
+    }
+    let proof;
+    try {
+      proof = jwt.verify(completionProof, LESSON_PROOF_PUBLIC_KEY, {
+        algorithms: ['RS256'],
+        issuer: 'nexusdev-runner',
+        audience: 'nexusdev-progress'
+      });
+    } catch {
+      return res.status(403).json({ error: 'Comprovante de conclusão inválido.' });
+    }
+    if (proof.purpose !== 'lesson-completion' ||
+        proof.sub !== req.user._id.toString() ||
+        proof.challengeId !== challengeId) {
+      return res.status(403).json({ error: 'O comprovante não corresponde a esta conta e aula.' });
     }
 
     if (files !== undefined) {
