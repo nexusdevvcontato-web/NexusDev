@@ -18,6 +18,7 @@ const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
+const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 
 const app = express();
 
@@ -56,6 +57,20 @@ const tutorLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Limite do Tutor IA atingido. Aguarde 15 minutos antes de tentar novamente.' }
+});
+const publicReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Limite de consultas públicas atingido. Aguarde antes de tentar novamente.' }
+});
+const certificateLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { valid: false, error: 'Muitas consultas de certificados. Aguarde antes de tentar novamente.' }
 });
 const commentLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -404,9 +419,10 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
 });
 
 // Rota pública para recrutadores validarem certificados via link ou QR Code
-app.get('/api/certificates/:code', async (req, res) => {
+app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) => {
   try {
-    const code = req.params.code.trim().toUpperCase();
+    const code = normalizeCertificateLookupCode(req.params.code);
+    if (!code) return res.status(400).json({ valid: false, error: 'Código de certificado inválido.' });
     const user = await User.findOne({ certificateCode: code });
     if (!user || !user.certificateIssuedAt) {
       return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
@@ -427,12 +443,13 @@ app.get('/api/certificates/:code', async (req, res) => {
 });
 
 // Ranking Top 15 da Comunidade
-app.get('/api/leaderboard', async (req, res) => {
+app.get('/api/leaderboard', publicReadLimiter, async (req, res) => {
   try {
     const topUsers = await User.find({})
-      .sort({ xp: -1, streak: -1 })
+      .sort({ xp: -1, streak: -1, _id: 1 })
       .limit(15)
-      .select('name avatar xp streak completedIds');
+      .select('name avatar xp streak completedIds')
+      .lean();
 
     const leaderboard = topUsers.map((u, idx) => ({
       rank: idx + 1,
@@ -478,10 +495,13 @@ app.post('/api/tutor/analyze', tutorLimiter, (req, res) => {
 // ============================================================================
 // FÓRUM DA COMUNIDADE POR AULA (PERSISTIDO NO MONGODB)
 // ============================================================================
-app.get('/api/lessons/:lessonId/comments', async (req, res) => {
+app.get('/api/lessons/:lessonId/comments', publicReadLimiter, async (req, res) => {
   try {
-    const lessonId = String(req.params.lessonId || '').trim();
-    const docs = await Comment.find({ lessonId }).sort({ createdAt: -1 }).limit(50);
+    const lessonId = typeof req.params.lessonId === 'string' ? req.params.lessonId.trim() : '';
+    if (!isPublicLessonLookupAllowed(lessonId)) {
+      return res.status(400).json({ error: 'Identificador de aula inválido.' });
+    }
+    const docs = await Comment.find({ lessonId }).sort({ createdAt: -1 }).limit(50).lean();
     const comments = docs.map((d) => ({
       id: d._id.toString(),
       author: d.author,
