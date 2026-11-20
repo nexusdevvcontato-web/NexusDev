@@ -30,6 +30,12 @@ function safeValue(value, depth = 0) {
   throw new EvaluationError('unsupported-value');
 }
 
+function bounded(value) {
+  if (typeof value === 'number' && !Number.isFinite(value)) throw new EvaluationError('invalid-number');
+  if (typeof value === 'string' && value.length > LIMITS.stringLength) throw new EvaluationError('string-limit');
+  return value;
+}
+
 function equal(a, b) {
   if (a === b) return true;
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => equal(v, b[i]));
@@ -49,6 +55,8 @@ function parseSolution(source, exportName) {
   const visit = (node, depth = 0) => {
     if (!node || typeof node !== 'object') return;
     if (typeof node.type === 'string') {
+      const allowed = new Set(['Program','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
+      if (!allowed.has(node.type)) throw new EvaluationError('unsupported-syntax');
       count += 1;
       if (count > LIMITS.astNodes) throw new EvaluationError('ast-node-limit');
       if (depth > LIMITS.depth) throw new EvaluationError('ast-depth-limit');
@@ -102,15 +110,15 @@ function executeFunction(fn, args, budget) {
       case 'UnaryExpression': {
         const value = evalExpr(node.argument, depth + 1);
         if (node.operator === '!') return !value;
-        if (node.operator === '-') return -value;
-        if (node.operator === '+') return +value;
+        if (node.operator === '-') return bounded(-value);
+        if (node.operator === '+') return bounded(+value);
         throw new EvaluationError('unsupported-unary');
       }
       case 'BinaryExpression': {
         const a = evalExpr(node.left, depth + 1); const b = evalExpr(node.right, depth + 1);
         switch (node.operator) {
-          case '+': return typeof a === 'string' || typeof b === 'string' ? String(a) + String(b) : a + b;
-          case '-': return a - b; case '*': return a * b; case '/': return a / b; case '%': return a % b;
+          case '+': return bounded(typeof a === 'string' || typeof b === 'string' ? String(a) + String(b) : a + b);
+          case '-': return bounded(a - b); case '*': return bounded(a * b); case '/': return bounded(a / b); case '%': return bounded(a % b);
           case '===': return a === b; case '!==': return a !== b;
           case '<': return a < b; case '<=': return a <= b; case '>': return a > b; case '>=': return a >= b;
           default: throw new EvaluationError('unsupported-binary');
@@ -184,19 +192,18 @@ function executeFunction(fn, args, budget) {
   return result.returned ? safeValue(result.value) : null;
 }
 
-function evaluateChallenge({ challengeId, source, argsList }) {
+function evaluateChallenge({ challengeId, source }) {
   const { getChallengeSpec } = require('./challenge-registry');
   const spec = getChallengeSpec(challengeId);
-  if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(argsList)) {
+  const cases = spec?.tests?.find((test) => test.type === 'function-cases')?.cases;
+  if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(cases) || cases.length === 0) {
     return { ok: false, reason: 'unsupported-challenge' };
   }
   try {
     const fn = parseSolution(source, spec.exportName);
-    const results = argsList.map((args) => {
-      if (!Array.isArray(args)) throw new EvaluationError('invalid-test-arguments');
-      return executeFunction(fn, args, { steps: 0 });
-    });
-    return { ok: true, results };
+    const results = cases.map((testCase) => executeFunction(fn, testCase.args, { steps: 0 }));
+    const passed = results.every((actual, index) => equal(actual, cases[index].expected));
+    return passed ? { ok: true } : { ok: false, reason: 'tests-failed' };
   } catch (error) {
     return { ok: false, reason: error instanceof EvaluationError ? error.code : 'evaluation-failed' };
   }
