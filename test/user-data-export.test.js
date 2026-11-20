@@ -13,6 +13,11 @@ test('exports the authenticated user data using an explicit allowlist', () => {
     savedCodeMap: { 'html-00-o-que-e-web': { 'index.html': '<h1>Oi</h1>' } },
     privacyPreferences: { showInLeaderboard: false, showCertificateDetails: true },
     certificateCode: 'NXD-2026-ANA-700-ABCDEF0123456789ABCD',
+    certificateStudentName: 'Ana Silva',
+    certificateCompletedCount: 26,
+    certificateXp: 520,
+    certificateGithubUrl: 'https://github.com/ana',
+    certificateLiveUrl: 'https://ana.example.test',
     passwordHash: 'never-export',
     googleId: 'private-google-sub',
     internalSecret: 'never-export',
@@ -24,6 +29,11 @@ test('exports the authenticated user data using an explicit allowlist', () => {
   assert.equal(result.data.email, 'ana@example.com');
   assert.deepEqual(result.data.completedIds, ['html-00-o-que-e-web']);
   assert.deepEqual(result.data.privacyPreferences, { showInLeaderboard: false, showCertificateDetails: true });
+  assert.equal(result.data.certificateStudentName, 'Ana Silva');
+  assert.equal(result.data.certificateCompletedCount, 26);
+  assert.equal(result.data.certificateXp, 520);
+  assert.equal(result.data.certificateGithubUrl, 'https://github.com/ana');
+  assert.equal(result.data.certificateLiveUrl, 'https://ana.example.test');
   assert.equal('passwordHash' in result.data, false);
   assert.equal('googleId' in result.data, false);
   assert.equal('internalSecret' in result.data, false);
