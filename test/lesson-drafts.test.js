@@ -84,9 +84,11 @@ test('stored malformed drafts fail closed instead of appearing as an empty revis
 
 test('stored drafts use the same per-file and total byte limits as incoming drafts', () => {
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
-  assert.equal(validateDraftFiles({
+  const oversized = validateDraftFiles({
     'a.txt': 'a'.repeat(40 * 1024),
     'b.txt': 'b'.repeat(20 * 1024),
     'c.txt': 'c'.repeat(1)
-  }).ok, false);
+  });
+  assert.equal(oversized.ok, false);
+  assert.equal(oversized.error, 'O rascunho excede 40 KB.');
 });
