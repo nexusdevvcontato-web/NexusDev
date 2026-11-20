@@ -34,3 +34,8 @@ There is no Docker invocation, queue, network listener, workspace manager, or AP
 ### API access-token hardening
 
 The API uses a configurable `JWT_EXPIRES_IN` (default `30d`, maximum `365d`) and signs access tokens with HS256 explicitly. Authorization headers must contain exactly one `Bearer <JWT>` value; verification pins HS256 and requires a non-empty user ID claim. Authenticated requests reload the user from MongoDB, so authorization decisions use the persisted account record rather than the role copied into a token. These controls do not provide password reset or account recovery; those flows are not implemented in the current API.
+
+
+### MongoDB data-integrity review
+
+Certificate identifiers are generated with 80 bits from Node.js `crypto.randomBytes`, not `Math.random`. Public certificate verification and leaderboard completion counts use unique IDs from the trusted curriculum allowlist, avoiding inflated counts from duplicate or unknown legacy values. User progress updates use an atomic `$addToSet` + conditional `$inc` predicate, so concurrent completion requests cannot award XP twice for the same lesson. User writes are currently field-specific; no route applies the request body as a wholesale MongoDB update. The API still depends on the database having the declared unique indexes (email and sparse certificate code) built; this branch has not connected to or migrated a real database, and index state must be verified before deployment.
