@@ -192,22 +192,22 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal('reauthToken' in reauthUser, false);
 
     // Draft endpoints are tested through authenticated HTTP requests, including CAS conflicts and account isolation.
-    const anonymousDraftRead = await request('/api/lessons/mod-1-aula-1/draft');
+    const anonymousDraftRead = await request('/api/lessons/html-00-o-que-e-web/draft');
     assert.equal(anonymousDraftRead.response.status, 401);
     assert.match(anonymousDraftRead.response.headers.get('cache-control') || '', /no-store/i);
 
-    const initialDraftA = await request('/api/lessons/mod-1-aula-1/draft', { token: a.accessToken });
+    const initialDraftA = await request('/api/lessons/html-00-o-que-e-web/draft', { token: a.accessToken });
     assert.equal(initialDraftA.response.status, 200);
     assert.deepEqual(initialDraftA.payload.draft, { revision: 0, files: null, updatedAt: null });
 
-    const firstDraftSave = await request('/api/lessons/mod-1-aula-1/draft', {
+    const firstDraftSave = await request('/api/lessons/html-00-o-que-e-web/draft', {
       method: 'PUT', token: a.accessToken,
       body: { expectedRevision: 0, files: { 'index.html': '<h1>account A</h1>' }, userId: 'forged-user-id' }
     });
     assert.equal(firstDraftSave.response.status, 200, JSON.stringify(firstDraftSave.payload));
     assert.equal(firstDraftSave.payload.draft.revision, 1);
 
-    const staleDraftSave = await request('/api/lessons/mod-1-aula-1/draft', {
+    const staleDraftSave = await request('/api/lessons/html-00-o-que-e-web/draft', {
       method: 'PUT', token: a.accessToken,
       body: { expectedRevision: 0, files: { 'index.html': '<h1>stale overwrite</h1>' } }
     });
@@ -216,11 +216,11 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(staleDraftSave.payload.draft.files['index.html'], '<h1>account A</h1>');
 
     const concurrentDraftWrites = await Promise.all([
-      request('/api/lessons/mod-1-aula-1/draft', {
+      request('/api/lessons/html-00-o-que-e-web/draft', {
         method: 'PUT', token: a.accessToken,
         body: { expectedRevision: 1, files: { 'index.html': '<h1>writer one</h1>' } }
       }),
-      request('/api/lessons/mod-1-aula-1/draft', {
+      request('/api/lessons/html-00-o-que-e-web/draft', {
         method: 'PUT', token: a.accessToken,
         body: { expectedRevision: 1, files: { 'index.html': '<h1>writer two</h1>' } }
       })
@@ -228,21 +228,21 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(concurrentDraftWrites.filter(result => result.response.status === 200).length, 1);
     assert.equal(concurrentDraftWrites.filter(result => result.response.status === 409).length, 1);
 
-    const initialDraftB = await request('/api/lessons/mod-1-aula-1/draft', { token: b.accessToken });
+    const initialDraftB = await request('/api/lessons/html-00-o-que-e-web/draft', { token: b.accessToken });
     assert.equal(initialDraftB.response.status, 200);
     assert.deepEqual(initialDraftB.payload.draft, { revision: 0, files: null, updatedAt: null });
-    const saveDraftB = await request('/api/lessons/mod-1-aula-1/draft', {
+    const saveDraftB = await request('/api/lessons/html-00-o-que-e-web/draft', {
       method: 'PUT', token: b.accessToken,
       body: { expectedRevision: 0, files: { 'index.html': '<h1>account B</h1>' }, userId: aProfile.payload.id }
     });
     assert.equal(saveDraftB.response.status, 200);
     assert.equal(saveDraftB.payload.draft.revision, 1);
 
-    const finalDraftA = await request('/api/lessons/mod-1-aula-1/draft', { token: a.accessToken });
+    const finalDraftA = await request('/api/lessons/html-00-o-que-e-web/draft', { token: a.accessToken });
     assert.equal(finalDraftA.response.status, 200);
     assert.equal(finalDraftA.payload.draft.revision, 2);
     assert.ok(['<h1>writer one</h1>', '<h1>writer two</h1>'].includes(finalDraftA.payload.draft.files['index.html']));
-    const finalDraftB = await request('/api/lessons/mod-1-aula-1/draft', { token: b.accessToken });
+    const finalDraftB = await request('/api/lessons/html-00-o-que-e-web/draft', { token: b.accessToken });
     assert.equal(finalDraftB.response.status, 200);
     assert.equal(finalDraftB.payload.draft.files['index.html'], '<h1>account B</h1>');
     const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
