@@ -9,7 +9,7 @@ O documento de usuário armazena:
 - Certificado/portfólio: código, data de emissão e URLs GitHub/portfólio.
 - Auditoria temporal: `createdAt` e `updatedAt`.
 
-Comentários persistidos contêm ID da aula, nome público do autor, badge, texto e timestamps. O modelo atual não mantém uma referência ao ID do usuário autor; isso limita a capacidade de localizar e apagar comentários de uma conta específica sem risco de atingir comentários de outra pessoa com o mesmo nome.
+Comentários persistidos contêm ID da aula, nome público do autor, badge, texto e timestamps. Novos comentários também armazenam `authorUserId`, referência estável à conta autenticada. Comentários históricos continuam sem essa referência; não é seguro inferir o proprietário pelo nome público.
 
 ## Alterações implementadas nesta etapa
 
@@ -24,6 +24,13 @@ Comentários persistidos contêm ID da aula, nome público do autor, badge, text
 - O JWT de acesso agora contém somente o identificador interno `id`.
 - E-mail e papel foram removidos das claims porque o middleware de autenticação recarrega o usuário persistido no MongoDB em cada requisição e não depende dessas claims.
 - O hash de senha e o identificador Google nunca são colocados no token.
+
+### Vínculo de autoria em comentários
+- O schema de comentários agora aceita `authorUserId` como referência ao usuário, com índice para futuras consultas por titular.
+- A rota autenticada de criação grava o `_id` da conta validada pelo middleware; o cliente não pode escolher esse identificador.
+- A leitura pública mantém o mesmo formato de resposta e não expõe o ID interno.
+- Comentários antigos permanecem válidos com `authorUserId: null`/ausente. Nenhuma associação retroativa foi feita.
+- Essa mudança é preparatória: ainda não existe endpoint de exclusão, anonimização ou exportação de comentários.
 
 ## Dados divulgados publicamente hoje
 
@@ -42,10 +49,10 @@ Não foi criado endpoint de exclusão automática nesta etapa. O modelo atual n�
 - preservação mínima de registros por obrigações legais/segurança;
 - tratamento de contas com certificados já emitidos.
 
-Implementar exclusão sem resolver essas regras poderia deixar dados pessoais órfãos ou apagar conteúdo de terceiros. A próxima implementação deve primeiro adicionar referência estável `authorUserId` aos novos comentários e definir uma migração compatível para comentários antigos.
+Implementar exclusão sem resolver essas regras poderia deixar dados pessoais órfãos ou apagar conteúdo de terceiros. A referência estável `authorUserId` já é gravada nos novos comentários. O tratamento dos comentários antigos continua pendente e exige uma decisão explícita: mantê-los, solicitar confirmação individual de autoria ou aplicar outra política que não dependa apenas de nomes.
 
 ## Limitações e validação
 
-- A exportação cobre os campos do documento de usuário e não inclui logs de infraestrutura, registros de provedores externos ou comentários históricos que não tenham vínculo de autor.
+- A exportação cobre os campos do documento de usuário e não inclui logs de infraestrutura, registros de provedores externos ou comentários. Os comentários novos já têm vínculo de autoria, mas ainda não foram incorporados ao endpoint de exportação.
 - Os testes unitários verificam a allowlist e a exclusão de segredos; não substituem teste HTTP integrado nem revisão jurídica.
 - Não foi acessado banco real, não houve exportação de dados de usuários reais, migração, exclusão, deploy ou alteração de produção.
