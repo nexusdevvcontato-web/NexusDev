@@ -33,6 +33,8 @@ function buildDockerArgs({ image, workspace, timeoutMs = 5000 } = {}) {
     '--read-only',
     '--cap-drop=ALL',
     '--security-opt=no-new-privileges:true',
+    '--security-opt=seccomp=/etc/nexusdev/seccomp-runner.json',
+    '--security-opt=apparmor=nexusdev-runner',
     '--pids-limit=' + DEFAULT_LIMITS.pids,
     '--memory=' + DEFAULT_LIMITS.memory,
     '--memory-swap=' + DEFAULT_LIMITS.memorySwap,
