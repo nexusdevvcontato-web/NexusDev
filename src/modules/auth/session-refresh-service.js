@@ -60,6 +60,13 @@ function createSessionRefreshService({
 
     try {
       const currentTime = now();
+      const refreshRecord = await RefreshToken.findOne({
+        tokenHash: hashRefreshToken(rawRefreshToken)
+      }).select('+csrfTokenHash').lean();
+      if (!refreshRecord || !verifySessionCsrfToken(csrfHeader, refreshRecord.csrfTokenHash)) {
+        clearCookies(res);
+        return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+      }
       const outcome = await store.rotate({ refreshToken: rawRefreshToken, now: currentTime });
       if (outcome.status === 'replay') {
         clearCookies(res);
