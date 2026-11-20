@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSessionCsrfMiddleware, readCookie } = require('../src/modules/auth/session-csrf-middleware');
+const { createSessionCsrfMiddleware, readCookie, requireMatchingSession } = require('../src/modules/auth/session-csrf-middleware');
 const { createSessionCsrfToken, hashSessionCsrfToken } = require('../src/modules/auth/session-csrf-token');
 const { generateRefreshToken, hashRefreshToken } = require('../src/modules/auth/refresh-token');
 
@@ -78,7 +78,7 @@ test('accepts exact allowed Origin and CSRF token bound to active refresh sessio
   let called = false;
   await setup.middleware(req, res, () => { called = true; });
   assert.equal(called, true);
-  assert.deepEqual(req.session, { id: setup.session._id, userId: setup.session.userId });
+  assert.deepEqual(req.csrfSession, { id: setup.session._id, userId: setup.session.userId });
   assert.equal(setup.calls.refresh.tokenHash, hashRefreshToken(setup.refreshToken));
   assert.equal(setup.calls.refresh.usedAt, null);
   assert.equal(setup.calls.session.revokedAt, null);
@@ -132,4 +132,43 @@ test('fails closed with service unavailable when persistence throws', async () =
   const res = responseRecorder();
   await setup.middleware(request(setup.refreshToken, setup.csrfToken), res, () => assert.fail());
   assert.equal(res.statusCode, 503);
+});
+
+test('binds cookie CSRF session to the bearer-authenticated session', () => {
+  const req = {
+    csrfSession: { id: 'session-a', userId: 'user-1' },
+    session: { id: 'session-a', userId: 'user-1' },
+    user: { _id: 'user-1' }
+  };
+  const res = responseRecorder();
+  let called = false;
+  requireMatchingSession(req, res, () => { called = true; });
+  assert.equal(called, true);
+  assert.equal(res.statusCode, 200);
+});
+
+test('rejects valid cookie and bearer credentials belonging to different sessions', () => {
+  const req = {
+    csrfSession: { id: 'session-a', userId: 'user-1' },
+    session: { id: 'session-b', userId: 'user-1' },
+    user: { _id: 'user-1' }
+  };
+  const res = responseRecorder();
+  let called = false;
+  requireMatchingSession(req, res, () => { called = true; });
+  assert.equal(called, false);
+  assert.equal(res.statusCode, 403);
+});
+
+test('rejects session credentials belonging to different users', () => {
+  const req = {
+    csrfSession: { id: 'session-a', userId: 'user-1' },
+    session: { id: 'session-a', userId: 'user-2' },
+    user: { _id: 'user-2' }
+  };
+  const res = responseRecorder();
+  let called = false;
+  requireMatchingSession(req, res, () => { called = true; });
+  assert.equal(called, false);
+  assert.equal(res.statusCode, 403);
 });
