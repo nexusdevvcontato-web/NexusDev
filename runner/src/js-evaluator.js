@@ -55,7 +55,7 @@ function parseSolution(source, exportName) {
   const visit = (node, depth = 0) => {
     if (!node || typeof node !== 'object') return;
     if (typeof node.type === 'string') {
-      const allowed = new Set(['Program','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
+      const allowed = new Set(['Program','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','SpreadElement','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
       if (!allowed.has(node.type)) throw new EvaluationError('unsupported-syntax');
       count += 1;
       if (count > LIMITS.astNodes) throw new EvaluationError('ast-node-limit');
@@ -94,14 +94,40 @@ function executeFunction(fn, args, budget, options = {}) {
     switch (node.type) {
       case 'Literal': return node.value;
       case 'Identifier': return lookup(node.name);
-      case 'ArrayExpression':
+      case 'ArrayExpression': {
         if (node.elements.length > LIMITS.arrayLength || node.elements.some((x) => !x)) throw new EvaluationError('unsupported-array');
-        return node.elements.map((x) => evalExpr(x, depth + 1));
+        const out = [];
+        for (const element of node.elements) {
+          if (element.type === 'SpreadElement') {
+            const spread = evalExpr(element.argument, depth + 1);
+            if (!Array.isArray(spread)) throw new EvaluationError('invalid-array-spread');
+            if (out.length + spread.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
+            out.push(...spread.map((item) => safeValue(item)));
+          } else {
+            out.push(evalExpr(element, depth + 1));
+          }
+        }
+        return out;
+      }
       case 'ObjectExpression': {
         const out = Object.create(null);
         for (const prop of node.properties) {
-          if (prop.type !== 'Property' || prop.computed || prop.kind !== 'init' || prop.method || prop.shorthand ||
-              !['Identifier', 'Literal'].includes(prop.key.type)) throw new EvaluationError('unsupported-object-property');
+          if (prop.type === 'SpreadElement') {
+            const spread = evalExpr(prop.argument, depth + 1);
+            if (!spread || typeof spread !== 'object' || Array.isArray(spread) ||
+                ![null, Object.prototype].includes(Object.getPrototypeOf(spread))) {
+              throw new EvaluationError('invalid-object-spread');
+            }
+            for (const key of Object.keys(spread)) {
+              if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new EvaluationError('unsafe-property');
+              out[key] = safeValue(spread[key]);
+            }
+            continue;
+          }
+          if (prop.type !== 'Property' || prop.computed || prop.kind !== 'init' || prop.method ||
+              (!prop.shorthand && !['Identifier', 'Literal'].includes(prop.key.type))) {
+            throw new EvaluationError('unsupported-object-property');
+          }
           const key = String(prop.key.name ?? prop.key.value);
           if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new EvaluationError('unsafe-property');
           out[key] = evalExpr(prop.value, depth + 1);
