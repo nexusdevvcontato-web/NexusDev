@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --test test/*.test.js runner/test/*.test.js"
+    "test": "node --check server.js && node --test test/*.test.js runner/test/*.test.js",
+    "test:staging:reauth": "node scripts/reauth-staging-smoke.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
