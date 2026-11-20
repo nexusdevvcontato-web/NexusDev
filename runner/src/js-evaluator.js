@@ -19,7 +19,7 @@ function safeValue(value, depth = 0) {
     if (value.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
     return value.map((item) => safeValue(item, depth + 1));
   }
-  if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+  if (typeof value === 'object' && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
     const out = Object.create(null);
     for (const key of Object.keys(value)) {
       if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new EvaluationError('unsafe-property');
