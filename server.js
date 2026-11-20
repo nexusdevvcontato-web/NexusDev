@@ -522,7 +522,10 @@ app.get('/api/privacy/export', (req, res, next) => {
 // ============================================================================
 // PROGRESSO, RANKING SEMANAL, CERTIFICADOS PÚBLICOS E TUTOR IA CONTEXTUAL
 // ============================================================================
-app.post('/api/progress/complete', requireAuth, async (req, res) => {
+app.post('/api/progress/complete', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, async (req, res) => {
   try {
     const { challengeId, files, completionProof } = req.body || {};
     if (!isKnownChallengeId(challengeId)) {
