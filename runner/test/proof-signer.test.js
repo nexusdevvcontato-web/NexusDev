@@ -17,6 +17,7 @@ test('signs RS256 completion claims with a maximum five-minute lifetime', () => 
   assert.equal(claims.purpose, 'lesson-completion');
   assert.equal(claims.sub, 'student-1');
   assert.equal(claims.challengeId, 'html-01-test');
+  assert.match(claims.jti, /^[0-9a-f-]{36}$/i);
   assert.equal(claims.exp - claims.iat, 300);
   assert.equal(crypto.verify('RSA-SHA256', Buffer.from(header + '.' + payload), { key: privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(signature, 'base64url')), true);
 });
