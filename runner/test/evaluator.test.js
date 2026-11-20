@@ -24,9 +24,17 @@ test('does not route unknown or unsupported lessons', () => {
     files: { 'index.html': '<h1>Olá, Mundo!</h1>' }
   }), { ok: false, reason: 'unsupported-challenge' });
   assert.deepEqual(evaluateRegisteredChallenge({
-    challengeId: 'mod-4-aula-2',
-    files: { 'produtoController.js': 'function listarProdutosController() { return []; }' }
+    challengeId: 'mod-1-aula-7',
+    files: { 'script.js': 'function exemplo() { return true; }' }
   }), { ok: false, reason: 'unsupported-challenge' });
+});
+
+test('routes registered Express controller lessons to the isolated controller evaluator', () => {
+  const source = 'function listarProdutosController(req, res) { return res.status(200).json([{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]); }';
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-2',
+    files: { 'produtoController.js': source }
+  }), { ok: true });
 });
 
 test('requires the exact trusted entrypoint and rejects extra files', () => {
