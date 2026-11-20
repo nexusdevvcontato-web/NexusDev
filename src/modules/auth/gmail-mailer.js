@@ -28,7 +28,7 @@ function createGmailPasswordResetMailer({
       throw new TypeError('Destinatário inválido.');
     }
     const link = new URL('/', base);
-    link.searchParams.set('passwordResetToken', token);
+    link.hash = new URLSearchParams({ passwordResetToken: token }).toString();
     const safeName = String(name || 'estudante').replace(/[\r\n]/g, ' ').slice(0, 120);
     const boundary = 'nexusdev_' + crypto.randomBytes(12).toString('hex');
     const subject = encodeHeader('Redefinição de senha — NexusDev');
