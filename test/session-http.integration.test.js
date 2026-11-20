@@ -158,6 +158,38 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
     const aProfile = await request('/api/me', { token: a.accessToken });
     assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
+
+    // Reauthentication is exercised through the real HTTP route with a disposable integration account.
+    const anonymousReauth = await request('/api/auth/reauthenticate', {
+      method: 'POST', body: { password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(anonymousReauth.response.status, 401);
+    assert.match(anonymousReauth.response.headers.get('cache-control') || '', /no-store/i);
+
+    const rejectedReauth = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: a.accessToken, body: { password: 'incorrect-test-password' }
+    });
+    assert.equal(rejectedReauth.response.status, 401);
+    assert.match(rejectedReauth.response.headers.get('cache-control') || '', /no-store/i);
+
+    const acceptedReauth = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: a.accessToken, body: { password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(acceptedReauth.response.status, 200, JSON.stringify(acceptedReauth.payload));
+    assert.match(acceptedReauth.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(acceptedReauth.payload.expiresIn, 300);
+    assert.equal(typeof acceptedReauth.payload.reauthToken, 'string');
+    const reauthClaims = jwt.verify(acceptedReauth.payload.reauthToken, process.env.REAUTH_TOKEN_SECRET, {
+      algorithms: ['HS256']
+    });
+    assert.equal(reauthClaims.sub, aProfile.payload.id);
+    assert.equal(reauthClaims.purpose, 'sensitive-action');
+    assert.equal(reauthClaims.exp - reauthClaims.iat, 300);
+    const reauthUser = await User.findById(aProfile.payload.id).lean();
+    assert.equal(reauthUser.reauthProofHash,
+      crypto.createHash('sha256').update(reauthClaims.jti).digest('hex'));
+    assert.ok(reauthUser.reauthProofExpiresAt instanceof Date);
+    assert.equal('reauthToken' in reauthUser, false);
     const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
     assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
     const anonymousPreferences = await request('/api/privacy/preferences');
