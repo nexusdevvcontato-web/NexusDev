@@ -1,10 +1,14 @@
-async function issueCertificateOnce(UserModel, userId, candidateCode, issuedAt, createReplacementCode) {
+async function issueCertificateOnce(UserModel, userId, candidateCode, issuedAt, createReplacementCode, snapshot = {}) {
   let code = candidateCode;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const issued = await UserModel.findOneAndUpdate(
         { _id: userId, certificateIssuedAt: null },
-        { $set: { certificateCode: code, certificateIssuedAt: issuedAt } },
+        { $set: {
+          ...snapshot,
+          certificateCode: code,
+          certificateIssuedAt: issuedAt
+        } },
         { new: true }
       );
       return issued || UserModel.findById(userId);
