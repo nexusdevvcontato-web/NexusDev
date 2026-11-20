@@ -6,8 +6,11 @@ const REAUTH_TOKEN_SECRET = process.env.REAUTH_TOKEN_SECRET || '';
 const SESSION_ACCESS_TOKEN_SECRET = process.env.SESSION_ACCESS_TOKEN_SECRET || '';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const PASSWORD_RESET_FROM_EMAIL = process.env.PASSWORD_RESET_FROM_EMAIL || '';
+const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
+const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
+const GMAIL_REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN || '';
+const GMAIL_FROM_EMAIL = process.env.GMAIL_FROM_EMAIL || '';
+if (GMAIL_FROM_EMAIL && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(GMAIL_FROM_EMAIL)) throw new Error('GMAIL_FROM_EMAIL inválido.');
 const FRONTEND_URL = process.env.FRONTEND_URL || '';
 if (PASSWORD_RESET_FROM_EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(PASSWORD_RESET_FROM_EMAIL)) throw new Error('PASSWORD_RESET_FROM_EMAIL inválido.');
 if (FRONTEND_URL) { try { const url = new URL(FRONTEND_URL); if (url.protocol !== 'https:') throw new Error(); } catch { throw new Error('FRONTEND_URL deve ser uma URL HTTPS válida.'); } }
@@ -58,8 +61,10 @@ module.exports = Object.freeze({
   SESSION_ACCESS_TOKEN_SECRET,
   JWT_EXPIRES_IN,
   GOOGLE_CLIENT_ID,
-  RESEND_API_KEY,
-  PASSWORD_RESET_FROM_EMAIL,
+  GMAIL_CLIENT_ID,
+  GMAIL_CLIENT_SECRET,
+  GMAIL_REFRESH_TOKEN,
+  GMAIL_FROM_EMAIL,
   FRONTEND_URL,
   LESSON_PROOF_PUBLIC_KEY,
   ALLOWED_ORIGINS,
