@@ -550,12 +550,25 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(userAfterSubstitution.xp, 0);
     assert.deepEqual(userAfterSubstitution.completedIds, []);
 
-    const completed = await request('/api/progress/complete', {
-      method: 'POST', token: a.accessToken, body: completionBody
-    });
-    assert.equal(completed.response.status, 200, JSON.stringify(completed.payload));
+    const concurrentCompletions = await Promise.all([
+      request('/api/progress/complete', {
+        method: 'POST', token: a.accessToken, body: completionBody
+      }),
+      request('/api/progress/complete', {
+        method: 'POST', token: a.accessToken, body: completionBody
+      })
+    ]);
+    assert.deepEqual(
+      concurrentCompletions.map(result => result.response.status).sort((a, b) => a - b),
+      [200, 403],
+      JSON.stringify(concurrentCompletions.map(result => ({ status: result.response.status, payload: result.payload })))
+    );
+    const completed = concurrentCompletions.find(result => result.response.status === 200);
     assert.match(completed.response.headers.get('cache-control') || '', /no-store/i);
     assert.equal(completed.payload.xp, 50);
+    const concurrentFinalUser = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    assert.equal(concurrentFinalUser.xp, 50);
+    assert.deepEqual(concurrentFinalUser.completedIds, [challengeId]);
     const impactAfterLearning = await request('/api/privacy/deletion-impact', { token: a.accessToken });
     assert.equal(impactAfterLearning.response.status, 200);
     assert.equal(impactAfterLearning.payload.learning.dataPresent, true);
