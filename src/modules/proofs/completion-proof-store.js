@@ -1,6 +1,7 @@
 'use strict';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FILES_HASH_PATTERN = /^[a-f0-9]{64}$/;
 
 function createCompletionProofModel(mongoose) {
   if (!mongoose?.Schema || typeof mongoose.model !== 'function') {
@@ -10,6 +11,7 @@ function createCompletionProofModel(mongoose) {
     jti: { type: String, required: true, unique: true, match: UUID_PATTERN },
     userId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     challengeId: { type: String, required: true },
+    filesHash: { type: String, required: true, match: FILES_HASH_PATTERN },
     expiresAt: { type: Date, required: true }
   }, { versionKey: false });
   schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -20,6 +22,7 @@ async function consumeCompletionProof(CompletionProof, proof, userId) {
   if (!CompletionProof || typeof CompletionProof.create !== 'function' ||
       !proof || typeof proof.jti !== 'string' || !UUID_PATTERN.test(proof.jti) ||
       !Number.isInteger(proof.exp) || typeof proof.challengeId !== 'string' ||
+      typeof proof.filesHash !== 'string' || !FILES_HASH_PATTERN.test(proof.filesHash) ||
       !userId) {
     throw new TypeError('Comprovante de conclusão inválido.');
   }
@@ -28,6 +31,7 @@ async function consumeCompletionProof(CompletionProof, proof, userId) {
       jti: proof.jti,
       userId,
       challengeId: proof.challengeId,
+      filesHash: proof.filesHash,
       expiresAt: new Date(proof.exp * 1000)
     });
     return true;
@@ -37,4 +41,4 @@ async function consumeCompletionProof(CompletionProof, proof, userId) {
   }
 }
 
-module.exports = { createCompletionProofModel, consumeCompletionProof, UUID_PATTERN };
+module.exports = { createCompletionProofModel, consumeCompletionProof, UUID_PATTERN, FILES_HASH_PATTERN };
