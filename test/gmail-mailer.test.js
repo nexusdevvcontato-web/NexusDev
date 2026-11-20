@@ -20,9 +20,9 @@ test('sends a one-time reset message through Gmail API using OAuth access token'
   assert.equal(request.options.headers.Authorization, 'Bearer oauth-access-token');
   const payload = JSON.parse(request.options.body);
   const decoded = Buffer.from(payload.raw, 'base64url').toString('utf8');
-  assert.match(decoded, /To: student@example\\.test/);
+  assert.match(decoded, /To: student@example\.test/);
   assert.match(decoded, /passwordResetToken=A{43}/);
-  assert.match(decoded, /multipart\\/alternative/);
+  assert.match(decoded, /multipart\/alternative/);
 });
 
 test('fails closed when Gmail API rejects the message', async () => {
