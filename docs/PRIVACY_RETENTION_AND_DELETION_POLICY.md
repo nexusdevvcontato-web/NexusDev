@@ -68,3 +68,16 @@ Até que esses prazos sejam aprovados, não implementar job automático de limpe
 - A política de comentários legados ainda depende de decisão editorial.
 
 **Conclusão operacional:** não habilitar exclusão automática nem exclusão de conta na interface até que os bloqueios acima sejam resolvidos e os testes de integração/recuperação sejam aprovados. Esta etapa é documentação e preparação técnica, sem alterar dados reais.
+
+
+## 8. Máquina de estados preparada (ainda não conectada)
+
+O módulo `src/modules/privacy/deletion-request-state.js` descreve estados permitidos para um futuro pedido: `requested`, `identity_confirmed`, `cooling_off`, `ready_for_execution`, `processing`, `completed`, `cancelled` e `failed`.
+
+- Transições não declaradas são recusadas.
+- Preparar ou iniciar execução exige que a barreira `evaluateDeletionReadiness` informe `ready: true`.
+- Marcar como concluído exige resultado explícito de execução bem-sucedida.
+- Uma falha pode voltar à preparação somente após a prontidão ser restabelecida.
+- Cancelamento só é permitido nos estados definidos; depois de iniciado o processamento, não há cancelamento presumido.
+
+Este módulo é uma política de transição pura: não persiste pedidos, não cria endpoint, não agenda prazos e não executa exclusões. A janela de cancelamento real ainda depende de uma duração aprovada e de implementação com relógio confiável.
