@@ -552,6 +552,7 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
 });
 
 app.post('/api/certificates/issue', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const { studentName, githubUrl, liveUrl } = req.body || {};
     const user = req.user;
@@ -624,7 +625,9 @@ app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) =>
   try {
     const code = normalizeCertificateLookupCode(req.params.code);
     if (!code) return res.status(400).json({ valid: false, error: 'Código de certificado inválido.' });
-    const user = await User.findOne({ certificateCode: code });
+    const user = await User.findOne({ certificateCode: code })
+      .select('certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl')
+      .lean();
     if (!user || !user.certificateIssuedAt) {
       return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
     }
@@ -649,6 +652,7 @@ app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) =>
 
 // Ranking Top 15 da Comunidade
 app.get('/api/leaderboard', publicReadLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const topUsers = await User.find({ 'privacyPreferences.showInLeaderboard': { $ne: false } })
       .sort({ xp: -1, streak: -1, _id: 1 })
