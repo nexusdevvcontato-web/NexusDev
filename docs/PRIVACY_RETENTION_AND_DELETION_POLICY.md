@@ -153,3 +153,5 @@ Cada controle precisa ser explicitamente `true`; valores truthy, ausência de ca
 
 
 - Na prévia de impacto, a existência de um `certificateCode` reservado não é tratada como certificado emitido; somente `certificateIssuedAt` indica emissão efetiva. Isso evita contabilizar como certificado um código preliminar criado no cadastro.
+
+- O indicador de dados de aprendizagem desconsidera valores iniciais padrão (`xp: 0`, `streak: 1`); só sinaliza XP positivo, sequência acima do padrão, aulas concluídas ou código salvo.
