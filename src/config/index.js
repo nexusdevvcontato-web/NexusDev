@@ -3,6 +3,7 @@ const PORT = Number(process.env.PORT || 5000);
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const LESSON_PROOF_PUBLIC_KEY = process.env.LESSON_PROOF_PUBLIC_KEY || '';
 const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim())
@@ -31,6 +32,7 @@ module.exports = Object.freeze({
   MONGO_URI,
   JWT_SECRET,
   GOOGLE_CLIENT_ID,
+  LESSON_PROOF_PUBLIC_KEY,
   ALLOWED_ORIGINS,
   isProduction: NODE_ENV === 'production'
 });
