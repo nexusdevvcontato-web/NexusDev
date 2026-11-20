@@ -191,21 +191,20 @@ async function runCombinedSessionGuards(cookieSessionId, bearerSessionId) {
   };
   const Session = {
     findOne(query) {
-      const id = query._id;
       const record = {
-        _id: id,
+        _id: query._id,
         userId,
         revokedAt: null,
         expiresAt: new Date('2026-12-01T00:00:00Z'),
         csrfTokenHash: hashSessionCsrfToken(csrfToken)
       };
-      if (query.userId !== userId) return { lean: async () => null };
-      if (query.revokedAt !== null) return { lean: async () => null };
-      if (query.expiresAt && query.expiresAt.$gt > currentTime) return { lean: async () => record };
-      if (typeof this.select === 'function') return this;
+      if (query.userId) {
+        const matches = query.userId === userId && query._id === bearerSessionId;
+        return { lean: async () => matches ? record : null };
+      }
+      const matches = query._id === cookieSessionId;
       return {
-        select() { return { lean: async () => record }; },
-        lean: async () => record
+        select() { return { lean: async () => matches ? record : null }; }
       };
     }
   };
