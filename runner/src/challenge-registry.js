@@ -150,9 +150,10 @@ const CHALLENGE_SPECS = Object.freeze({
   },
   'mod-5-aula-2': {
     language: 'javascript', entrypoint: 'documento.js', exportName: 'criarDocumentoProduto',
-    tests: [{ type: 'function-deep-equals', args: [{ titulo: '  Teclado  ', preco: 249.9, categoria: 'Periféricos', admin: true, _id: 'forjado' }], expected: { titulo: 'Teclado', preco: 249.9, categoria: 'Periféricos', ativo: true } },
+    tests: [{ type: 'function-deep-equals', args: [{ titulo: '  Teclado  ', preco: 249.9, categoria: ' Periféricos ', admin: true, _id: 'forjado' }], expected: { titulo: 'Teclado', preco: 249.9, categoria: 'Periféricos', ativo: true } },
       { type: 'function-deep-equals', args: [{ titulo: 'Mouse', preco: 50 }], expected: { titulo: 'Mouse', preco: 50, categoria: 'geral', ativo: true } },
-      { type: 'does-not-mutate-input', args: [{ titulo: '  Monitor ', preco: 900 }] }]
+      { type: 'function-deep-equals', args: [{ titulo: '  Cabo USB ', preco: 19.5, categoria: '   ', role: 'admin', isAdmin: true, $set: { admin: true }, $inc: { preco: 999 }, _id: 'attacker-id' }], expected: { titulo: 'Cabo USB', preco: 19.5, categoria: 'geral', ativo: true } },
+      { type: 'does-not-mutate-input', args: [{ titulo: '  Monitor ', preco: 900, categoria: ' Vídeo ', admin: true }] }]
   },
   'mod-5-aula-3': {
     language: 'javascript', entrypoint: 'atualizacao.js', exportName: 'criarAtualizacaoProduto',
