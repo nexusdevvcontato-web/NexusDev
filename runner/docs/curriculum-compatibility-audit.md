@@ -38,7 +38,7 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 | `mod-4-aula-4` | Sanitizar formato de erro | function-deep-equals | Compatível com ressalva | Construção condicional de objetos e comparação profunda estão cobertas; não implica suporte a sanitização geral ou bibliotecas externas. |
 | `node-01-controller-produto` | Controller POST com req/res | http-controller-case | Compatível com ressalva | Casos de sucesso/erro avaliados com `req.body` e mock restrito de resposta. A facade ainda aceita somente o entrypoint registrado; arquivos auxiliares de rota não são avaliados. |
 | `mod-5-aula-2` | Documento MongoDB com campos permitidos | deep-equals e does-not-mutate-input | Bloqueado | Tipos de teste não suportados; trim não suportado. |
-| `mod-5-aula-3` | Atualização MongoDB com $set | deep-equals e does-not-mutate-input | Bloqueado | Tipos de teste não suportados; trim e validação numérica precisam de suporte. |
+| `mod-5-aula-3` | Atualização MongoDB com $set | deep-equals e does-not-mutate-input | Compatível com ressalva | Casos confiáveis verificam allowlist `titulo`/`preco`/`ativo`, normalização, tipos, preço finito positivo, imutabilidade e rejeição de repasse integral do body; não executa MongoDB nem valida operadores no servidor real. |
 | `mod-5-aula-4` | Validar cadastro | function-cases | Parcial | Regex de e-mail e validações de string não são suportadas. |
 | `mod-5-aula-5` | Política de senha com maiúscula/minúscula/número | function-cases | Bloqueado | Testes dependem de operações de string/regex ausentes. |
 | `mod-5-aula-6` | Extrair Bearer token | function-cases | Bloqueado | Depende de regex/validação de string não suportadas. |
@@ -49,8 +49,8 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 1. A facade aceita somente **um arquivo**, com nome idêntico ao `entrypoint` registrado. Isso conflita com os dois exercícios Express que apresentam mais de um arquivo no editor.
 2. O HTML evaluator implementa os cinco tipos de teste declarados para HTML, mas a aula de botão promete comportamento que os testes estáticos não observam.
 3. O JavaScript evaluator agora suporta `function-cases`, `function-deep-equals`, `does-not-mutate-input` e `http-controller-case` nos padrões explicitamente implementados. Controllers recebem apenas `req.body` e um mock `res` com `status()`/`json()`.
-4. A linguagem permanece intencionalmente limitada: métodos de string e arrays têm allowlists explícitas; somente `/\\s+/` é aceita como regex fixa em `split()`. Não há loops, chamadas arbitrárias, acesso à rede, Express real ou MongoDB.
-5. A facade e os avaliadores permanecem protótipos internos; não estão integrados à API nem autorizam emissão de prova de conclusão.
+4. O desafio `mod-5-aula-3` avalia apenas a construção pura do objeto `$set`: campos desconhecidos e operadores recebidos (`$inc`, `$where`, `$unset`) não entram no resultado esperado. Propriedades perigosas (`__proto__`, `prototype`, `constructor`) são recusadas pelo sanitizador de entrada antes da avaliação. Isso não equivale a uma política MongoDB em produção nem a uma proteção de autorização no banco.\n5. A linguagem permanece intencionalmente limitada: métodos de string e arrays têm allowlists explícitas; somente `/\\s+/` é aceita como regex fixa em `split()`. Não há loops, chamadas arbitrárias, acesso à rede, Express real ou MongoDB.
+6. A facade e os avaliadores permanecem protótipos internos; não estão integrados à API nem autorizam emissão de prova de conclusão.
 
 ## Plano de correção recomendado
 
