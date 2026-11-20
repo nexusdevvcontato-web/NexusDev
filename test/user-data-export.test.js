@@ -11,6 +11,7 @@ test('exports the authenticated user data using an explicit allowlist', () => {
     xp: 100,
     completedIds: ['html-00-o-que-e-web'],
     savedCodeMap: { 'html-00-o-que-e-web': { 'index.html': '<h1>Oi</h1>' } },
+    privacyPreferences: { showInLeaderboard: false, showCertificateDetails: true },
     certificateCode: 'NXD-2026-ANA-700-ABCDEF0123456789ABCD',
     passwordHash: 'never-export',
     googleId: 'private-google-sub',
@@ -22,6 +23,7 @@ test('exports the authenticated user data using an explicit allowlist', () => {
   assert.equal(result.data.id, 'user-123');
   assert.equal(result.data.email, 'ana@example.com');
   assert.deepEqual(result.data.completedIds, ['html-00-o-que-e-web']);
+  assert.deepEqual(result.data.privacyPreferences, { showInLeaderboard: false, showCertificateDetails: true });
   assert.equal('passwordHash' in result.data, false);
   assert.equal('googleId' in result.data, false);
   assert.equal('internalSecret' in result.data, false);
