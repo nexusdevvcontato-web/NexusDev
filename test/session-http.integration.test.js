@@ -134,7 +134,9 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal((await request('/api/me', { token: rotated.payload.accessToken })).response.status, 401);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
-    await mongoose.connection.dropDatabase();
-    await mongoose.disconnect();
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.dropDatabase();
+      await mongoose.disconnect();
+    }
   }
 });
