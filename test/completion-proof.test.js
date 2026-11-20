@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { generateKeyPairSync } = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const { verifyCompletionProof } = require('../src/modules/proofs/verifyCompletionProof');
+const { hashCompletionFiles } = require('../src/modules/proofs/completion-files-hash');
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,
@@ -10,12 +11,15 @@ const { privateKey, publicKey } = generateKeyPairSync('rsa', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
 });
 const now = Math.floor(Date.now() / 1000);
-const context = { publicKey, userId: 'user-123', challengeId: 'html-00-o-que-e-web', nowSeconds: now };
+const files = { 'index.html': '<h1>Olá, Mundo!</h1>' };
+const filesHash = hashCompletionFiles(files);
+const context = { publicKey, userId: 'user-123', challengeId: 'html-00-o-que-e-web', filesHash, nowSeconds: now };
 
 function sign(overrides = {}) {
   return jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    filesHash: context.filesHash,
     jti: require('node:crypto').randomUUID(),
     sub: context.userId,
     iss: 'nexusdev-runner',
@@ -28,6 +32,13 @@ function sign(overrides = {}) {
 
 test('accepts a correctly signed proof for the same user and lesson', () => {
   const token = sign({ exp: now + 230 });
+  assert.equal(verifyCompletionProof(token, context).ok, true);
+});
+
+test('rejects a proof when submitted files differ from the evaluated files', () => {
+  const token = sign();
+  const substitutedFilesHash = hashCompletionFiles({ 'index.html': '<h1>Conteúdo diferente</h1>' });
+  assert.equal(verifyCompletionProof(token, { ...context, filesHash: substitutedFilesHash }).reason, 'claims-mismatch');
   assert.equal(verifyCompletionProof(token, context).ok, true);
 });
 
