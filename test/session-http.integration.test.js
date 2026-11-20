@@ -156,6 +156,9 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
     const aProfile = await request('/api/me', { token: a.accessToken });
+    assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
+    const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
+    assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
     const challengeId = 'html-00-o-que-e-web';
     const proofNow = Math.floor(Date.now() / 1000);
     const completionProof = jwt.sign({
