@@ -28,7 +28,7 @@ test('consumes proof and writes saved code, XP and streak inside one transaction
   assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'proof').length, 1);
   assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 1);
   const proofCall = deps.calls.find(x => Array.isArray(x) && x[0] === 'proof');
-  assert.equal(proofCall[2], deps.calls.find(x => x && typeof x.withTransaction === 'function'));
+  assert.equal(typeof proofCall[2].withTransaction, 'function');
   const transactionSession = proofCall[2];
   for (const call of deps.calls.filter(x => Array.isArray(x))) {
     if (call[0] === 'updateOne') assert.equal(call[3], transactionSession);
