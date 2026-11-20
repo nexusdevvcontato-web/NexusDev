@@ -1,7 +1,7 @@
 name: Backend security tests
 
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
@@ -23,17 +23,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Generate reproducible dependency lockfile
-        run: npm install --package-lock-only --ignore-scripts --lockfile-version=2
       - name: Install dependencies
-        run: npm ci
-      - name: Generate and verify Render Yarn lockfile
-        run: |
-          rm -f yarn.lock
-          npx --yes yarn@1.22.22 import
-          npx --yes yarn@1.22.22 install --frozen-lockfile --ignore-scripts
+        run: npx --yes yarn@1.22.22 install --frozen-lockfile
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npx --yes yarn@1.22.22 audit --groups dependencies --level moderate
       - name: Start disposable MongoDB replica set
         run: |
           docker run --rm -d --name nexusdev-session-mongo -p 27017:27017 mongo:7.0@sha256:884c055bff8b7144ca44830d01826facd3083b33c4dea44b94a1476c62de3c32 --replSet rs0 --bind_ip_all
@@ -52,21 +45,3 @@ jobs:
       - name: Stop disposable MongoDB
         if: always()
         run: docker rm -f nexusdev-session-mongo || true
-      - name: Commit generated dependency lockfile
-        if: success()
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add package-lock.json yarn.lock
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(deps): add reproducible npm lockfile"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
-      - name: Publish generated lockfile for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 3
