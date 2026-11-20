@@ -48,7 +48,9 @@ test('rejects loops, recursion, multiple top-level statements and unsupported sy
     'function calcularPrecoComDesconto(a,b) { while (true) {} return 1; }',
     'function calcularPrecoComDesconto(a,b) { return calcularPrecoComDesconto(a,b); }',
     'function calcularPrecoComDesconto(a,b) { return 1; } process.exit(0);',
-    'function calcularPrecoComDesconto(a,b) { try { return 1; } catch(e) {} }'
+    'function calcularPrecoComDesconto(a,b) { try { return 1; } catch(e) {} }',
+    'async function calcularPrecoComDesconto(a,b) { return 1; }',
+    'function* calcularPrecoComDesconto(a,b) { return 1; }'
   ];
   for (const source of sources) assert.equal(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source, argsList: [[1, 2]] }).ok, false);
 });
