@@ -23,6 +23,7 @@ const { createCompletionProofModel, consumeCompletionProof } = require('./src/mo
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
+const { buildDeletionImpact } = require('./src/modules/privacy/deletion-impact');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
 const { createSessionModels } = require('./src/modules/auth/session-models');
 const { createSessionAuthService } = require('./src/modules/auth/session-auth-service');
@@ -449,6 +450,43 @@ app.put('/api/privacy/preferences', requireAuth, async (req, res) => {
     return res.json({ preferences: normalizePrivacyPreferences(updated.privacyPreferences) });
   } catch {
     return res.status(500).json({ error: 'Não foi possível salvar as preferências de privacidade.' });
+  }
+});
+
+// Read-only preview: aggregate only the authenticated user's related records.
+app.get('/api/privacy/deletion-impact', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const [sessionCount, ownedSessions, completionProofs, linkedComments] = await Promise.all([
+      Session.countDocuments({ userId }),
+      Session.find({ userId }).select('_id').lean(),
+      CompletionProof.countDocuments({ userId }),
+      Comment.countDocuments({ authorUserId: userId })
+    ]);
+    const sessionIds = ownedSessions.map((session) => session._id);
+    const refreshTokens = await RefreshToken.countDocuments({
+      $or: [{ userId }, { sessionId: { $in: sessionIds } }]
+    });
+    const hasCertificate = Boolean(req.user.certificateCode || req.user.certificateIssuedAt);
+    const hasLearningData = Boolean(
+      (Array.isArray(req.user.completedIds) && req.user.completedIds.length) ||
+      (req.user.savedCodeMap && Object.keys(req.user.savedCodeMap).length) ||
+      req.user.xp || req.user.streak
+    );
+    return res.json(buildDeletionImpact({
+      sessions: sessionCount,
+      refreshTokens,
+      completionProofs,
+      linkedComments,
+      hasCertificate,
+      hasLearningData,
+      hasProfileData: true
+    }));
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível gerar a prévia de impacto.' });
   }
 });
 
