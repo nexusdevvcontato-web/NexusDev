@@ -109,7 +109,7 @@ test('registers three authored MongoDB and secure signup lessons', () => {
   const signup = getChallengeSpec('mod-5-aula-4');
   assert.equal(signup.exportName, 'validarCadastroUsuario');
   assert.ok(signup.tests.some((check) => check.type === 'function-cases'));
-  assert.equal(getChallengeSpec('mod-5-aula-5'), null);
+  assert.equal(getChallengeSpec('mod-5-aula-8'), null);
 });
 
 test('request boundary accepts the new MongoDB and signup lessons', () => {
