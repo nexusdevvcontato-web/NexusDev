@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 11);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 14);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
