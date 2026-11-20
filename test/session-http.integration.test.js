@@ -253,6 +253,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     const optedInLeaderboard = await request('/api/leaderboard');
     assert.equal(optedInLeaderboard.payload.leaderboard.some(row => row.name === 'Leaderboard Optout A'), true);
+    await User.updateOne({ _id: aProfile.payload.id }, { $set: { xp: 0 } });
 
 
     const impactB = await request('/api/privacy/deletion-impact', { token: b.accessToken });
