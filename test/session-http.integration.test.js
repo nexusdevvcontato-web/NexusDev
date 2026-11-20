@@ -159,7 +159,33 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
     const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
     assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
+
     const challengeId = 'html-00-o-que-e-web';
+    const certificateCode = 'NXD-2026-TEST-700-ABCDEF1234567890';
+    await mongoose.model('User').updateOne({ _id: aProfile.payload.id }, {
+      $set: {
+        certificateCode,
+        certificateIssuedAt: new Date(),
+        'privacyPreferences.showCertificateDetails': false
+      }
+    });
+    const privateCertificate = await request('/api/certificates/' + certificateCode);
+    assert.equal(privateCertificate.response.status, 200);
+    assert.match(privateCertificate.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(privateCertificate.payload.valid, true);
+    assert.equal(privateCertificate.payload.publicDetails, false);
+    assert.equal('studentName' in privateCertificate.payload, false);
+    assert.equal('xp' in privateCertificate.payload, false);
+
+    const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
+      method: 'POST', token: a.accessToken, body: { text: 'Comentário de teste de privacidade.' }
+    });
+    assert.equal(createdComment.response.status, 201);
+    const publicComments = await request('/api/lessons/' + challengeId + '/comments');
+    assert.equal(publicComments.response.status, 200);
+    assert.match(publicComments.response.headers.get('cache-control') || '', /no-store/i);
+    assert.ok(publicComments.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
+
     const proofNow = Math.floor(Date.now() / 1000);
     const completionProof = jwt.sign({
       jti: crypto.randomUUID(),
