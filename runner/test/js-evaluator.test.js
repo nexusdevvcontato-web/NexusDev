@@ -145,7 +145,7 @@ test('supports strict Bearer extraction without arbitrary regex or whitespace', 
   const source = String.raw`function extrairTokenBearer(cabecalho) {
     if (typeof cabecalho !== "string") return null;
     const partes = cabecalho.split(" ");
-    if (partes.length !== 2 || partes[0].toLowerCase() !== "bearer" || !/^\\S+$/.test(partes[1])) return null;
+    if (partes.length !== 2 || partes[0].toLowerCase() !== "bearer" || !/^\S+$/.test(partes[1])) return null;
     return partes[1];
   }`;
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-6', source }), { ok: true });
