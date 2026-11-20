@@ -34,6 +34,17 @@ test('registers the three new JavaScript foundation lessons', () => {
   assert.equal(getChallengeSpec('mod-2-aula-7'), null);
 });
 
+test('request boundary accepts the new authored JavaScript lessons', () => {
+  for (const challengeId of ['mod-2-aula-4', 'mod-2-aula-5', 'mod-2-aula-6']) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { 'script.js': 'function solution() { return 1; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
+
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
