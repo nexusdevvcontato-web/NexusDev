@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { isRunnerSupportedChallenge } = require('./challenge-registry');
 
 const ISSUER = 'nexusdev-runner';
 const AUDIENCE = 'nexusdev-progress';
@@ -15,11 +16,24 @@ function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor
   if (typeof privateKey !== 'string' || !privateKey.includes('PRIVATE KEY')) {
     throw new Error('RUNNER_PRIVATE_KEY must contain a PEM private key.');
   }
-  if (typeof userId !== 'string' || !userId || typeof challengeId !== 'string' || !challengeId) {
-    throw new Error('A user and challenge are required to sign a completion proof.');
+  if (typeof userId !== 'string' || !userId || userId.length > 128 ||
+      typeof challengeId !== 'string' || !isRunnerSupportedChallenge(challengeId)) {
+    throw new Error('A user and a trusted, supported challenge are required to sign a completion proof.');
   }
   if (!Number.isInteger(now) || !Number.isInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > MAX_TTL_SECONDS) {
     throw new Error('Proof lifetime must be between 1 and 300 seconds.');
+  }
+
+  let signingKey;
+  try {
+    signingKey = crypto.createPrivateKey(privateKey);
+  } catch {
+    throw new Error('RUNNER_PRIVATE_KEY must be a valid unencrypted PEM private key.');
+  }
+  if (signingKey.asymmetricKeyType !== 'rsa' ||
+      !Number.isInteger(signingKey.asymmetricKeyDetails?.modulusLength) ||
+      signingKey.asymmetricKeyDetails.modulusLength < 2048) {
+    throw new Error('RUNNER_PRIVATE_KEY must be an RSA key with at least 2048 bits.');
   }
 
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
@@ -35,7 +49,7 @@ function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor
   }));
   const signingInput = header + '.' + payload;
   const signature = crypto.sign('RSA-SHA256', Buffer.from(signingInput), {
-    key: privateKey,
+    key: signingKey,
     padding: crypto.constants.RSA_PKCS1_PADDING
   });
   return signingInput + '.' + signature.toString('base64url');
