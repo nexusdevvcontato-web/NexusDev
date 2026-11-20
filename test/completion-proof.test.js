@@ -16,6 +16,7 @@ function sign(overrides = {}) {
   return jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    jti: require('node:crypto').randomUUID(),
     sub: context.userId,
     iss: 'nexusdev-runner',
     aud: 'nexusdev-progress',
@@ -63,6 +64,7 @@ test('rejects expired, future-issued, and longer-than-five-minute proofs', () =>
   const make = (iat, exp) => jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    jti: require('node:crypto').randomUUID(),
     sub: context.userId,
     iss: 'nexusdev-runner',
     aud: 'nexusdev-progress',
@@ -83,5 +85,18 @@ test('rejects a token using a non-RS256 algorithm', () => {
     aud: 'nexusdev-progress',
     exp: now + 120
   }, 'symmetric-secret', { algorithm: 'HS256', noTimestamp: true });
+  assert.equal(verifyCompletionProof(token, context).ok, false);
+});
+
+test('rejects proofs without a unique identifier', () => {
+  const token = jwt.sign({
+    purpose: 'lesson-completion',
+    challengeId: context.challengeId,
+    sub: context.userId,
+    iss: 'nexusdev-runner',
+    aud: 'nexusdev-progress',
+    iat: now - 10,
+    exp: now + 100
+  }, privateKey, { algorithm: 'RS256' });
   assert.equal(verifyCompletionProof(token, context).ok, false);
 });
