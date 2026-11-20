@@ -4,7 +4,12 @@ const { getChallengeSpec } = require('./challenge-registry');
 const { evaluateChallenge: evaluateHtmlChallenge } = require('./html-evaluator');
 const { evaluateChallenge: evaluateJavaScriptChallenge } = require('./js-evaluator');
 
-function evaluateRegisteredChallenge({ challengeId, files } = {}) {
+function evaluateRegisteredChallenge(request) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    return { ok: false, reason: 'invalid-request' };
+  }
+
+  const { challengeId, files } = request;
   if (typeof challengeId !== 'string' || !files || typeof files !== 'object' || Array.isArray(files)) {
     return { ok: false, reason: 'invalid-request' };
   }
