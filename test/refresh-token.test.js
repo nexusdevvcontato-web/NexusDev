@@ -25,7 +25,7 @@ test('hashes valid tokens deterministically without storing raw token', () => {
 });
 
 test('rejects malformed tokens before hashing', () => {
-  for (const token of ['', 'short', 'x'.repeat(43), null, 123]) {
+  for (const token of ['', 'short', '!'.repeat(43), null, 123]) {
     assert.throws(() => hashRefreshToken(token), TypeError);
   }
 });
