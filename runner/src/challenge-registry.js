@@ -125,6 +125,27 @@ const CHALLENGE_SPECS = Object.freeze({
       { type: 'does-not-mutate-input', args: [[], { id: 2, nome: 'Mouse', preco: 50 }] }
     ]
   },
+  'mod-4-aula-2': {
+    language: 'javascript', entrypoint: 'produtoController.js', exportName: 'listarProdutosController',
+    tests: [{ type: 'http-controller-case', expectedStatus: 200, expectedBody: [{ id: 1, nome: 'Teclado' }, { id: 2, nome: 'Mouse' }] }]
+  },
+  'mod-4-aula-3': {
+    language: 'javascript', entrypoint: 'validacao.js', exportName: 'validarProduto',
+    tests: [{ type: 'function-cases', cases: [
+      { args: [{ titulo: 'Teclado', preco: 120 }], expected: true },
+      { args: [{ titulo: '   ', preco: 120 }], expected: false },
+      { args: [{ titulo: 'Mouse', preco: 0 }], expected: false },
+      { args: [{ titulo: 'Mouse', preco: -1 }], expected: false },
+      { args: [{ titulo: 'Mouse', preco: '50' }], expected: false },
+      { args: [null], expected: false }
+    ]}]
+  },
+  'mod-4-aula-4': {
+    language: 'javascript', entrypoint: 'errorHandler.js', exportName: 'formatarErroApi',
+    tests: [{ type: 'function-deep-equals', args: [{ message: 'Produto não encontrado', code: 'NOT_FOUND' }], expected: { mensagem: 'Produto não encontrado', codigo: 'NOT_FOUND' } },
+      { type: 'function-deep-equals', args: [{}], expected: { mensagem: 'Erro interno', codigo: 'INTERNAL_ERROR' } },
+      { type: 'function-deep-equals', args: [{ message: 'Falha', code: 'DB_ERROR', stack: 'secret' }], expected: { mensagem: 'Falha', codigo: 'DB_ERROR' } }]
+  },
   'node-01-controller-produto': {
     language: 'javascript', entrypoint: 'produtoController.js', exportName: 'criarProdutoController',
     tests: [
