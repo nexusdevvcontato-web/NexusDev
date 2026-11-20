@@ -9,7 +9,9 @@ const {
 } = require('./session-http-policy');
 const { readCookie } = require('./session-csrf-middleware');
 const { createSessionStore } = require('./session-store');
-const { issueSessionAccessToken, DEFAULT_ACCESS_TTL_SECONDS } = require('./session-access-token');\nconst { hashRefreshToken } = require('./refresh-token');\nconst { verifySessionCsrfToken } = require('./session-csrf-token');
+const { issueSessionAccessToken, DEFAULT_ACCESS_TTL_SECONDS } = require('./session-access-token');
+const { hashRefreshToken } = require('./refresh-token');
+const { verifySessionCsrfToken } = require('./session-csrf-token');
 
 function createSessionRefreshService({
   mongoose,
