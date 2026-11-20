@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 14);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 17);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -40,6 +40,30 @@ test('request boundary accepts the new authored JavaScript lessons', () => {
       userId: 'student-1',
       challengeId,
       files: { 'script.js': 'function solution() { return 1; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
+
+
+test('registers three authored React foundation lessons', () => {
+  for (const id of ['mod-3-aula-2', 'mod-3-aula-3', 'mod-3-aula-4']) {
+    const spec = getChallengeSpec(id);
+    assert.ok(spec);
+    assert.equal(spec.language, 'javascript');
+    assert.equal(spec.entrypoint, 'script.js');
+    assert.ok(spec.exportName);
+    assert.ok(spec.tests.length > 0);
+  }
+  assert.equal(getChallengeSpec('mod-3-aula-5'), null);
+});
+
+test('request boundary accepts the new authored React lessons', () => {
+  for (const challengeId of ['mod-3-aula-2', 'mod-3-aula-3', 'mod-3-aula-4']) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { 'script.js': 'function solution() { return []; }' }
     });
     assert.equal(result.ok, true, challengeId);
   }
