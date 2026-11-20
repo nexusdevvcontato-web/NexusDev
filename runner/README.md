@@ -29,3 +29,8 @@ There is no Docker invocation, queue, network listener, workspace manager, or AP
 3. Implement a fixed, digest-pinned job image and host-side Docker launcher. Never mount the Docker socket inside a job.
 4. Add adversarial isolation tests and verify the proof end-to-end against the API's public-key verifier.
 5. Deploy only to a dedicated runner host after a separate explicit production authorization.
+
+
+### API access-token hardening
+
+The API uses a configurable `JWT_EXPIRES_IN` (default `30d`, maximum `365d`) and signs access tokens with HS256 explicitly. Authorization headers must contain exactly one `Bearer <JWT>` value; verification pins HS256 and requires a non-empty user ID claim. Authenticated requests reload the user from MongoDB, so authorization decisions use the persisted account record rather than the role copied into a token. These controls do not provide password reset or account recovery; those flows are not implemented in the current API.
