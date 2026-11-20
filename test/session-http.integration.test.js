@@ -200,13 +200,35 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(leaderboard.response.status, 200);
     assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
     const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
-      method: 'POST', token: a.accessToken, body: { text: 'Comentário de teste de privacidade.' }
+      method: 'POST',
+      token: a.accessToken,
+      body: {
+        text: 'Comentário de teste de privacidade.',
+        author: 'Nome falsificado',
+        badge: 'Administrador',
+        authorUserId: b.profileId,
+        xp: 999999
+      }
     });
     assert.equal(createdComment.response.status, 201);
+    assert.match(createdComment.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(createdComment.payload.comment.author, 'Integration Student');
+    assert.equal(createdComment.payload.comment.badge, 'Aluno NexusDev');
+    assert.equal(createdComment.payload.xp, 0);
+    assert.deepEqual(Object.keys(createdComment.payload.comment).sort(), ['author', 'badge', 'id', 'text', 'time']);
+
+    const anonymousCommentPost = await request('/api/lessons/' + challengeId + '/comments', {
+      method: 'POST', body: { text: 'Não deve publicar anonimamente.' }
+    });
+    assert.equal(anonymousCommentPost.response.status, 401);
+    assert.match(anonymousCommentPost.response.headers.get('cache-control') || '', /no-store/i);
+
     const publicComments = await request('/api/lessons/' + challengeId + '/comments');
     assert.equal(publicComments.response.status, 200);
     assert.match(publicComments.response.headers.get('cache-control') || '', /no-store/i);
-    assert.ok(publicComments.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
+    const visibleComment = publicComments.payload.comments.find(comment => comment.text === 'Comentário de teste de privacidade.');
+    assert.ok(visibleComment);
+    assert.deepEqual(Object.keys(visibleComment).sort(), ['author', 'badge', 'id', 'text', 'time']);
 
     // Deletion-impact preview is private, aggregate-only, and scoped to the authenticated owner.
     const anonymousExport = await request('/api/privacy/export');
