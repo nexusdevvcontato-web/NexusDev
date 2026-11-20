@@ -5,8 +5,10 @@ const {
   isPublicLessonLookupAllowed
 } = require('../src/modules/public-read/policy');
 
-test('normalizes valid certificate codes without changing their structure', () => {
-  assert.equal(normalizeCertificateLookupCode('  nxd-2026-dev-700-ABCDEF0123456789ABCD  '),
+test('normalizes opaque certificate codes and preserves legacy code compatibility', () => {
+  assert.equal(normalizeCertificateLookupCode('  nxd-0123456789abcdef0123456789abcdef  '),
+    'NXD-0123456789ABCDEF0123456789ABCDEF');
+  assert.equal(normalizeCertificateLookupCode(' nxd-2026-dev-700-ABCDEF0123456789ABCD '),
     'NXD-2026-DEV-700-ABCDEF0123456789ABCD');
 });
 
