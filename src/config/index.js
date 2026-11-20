@@ -41,6 +41,9 @@ if (REAUTH_TOKEN_SECRET && (REAUTH_TOKEN_SECRET.length < 32 || REAUTH_TOKEN_SECR
 if (SESSION_ACCESS_TOKEN_SECRET && (SESSION_ACCESS_TOKEN_SECRET.length < 32 || SESSION_ACCESS_TOKEN_SECRET === JWT_SECRET || SESSION_ACCESS_TOKEN_SECRET === REAUTH_TOKEN_SECRET || SESSION_ACCESS_TOKEN_SECRET.includes('REPLACE_WITH'))) {
   throw new Error('SESSION_ACCESS_TOKEN_SECRET deve ser distinto, aleatório e conter pelo menos 32 caracteres.');
 }
+if (NODE_ENV === 'production' && !SESSION_ACCESS_TOKEN_SECRET) {
+  throw new Error('SESSION_ACCESS_TOKEN_SECRET é obrigatória em produção. Inicialização cancelada para impedir autenticação legada.');
+}
 if (!jwtDuration || jwtLifetimeSeconds > 365 * 24 * 60 * 60) {
   throw new Error('JWT_EXPIRES_IN deve usar s, m, h ou d e não pode exceder 365 dias.');
 }
