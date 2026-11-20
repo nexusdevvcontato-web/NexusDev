@@ -102,3 +102,14 @@ Foi adicionada à branch de reconstrução uma rota autenticada somente leitura 
 - Os mesmos testes verificam `no-store` em respostas não autenticadas das rotas de preferências e em respostas públicas de certificado.
 - A suíte de CI para o commit de código `6b6f1b3` e o ajuste final dos fixtures de teste `f9a4bb0` foi concluída com sucesso (217 testes passaram, sem falhas na execução final). O resultado final confirmado corresponde ao commit `f9a4bb0ad4b44841705a1f3ed3001bd1ec4caef3`.
 - Nenhuma preferência, conta, certificado ou registro de usuário real foi alterado. As mudanças permanecem na branch paralela; a revisão jurídica dos padrões legados `true` continua pendente.
+
+## Revisão adicional — comentários públicos e integridade de autoria
+
+- A leitura pública de comentários aplica `Cache-Control: no-store` antes do limitador, inclusive em respostas antecipadas de throttling. A publicação aplica o mesmo cabeçalho antes da autenticação e do limitador.
+- A consulta pública seleciona explicitamente apenas `_id`, `author`, `badge`, `text` e `createdAt`, limita o resultado aos 50 comentários mais recentes e usa `_id` como critério secundário de ordenação determinística.
+- A resposta HTTP pública continua sendo uma allowlist explícita (`id`, `author`, `badge`, `time`, `text`); identificador interno do autor, e-mail, XP e demais campos do documento não são enviados.
+- O POST ignora campos de autoria, badge e XP enviados pelo cliente: autoria e badge são derivados da conta autenticada. A rota exige sessão válida e valida o identificador da aula e o texto.
+- Falhas de banco na leitura agora retornam erro 500 genérico em vez de simular uma lista vazia, evitando mascarar indisponibilidade como ausência de comentários.
+- Testes de integração verificam a rejeição de publicação anônima, cabeçalhos `no-store`, allowlist das respostas e resistência a campos de autoria/XP falsificados no corpo da requisição.
+- Comentários permanecem publicamente visíveis por decisão funcional atual. A política de remoção/anonimização de comentários vinculados e o tratamento manual dos comentários legados sem `authorUserId` continuam pendentes; esta revisão não altera comentários existentes.
+- Nenhum dado de usuário real foi lido para alteração, modificado ou removido. Mudanças limitadas à branch paralela.
