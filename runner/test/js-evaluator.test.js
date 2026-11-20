@@ -80,7 +80,19 @@ test('rejects arbitrary callback methods and oversized array inputs', () => {
   assert.equal(evaluateChallenge({ challengeId: 'mod-3-aula-4', source: unsafe }).ok, false);
 });
 
-test('keeps find and some unavailable until their semantics are implemented', () => {
+test('supports bounded some callbacks with lexical parameters for immutable cart updates', () => {
+  const source = 'function adicionarAoCarrinho(carrinho, produto) { const existe = carrinho.some(item => item.id === produto.id); if (existe) return carrinho.map(item => item.id === produto.id ? { ...item, qtd: item.qtd + 1 } : item); return [...carrinho, { ...produto, qtd: 1 }]; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'react-01-carrinho-imutavel', source }), { ok: true });
+});
+
+test('supports only the fixed whitespace regular expression in split', () => {
+  const source = 'function contarPalavras(texto) { const limpo = texto.trim(); if (!limpo) return 0; return limpo.split(/\\s+/).length; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-2-aula-6', source }), { ok: true });
+  const unsafe = 'function contarPalavras(texto) { return texto.split(/(a+)+$/).length; }';
+  assert.equal(evaluateChallenge({ challengeId: 'mod-2-aula-6', source: unsafe }).ok, false);
+});
+
+
   const findSource = 'function somarArray(numeros) { return numeros.find(numero => numero > 2); }';
   const someSource = 'function somarArray(numeros) { return numeros.some(numero => numero > 2); }';
   assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: findSource }).ok, false);
