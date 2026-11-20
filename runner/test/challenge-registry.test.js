@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 17);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 20);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -64,6 +64,35 @@ test('request boundary accepts the new authored React lessons', () => {
       userId: 'student-1',
       challengeId,
       files: { 'script.js': 'function solution() { return []; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
+
+
+test('registers three authored Node and Express lessons', () => {
+  const list = getChallengeSpec('mod-4-aula-2');
+  assert.equal(list.exportName, 'listarProdutosController');
+  assert.ok(list.tests.some((check) => check.type === 'http-controller-case'));
+  const validation = getChallengeSpec('mod-4-aula-3');
+  assert.equal(validation.exportName, 'validarProduto');
+  assert.ok(validation.tests.some((check) => check.type === 'function-cases'));
+  const errors = getChallengeSpec('mod-4-aula-4');
+  assert.equal(errors.exportName, 'formatarErroApi');
+  assert.ok(errors.tests.some((check) => check.type === 'function-deep-equals'));
+  assert.equal(getChallengeSpec('mod-4-aula-5'), null);
+});
+
+test('request boundary accepts the new authored Node and Express lessons', () => {
+  for (const [challengeId, filename] of [
+    ['mod-4-aula-2', 'produtoController.js'],
+    ['mod-4-aula-3', 'validacao.js'],
+    ['mod-4-aula-4', 'errorHandler.js']
+  ]) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { [filename]: 'function solution() { return true; }' }
     });
     assert.equal(result.ok, true, challengeId);
   }
