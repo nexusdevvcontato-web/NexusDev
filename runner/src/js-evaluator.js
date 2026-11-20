@@ -201,7 +201,17 @@ function executeFunction(fn, args, budget, options = {}) {
         if (target instanceof RegExp && method === 'test' && node.arguments.length === 1) {
           const allowedPatterns = new Set([
             '[A-Z]', '[a-z]', '[0-9]',
-            '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+
+            '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+            '^\\S+$'
+          ]);
+          if (!allowedPatterns.has(target.source) || target.flags !== '') {
+            throw new EvaluationError('unsupported-regex');
+          }
+          const input = evalExpr(node.arguments[0], depth + 1);
+          if (typeof input !== 'string') throw new EvaluationError('invalid-regex-input');
+          return target.test(input);
+        }
+        if (target && typeof target === 'object' && RESPONSE_MOCKS.has(target)) {
           const args = node.arguments.map((arg) => evalExpr(arg, depth + 1));
           const response = RESPONSE_MOCKS.get(target);
           if (method === 'status' && args.length === 1 && Number.isInteger(args[0]) && args[0] >= 100 && args[0] <= 599) {
