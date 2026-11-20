@@ -169,6 +169,12 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(anonymousPreferenceUpdate.response.status, 401);
     assert.match(anonymousPreferenceUpdate.response.headers.get('cache-control') || '', /no-store/i);
 
+    const anonymousProgress = await request('/api/progress/complete', {
+      method: 'POST', body: {}
+    });
+    assert.equal(anonymousProgress.response.status, 401);
+    assert.match(anonymousProgress.response.headers.get('cache-control') || '', /no-store/i);
+
     const challengeId = 'html-00-o-que-e-web';
     const certificateCode = 'NXD-2026-TEST-700-ABCDEF1234567890';
     await mongoose.model('User').updateOne({ _id: aProfile.payload.id }, {
@@ -381,6 +387,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       method: 'POST', token: a.accessToken, body: completionBody
     });
     assert.equal(completed.response.status, 200, JSON.stringify(completed.payload));
+    assert.match(completed.response.headers.get('cache-control') || '', /no-store/i);
     assert.equal(completed.payload.xp, 50);
     const impactAfterLearning = await request('/api/privacy/deletion-impact', { token: a.accessToken });
     assert.equal(impactAfterLearning.response.status, 200);
