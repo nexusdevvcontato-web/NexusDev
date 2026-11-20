@@ -62,7 +62,8 @@ test('each dependent-data safeguard independently blocks deletion', () => {
   }
 });
 
-test('unknown and incomplete input never enables deletion', () => {
+test('unknown fields cannot replace any required readiness gate', () => {
   assert.equal(evaluateDeletionReadiness({ ...approved, extraApproval: true }).ready, true);
+  assert.equal(evaluateDeletionReadiness({ extraApproval: true }).ready, false);
   assert.equal(evaluateDeletionReadiness(null).ready, false);
 });
