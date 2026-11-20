@@ -2,31 +2,31 @@
 
 **Status:** primitives isoladas; ainda não conectadas às rotas nem ao login.
 
-## Cookies
+## Transporte previsto
 
-- Refresh cookie: `__Host-nexusdev_refresh`, HttpOnly, Secure, Path=/, sem Domain.
-- CSRF cookie: `__Host-nexusdev_csrf`, Secure, Path=/, sem Domain, legível pelo frontend para double-submit.
-- O prefixo `__Host-` exige Secure, Path=/ e ausência de Domain nos navegadores compatíveis.
-- SameSite é parâmetro validado (`strict`, `lax` ou `none`), não foi fixado na configuração de ambiente nem aplicado em produção.
+- Refresh token: cookie `__Host-nexusdev_refresh`, HttpOnly, Secure, Path=/, sem Domain.
+- O cookie de refresh é host-only e nunca deve ser lido pelo JavaScript.
+- Para CSRF em topologia frontend/API com hosts diferentes, adotar token sincronizador por sessão: API entrega token aleatório em resposta JSON com `Cache-Control: no-store`; frontend guarda apenas em memória e envia no header `X-CSRF-Token`.
+- Backend guarda somente SHA-256 do token CSRF no registro da sessão; nunca persiste o token bruto.
+- Requisições mutáveis autenticadas por cookie exigem Origin presente e correspondência exata com `CORS_ORIGINS`, além do token CSRF válido vinculado à sessão atual.
+- Não aceitar wildcard, sufixo de domínio, Origin ausente, referer como substituto ou CSRF token vindo apenas do body.
+- Ao rotacionar refresh, o token CSRF deve ser renovado ou mantido de forma explícita e atômica; a implementação deverá escolher e testar uma única regra antes da integração.
+
+## SameSite e CORS
+
+- SameSite continua sem valor final. `Lax` é apenas hipótese inicial para subdomínios same-site; não assumir que resolve todos os contextos.
+- `SameSite=None` só deve ser escolhido se a arquitetura exigir contexto cross-site; requer Secure e testes de navegador.
+- CORS deve aceitar apenas origens exatas e usar credentials quando cookies forem enviados. Nunca combinar credenciais com wildcard.
 - Cookies de limpeza devem repetir SameSite e Path da emissão.
 
-## CSRF e origem
+## Primitives existentes e limite
 
-Operações autenticadas por cookie devem exigir:
-1. Header Origin presente e correspondência exata com `CORS_ORIGINS`.
-2. Cookie CSRF e header `X-CSRF-Token` com valores iguais.
-3. Comparação de token em tempo constante.
-4. Tokens CSRF aleatórios, independentes do refresh token.
-
-Não aceitar wildcard, sufixo de domínio, Origin ausente, referer como substituto ou CSRF token vindo apenas do body.
-
-## Limitações e decisão pendente
-
-- Não sabemos ainda a topologia real de domínios frontend/API em produção e staging.
-- `SameSite=None` só deve ser escolhido se a arquitetura exigir contexto cross-site; requer Secure e testes de navegador.
-- Prefixo `__Host-` implica cookie host-only. Se frontend e API estiverem em hosts diferentes, o frontend não poderá ler cookie CSRF host-only da API. Nesse caso, o backend deverá fornecer CSRF token por resposta JSON/cache-control no-store e o frontend mantê-lo em memória, ou a topologia deverá ser ajustada. Não usar Domain compartilhado por conveniência sem avaliação.
-- Portanto, estes helpers ainda não emitem cookies, não validam rotas e não substituem testes end-to-end.
+- `session-http-policy.js` contém utilitários de origem, comparação e atributos de cookie.
+- `session-csrf-token.js` gera token sincronizador, calcula hash SHA-256 e verifica em tempo constante.
+- Os helpers antigos de double-submit cookie permanecem apenas como primitives de teste; a arquitetura proposta para hosts separados não deve depender de um cookie CSRF legível pelo frontend.
+- Ainda falta adicionar o hash CSRF ao schema de sessão, emitir o token no login/refresh, validar o header em middleware e integrar o frontend para mantê-lo em memória.
+- Nenhum endpoint foi alterado e nenhum cookie é emitido nesta etapa.
 
 ## Testes
 
-Cobrem nome/atributos dos cookies, SameSite permitido, origem exata, double-submit e comparação em tempo constante.
+Cobrem token aleatório URL-safe, hash não reversível para uso normal, validação em tempo constante e rejeição de entradas malformadas. Testes end-to-end de CORS, cookies, rotação e CSRF em navegador continuam obrigatórios em staging.
