@@ -74,6 +74,41 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       return { accessToken: result.payload.accessToken, refresh, csrf };
     };
 
+    const allSessionsOwner = await register('session-all@example.test');
+    const secondLogin = await request('/api/auth/session/login', {
+      method: 'POST',
+      body: { email: 'session-all@example.test', password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(secondLogin.response.status, 200, JSON.stringify(secondLogin.payload));
+    const secondAccessToken = secondLogin.payload.accessToken;
+    const secondRefresh = secondLogin.cookieMap['__Host-nexusdev_refresh'];
+    const secondCsrf = secondLogin.cookieMap['__Host-nexusdev_csrf'];
+    assert.ok(secondAccessToken && secondRefresh && secondCsrf);
+    assert.equal((await request('/api/me', { token: allSessionsOwner.accessToken })).response.status, 200);
+    assert.equal((await request('/api/me', { token: secondAccessToken })).response.status, 200);
+
+    const logoutAll = await request('/api/auth/session/logout-all', {
+      method: 'POST',
+      token: allSessionsOwner.accessToken,
+      cookies: [
+        `__Host-nexusdev_refresh=${allSessionsOwner.refresh}`,
+        `__Host-nexusdev_csrf=${allSessionsOwner.csrf}`
+      ],
+      csrf: allSessionsOwner.csrf
+    });
+    assert.equal(logoutAll.response.status, 204);
+    assert.equal((await request('/api/me', { token: allSessionsOwner.accessToken })).response.status, 401);
+    assert.equal((await request('/api/me', { token: secondAccessToken })).response.status, 401);
+    const revokedRefresh = await request('/api/auth/session/refresh', {
+      method: 'POST',
+      cookies: [
+        `__Host-nexusdev_refresh=${secondRefresh}`,
+        `__Host-nexusdev_csrf=${secondCsrf}`
+      ],
+      csrf: secondCsrf
+    });
+    assert.equal(revokedRefresh.response.status, 401);
+
     const a = await register('session-a@example.test');
     const b = await register('session-b@example.test');
 
