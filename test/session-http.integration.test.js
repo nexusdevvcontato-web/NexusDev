@@ -200,15 +200,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(leaderboard.response.status, 200);
     assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
     await User.updateOne({ _id: aProfile.payload.id }, {
-      $set: { xp: 999999, 'privacyPreferences.showInLeaderboard': false }
+      $set: { name: 'Leaderboard Optout A', xp: 999999, 'privacyPreferences.showInLeaderboard': false }
     });
     const optedOutLeaderboard = await request('/api/leaderboard');
-    assert.equal(optedOutLeaderboard.payload.leaderboard.some(row => row.name === 'Integration Student'), false);
+    assert.equal(optedOutLeaderboard.payload.leaderboard.some(row => row.name === 'Leaderboard Optout A'), false);
     await User.updateOne({ _id: aProfile.payload.id }, {
       $set: { 'privacyPreferences.showInLeaderboard': true }
     });
     const optedInLeaderboard = await request('/api/leaderboard');
-    assert.equal(optedInLeaderboard.payload.leaderboard.some(row => row.name === 'Integration Student'), true);
+    assert.equal(optedInLeaderboard.payload.leaderboard.some(row => row.name === 'Leaderboard Optout A'), true);
 
     const bCertificateCode = 'NXD-2026-TEST-700-BBCDEF1234567890';
     await User.updateOne({ _id: (await request('/api/me', { token: b.accessToken })).payload.id }, {
