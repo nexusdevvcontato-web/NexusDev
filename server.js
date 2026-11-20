@@ -10,11 +10,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
 const crypto = require('node:crypto');
-const jwt = require('jsonwebtoken');
 const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { recordDailyActivity } = require('./src/modules/users/daily-activity');
 const { issueCertificateOnce } = require('./src/modules/certificates/issue-once');
-const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const { issueReauthProof, consumeReauthProof } = require('./src/modules/auth/reauthentication');
 const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthentication-credentials');
 const bcrypt = require('bcryptjs');
@@ -201,14 +199,6 @@ const requireSessionCsrf = sessionAuthEnabled ? createSessionCsrfMiddleware({
 const sessionUnavailable = (req, res) => res.status(503).set('Cache-Control', 'no-store')
   .json({ error: 'Autenticação por sessão ainda não está configurada neste ambiente.' });
 
-function signUserToken(user) {
-  return jwt.sign(
-    { id: user._id.toString() },
-    JWT_SECRET,
-    { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN }
-  );
-}
-
 function formatUserResponse(user) {
   return {
     id: user._id,
@@ -229,47 +219,9 @@ function formatUserResponse(user) {
   };
 }
 
-async function requireAuth(req, res, next) {
-  try {
-    const token = extractBearerToken(req.headers.authorization);
-    if (!token) {
-      return res.status(401).json({ error: 'Token de autenticação ausente ou malformado.' });
-    }
-
-    if (sessionAuthEnabled) {
-      const claims = verifySessionAccessToken(token, {
-        secret: SESSION_ACCESS_TOKEN_SECRET,
-        now: Math.floor(Date.now() / 1000)
-      });
-      if (claims) {
-        const currentTime = new Date();
-        const session = await Session.findOne({
-          _id: claims.sessionId,
-          userId: claims.userId,
-          revokedAt: null,
-          expiresAt: { $gt: currentTime }
-        }).lean();
-        if (!session) return res.status(401).json({ error: 'Sessão revogada ou expirada.' });
-        const sessionUser = await User.findById(claims.userId);
-        if (!sessionUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
-        req.user = sessionUser;
-        req.session = { id: session._id, userId: session.userId };
-        return next();
-      }
-    }
-
-    const decoded = verifyAccessToken(token, JWT_SECRET);
-    const user = await User.findById(decoded.id).select('+passwordChangedAt');
-    if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
-    if (user.passwordChangedAt && (!decoded.iat || decoded.iat * 1000 < user.passwordChangedAt.getTime())) {
-      return res.status(401).json({ error: 'Senha alterada. Entre novamente.' });
-    }
-    req.user = user;
-    return next();
-  } catch {
-    return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
-  }
-}
+const requireAuth = sessionAuthEnabled
+  ? requireSessionAccess
+  : (req, res) => sessionUnavailable(req, res);
 
 // ============================================================================
 // ROTAS DE SAÚDE E AUTENTICAÇÃO (E-MAIL/SENHA + GOOGLE OAUTH)
@@ -414,115 +366,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
 });
 
-app.post('/api/auth/register', authLimiter, async (req, res) => {
-  try {
-    const { name, email, password } = req.body || {};
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
-    }
-    if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 80 ||
-        typeof email !== 'string' || email.length > 254 ||
-        typeof password !== 'string' || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: 'Informe nome válido, e-mail válido e senha entre 8 e 128 caracteres.' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return res.status(400).json({ error: 'Informe um endereço de e-mail válido.' });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const existing = await User.findOne({ email: normalizedEmail });
-    if (existing) {
-      return res.status(409).json({ error: 'Este e-mail já está cadastrado. Faça login.' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      passwordHash,
-      certificateCode: generateCertificateCode(name, 0)
-    });
-
-    const token = signUserToken(user);
-    return res.status(201).json({ token, user: formatUserResponse(user) });
-  } catch (err) {
-    return res.status(500).json({ error: 'Erro ao criar conta no servidor.' });
-  }
-});
-
-app.post('/api/auth/login', authLimiter, async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (typeof email !== 'string' || email.length > 254 ||
-        typeof password !== 'string' || password.length < 1 || password.length > 128 ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user || !user.passwordHash) {
-      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
-    }
-
-    const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const activeUser = await recordDailyActivity(User, user._id, today);
-    if (!activeUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
-
-    const token = signUserToken(activeUser);
-    return res.json({ token, user: formatUserResponse(activeUser) });
-  } catch {
-    return res.status(500).json({ error: 'Erro ao realizar login.' });
-  }
-});
-
-app.post('/api/auth/google', authLimiter, async (req, res) => {
-  try {
-    const { credential } = req.body || {};
-    if (!credential || !googleClient) {
-      return res.status(400).json({ error: 'Credencial inválida ou Google Client ID não configurado.' });
-    }
-
-    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, email_verified: emailVerified, name, picture } = payload;
-    if (!email || emailVerified !== true || !googleId) {
-      return res.status(401).json({ error: 'A conta Google precisa ter e-mail verificado.' });
-    }
-
-    let user = await User.findOne({ email: email.toLowerCase() });
-
-    if (!user) {
-      user = await User.create({
-        name: name || 'Estudante NexusDev',
-        email: email.toLowerCase(),
-        avatar: picture || '',
-        googleId,
-        certificateCode: generateCertificateCode(name, 0)
-      });
-    } else {
-      if (user.googleId !== googleId) {
-        return res.status(409).json({ error: 'Esta conta já está vinculada a outra identidade. Entre pelo método original.' });
-      }
-      if (picture && picture !== user.avatar) {
-        await User.updateOne({ _id: user._id }, { $set: { avatar: picture } });
-      }
-      const today = new Date().toISOString().slice(0, 10);
-      user = await recordDailyActivity(User, user._id, today);
-      if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
-    }
-
-    const token = signUserToken(user);
-    return res.json({ token, user: formatUserResponse(user) });
-  } catch {
-    return res.status(401).json({ error: 'Falha ao validar conta Google.' });
-  }
-});
+// Legacy token-issuing endpoints are retired. The frontend uses session-based auth only.
+const legacyAuthRetired = (req, res) => res.status(410).set('Cache-Control', 'no-store')
+  .json({ error: 'Este endpoint de autenticação foi desativado. Atualize o aplicativo para usar sessões seguras.' });
+app.post('/api/auth/register', authLimiter, legacyAuthRetired);
+app.post('/api/auth/login', authLimiter, legacyAuthRetired);
+app.post('/api/auth/google', authLimiter, legacyAuthRetired);
 
 app.get('/api/me', requireAuth, async (req, res) => {
   res.json(formatUserResponse(req.user));
