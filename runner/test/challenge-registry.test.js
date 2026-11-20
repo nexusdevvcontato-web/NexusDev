@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 23);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 26);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -117,6 +117,36 @@ test('request boundary accepts the new MongoDB and signup lessons', () => {
     ['mod-5-aula-2', 'documento.js'],
     ['mod-5-aula-3', 'atualizacao.js'],
     ['mod-5-aula-4', 'cadastro.js']
+  ]) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { [filename]: 'function solution() { return true; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
+
+
+test('registers password policy, Bearer parsing and RBAC lessons', () => {
+  const password = getChallengeSpec('mod-5-aula-5');
+  assert.equal(password.exportName, 'validarPoliticaSenha');
+  const bearer = getChallengeSpec('mod-5-aula-6');
+  assert.equal(bearer.exportName, 'extrairTokenBearer');
+  const rbac = getChallengeSpec('mod-5-aula-7');
+  assert.equal(rbac.exportName, 'podeAcessarPerfil');
+  for (const spec of [password, bearer, rbac]) {
+    assert.equal(spec.language, 'javascript');
+    assert.equal(spec.tests[0].type, 'function-cases');
+  }
+  assert.equal(getChallengeSpec('mod-5-aula-8'), null);
+});
+
+test('request boundary accepts the new authentication and RBAC lessons', () => {
+  for (const [challengeId, filename] of [
+    ['mod-5-aula-5', 'senha.js'],
+    ['mod-5-aula-6', 'token.js'],
+    ['mod-5-aula-7', 'rbac.js']
   ]) {
     const result = validateExecutionRequest({
       userId: 'student-1',
