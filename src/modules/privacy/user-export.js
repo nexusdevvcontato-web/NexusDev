@@ -5,7 +5,21 @@ const EXPORT_FIELDS = Object.freeze([
   'createdAt', 'updatedAt'
 ]);
 
-function buildUserDataExport(user) {
+function buildCommentExport(comments) {
+  if (!Array.isArray(comments)) throw new TypeError('Comments must be an array');
+  return comments.map((comment) => {
+    if (!comment || typeof comment !== 'object') throw new TypeError('Invalid comment');
+    const id = comment._id ?? comment.id;
+    const result = {};
+    if (id !== undefined && id !== null) result.id = String(id);
+    for (const field of ['lessonId', 'author', 'badge', 'text', 'createdAt', 'updatedAt']) {
+      if (comment[field] !== undefined) result[field] = comment[field];
+    }
+    return result;
+  });
+}
+
+function buildUserDataExport(user, comments = []) {
   if (!user || typeof user !== 'object') throw new TypeError('User data is required');
   const source = typeof user.toObject === 'function' ? user.toObject() : user;
   const result = {};
@@ -18,10 +32,11 @@ function buildUserDataExport(user) {
     }
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
-    data: result
+    data: result,
+    comments: buildCommentExport(comments)
   };
 }
 
-module.exports = { buildUserDataExport };
+module.exports = { buildUserDataExport, buildCommentExport };
