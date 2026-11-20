@@ -29,6 +29,8 @@ const { createSessionRefreshService } = require('./src/modules/auth/session-refr
 const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
 const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/modules/auth/session-csrf-middleware');
 const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
+const { createPasswordResetService } = require('./src/modules/auth/password-reset');
+const { createResendPasswordResetMailer } = require('./src/modules/auth/resend-mailer');
 
 const app = express();
 // Render terminates the public connection at one trusted proxy hop.
@@ -36,7 +38,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, RESEND_API_KEY, PASSWORD_RESET_FROM_EMAIL, FRONTEND_URL } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -50,6 +52,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '100kb', strict: true }));
 
+const passwordResetRequestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas solicitações. Tente novamente mais tarde.' } });
+const passwordResetConfirmLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas tentativas. Aguarde antes de tentar novamente.' } });
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
@@ -109,6 +113,9 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, default: '' },
+    passwordResetTokenHash: { type: String, default: undefined, select: false },
+    passwordResetExpiresAt: { type: Date, default: undefined, select: false },
+    passwordChangedAt: { type: Date, default: null, select: false },
     avatar: { type: String, default: '' },
     googleId: { type: String, default: '' },
     reauthProofHash: { type: String, default: '' },
@@ -150,6 +157,12 @@ const Comment = mongoose.model('Comment', commentSchema);
 // Session authentication v2 is opt-in until its dedicated secret is provisioned.
 // Legacy auth endpoints remain available during the parallel migration.
 const { Session, RefreshToken } = createSessionModels(mongoose);
+const passwordResetService = RESEND_API_KEY && PASSWORD_RESET_FROM_EMAIL && FRONTEND_URL
+  ? createPasswordResetService({
+      mongoose, User, Session, bcrypt,
+      sendResetEmail: createResendPasswordResetMailer({ apiKey: RESEND_API_KEY, from: PASSWORD_RESET_FROM_EMAIL, frontendUrl: FRONTEND_URL })
+    })
+  : null;
 const sessionAuthEnabled = Boolean(SESSION_ACCESS_TOKEN_SECRET);
 const sessionAuthService = sessionAuthEnabled ? createSessionAuthService({
   mongoose, Session, RefreshToken, User,
@@ -232,6 +245,9 @@ async function requireAuth(req, res, next) {
     const decoded = verifyAccessToken(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
+    if (user.passwordChangedAt && (!decoded.iat || decoded.iat * 1000 < user.passwordChangedAt.getTime())) {
+      return res.status(401).json({ error: 'Senha alterada. Entre novamente.' });
+    }
     req.user = user;
     return next();
   } catch {
@@ -347,6 +363,36 @@ app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionCsrf(req, res, next);
 }, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
+
+app.post('/api/auth/password-reset/request', passwordResetRequestLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const { email } = req.body || {};
+  if (typeof email !== 'string' || email.length > 254) {
+    return res.status(202).json({ message: 'Se o endereço estiver cadastrado, você receberá instruções para redefinir a senha.' });
+  }
+  if (!passwordResetService) {
+    return res.status(503).json({ error: 'Recuperação de senha ainda não está configurada neste ambiente.' });
+  }
+  try {
+    await passwordResetService.request(email);
+    return res.status(202).json({ message: 'Se o endereço estiver cadastrado, você receberá instruções para redefinir a senha.' });
+  } catch {
+    return res.status(202).json({ message: 'Se o endereço estiver cadastrado, você receberá instruções para redefinir a senha.' });
+  }
+});
+
+app.post('/api/auth/password-reset/confirm', passwordResetConfirmLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!passwordResetService) return res.status(503).json({ error: 'Recuperação de senha ainda não está configurada neste ambiente.' });
+  try {
+    const { token, newPassword } = req.body || {};
+    const result = await passwordResetService.reset({ token, newPassword });
+    if (!result.ok) return res.status(400).json({ error: 'Link inválido, expirado ou já utilizado. Solicite uma nova recuperação.' });
+    return res.json({ message: 'Senha alterada com sucesso. Entre novamente com sua nova senha.' });
+  } catch {
+    return res.status(400).json({ error: 'Não foi possível redefinir a senha. Solicite um novo link.' });
+  }
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
