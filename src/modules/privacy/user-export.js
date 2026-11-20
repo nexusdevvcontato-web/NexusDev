@@ -19,7 +19,21 @@ function buildCommentExport(comments) {
   });
 }
 
-function buildUserDataExport(user, comments = []) {
+function buildSessionExport(sessions) {
+  if (!Array.isArray(sessions)) throw new TypeError('Sessions must be an array');
+  return sessions.map((session) => {
+    if (!session || typeof session !== 'object') throw new TypeError('Invalid session');
+    const result = {};
+    const id = session._id ?? session.id;
+    if (id !== undefined && id !== null) result.id = String(id);
+    for (const field of ['createdAt', 'lastUsedAt', 'expiresAt', 'revokedAt', 'revokeReason']) {
+      if (session[field] !== undefined) result[field] = session[field];
+    }
+    return result;
+  });
+}
+
+function buildUserDataExport(user, comments = [], sessions = []) {
   if (!user || typeof user !== 'object') throw new TypeError('User data is required');
   const source = typeof user.toObject === 'function' ? user.toObject() : user;
   const result = {};
@@ -35,8 +49,9 @@ function buildUserDataExport(user, comments = []) {
     schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     data: result,
-    comments: buildCommentExport(comments)
+    comments: buildCommentExport(comments),
+    sessions: buildSessionExport(sessions)
   };
 }
 
-module.exports = { buildUserDataExport, buildCommentExport };
+module.exports = { buildUserDataExport, buildCommentExport, buildSessionExport };
