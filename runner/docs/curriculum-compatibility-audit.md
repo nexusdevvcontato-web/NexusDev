@@ -151,3 +151,18 @@ A classificação dos quatro desafios foi elevada para “Compatível com ressal
 - The auth middleware reloads the account from MongoDB for every authenticated request; the JWT role claim is not used for authorization.
 - Current API routes do not expose a dedicated administrative action surface. Admin role currently changes the comment badge only; an RBAC middleware should be added before any privileged routes are introduced.
 - Password reset/change and account recovery endpoints are not present. Do not assume these flows are supported.
+
+
+## MongoDB integrity and ownership review (2026-11-20)
+
+Static inspection of `server.js` found:
+
+- Authenticated routes reload the account by the verified token subject; progress and certificate mutations target only `req.user._id`.
+- No endpoint passes a request body directly to `User.update*`, `findOneAndUpdate`, or `save`; user mutations are assembled from explicit fields. Comment author and badge are derived from the persisted authenticated user, not caller-supplied fields.
+- XP completion is guarded by `{ _id, completedIds: { $ne: challengeId } }` and `$addToSet` + `$inc` in one atomic update, preventing concurrent duplicate XP awards for one challenge (assuming normal MongoDB atomic single-document update semantics).
+- Certificate generation now uses `crypto.randomBytes(10)` (80 bits) rather than `Math.random`. Public certificate and leaderboard completion counts now count unique IDs present in the trusted curriculum allowlist, not raw array length.
+- Email and certificate fields declare unique/sparse unique indexes in the Mongoose schema. Whether those indexes exist in the actual database was not verifiable without connecting to it; confirm index creation/state before production use. No index migration or live DB operation was performed.
+- Certificate validation intentionally exposes the student name, XP, issue date, and portfolio URLs to anyone holding the certificate code. Treat these as public certificate data; obtain user consent in the product UI before publishing portfolio links.
+- Remaining data-integrity concerns: login/Google streak updates use read-modify-save and may lose increments under concurrent requests; streak semantics currently increment once per calendar date rather than verifying consecutive days. This should be corrected separately with an atomic update and explicit product rule.
+
+Validation scope: code inspection and unit tests only. No real MongoDB instance, production data, index catalog, backups, migrations, or deployment were accessed.
