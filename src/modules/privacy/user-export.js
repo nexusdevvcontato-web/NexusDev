@@ -1,7 +1,7 @@
 const EXPORT_FIELDS = Object.freeze([
   'id', 'name', 'email', 'avatar', 'role',
   'xp', 'streak', 'lastActiveDate', 'completedIds', 'savedCodeMap',
-  'certificateCode', 'certificateIssuedAt', 'githubUrl', 'liveUrl',
+  'certificateCode', 'certificateIssuedAt', 'githubUrl', 'liveUrl', 'privacyPreferences',
   'createdAt', 'updatedAt'
 ]);
 
