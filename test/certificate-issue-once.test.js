@@ -31,3 +31,27 @@ test('returns null when account is missing', async () => {
   const User = { async findOneAndUpdate() { return null; }, async findById() { return null; } };
   assert.equal(await issueCertificateOnce(User, 'missing', 'NXD-X', new Date()), null);
 });
+
+
+test('retries a duplicate certificate-code index collision with a fresh code', async () => {
+  const issued = { _id: 'u1', certificateCode: 'NXD-FRESH', certificateIssuedAt: new Date() };
+  const attempted = [];
+  const User = {
+    async findOneAndUpdate(query, update) {
+      attempted.push(update.$set.certificateCode);
+      if (attempted.length === 1) { const error = new Error('duplicate'); error.code = 11000; throw error; }
+      return issued;
+    },
+    async findById() { assert.fail('successful retry should return issued document'); }
+  };
+  const result = await issueCertificateOnce(User, 'u1', 'NXD-COLLISION', issued.certificateIssuedAt, () => 'NXD-FRESH');
+  assert.equal(result, issued);
+  assert.deepEqual(attempted, ['NXD-COLLISION', 'NXD-FRESH']);
+});
+
+test('does not retry non-duplicate database errors', async () => {
+  let calls = 0;
+  const User = { async findOneAndUpdate() { calls += 1; throw new Error('database unavailable'); } };
+  await assert.rejects(() => issueCertificateOnce(User, 'u1', 'NXD-X', new Date(), () => 'NXD-Y'), /database unavailable/);
+  assert.equal(calls, 1);
+});
