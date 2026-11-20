@@ -77,3 +77,13 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 - `src/modules/privacy/deletion-readiness.js` fornece uma barreira fail-closed reutilizável: só considera o fluxo pronto quando reautenticação, janela de cancelamento, política de retenção, ciclo de backups, trilha de auditoria, execução transacional e decisões de certificados/comentários estiverem explicitamente configurados.
 - Essa função não apaga nem altera dados e ainda não está ligada a uma rota. Nenhum endpoint de exclusão foi criado.
 - Não foram definidos prazos numéricos de retenção sem base operacional/jurídica, e nenhum job automático de limpeza foi criado.
+
+
+## Revisão complementar — exposição pública e cache
+
+- A consulta pública de certificado agora usa projeção explícita dos campos necessários à resposta, em vez de carregar o documento completo do usuário.
+- A rota pública do ranking e a rota autenticada de emissão de certificado enviam Cache-Control: no-store, assim como já ocorre na consulta pública de certificado e na leitura de comentários.
+- A resposta pública de certificado respeita showCertificateDetails=false: mantém apenas a validade e o código, sem nome, XP, progresso ou links.
+- Os testes HTTP de integração verificam cabeçalhos no-store do ranking, da emissão e da consulta de certificado, além da ocultação dos campos pessoais.
+- O conteúdo de comentários permanece público por decisão funcional atual. A remoção/anonimização por titular não foi ativada porque ainda falta decisão de produto entre remoção e anonimização, e não há política aprovada para comentários legados sem authorUserId.
+- Nenhuma conta, comentário ou certificado existente foi alterado por esta revisão.
