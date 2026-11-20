@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSessionRefreshService } = require('../src/modules/auth/session-refresh-service');
-const { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, createCsrfToken } = require('../src/modules/auth/session-http-policy');
+const { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, createCsrfToken } = require('../src/modules/auth/session-http-policy');\nconst { hashSessionCsrfToken } = require('../src/modules/auth/session-csrf-token');\nconst { hashRefreshToken } = require('../src/modules/auth/refresh-token');
 
 function makeRes() {
   return {
