@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = typeof sourceUri === 'string' && sourceUri.length > 0;
@@ -31,6 +32,33 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     const base = `http://127.0.0.1:${server.address().port}`;
     const origin = 'https://app.example.test';
+
+    // Password-reset requests are limited both by client IP and by normalized email.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const resetRequest = await request('/api/auth/password-reset/request', {
+        method: 'POST', body: { email: 'target@example.test' }
+      });
+      assert.equal(resetRequest.response.status, 503);
+    }
+    const throttledResetRequest = await request('/api/auth/password-reset/request', {
+      method: 'POST', body: { email: 'target@example.test' }
+    });
+    assert.equal(throttledResetRequest.response.status, 429);
+
+    // Legacy access tokens issued before a password change must stop working.
+    const User = mongoose.model('User');
+    const legacyUser = await User.create({
+      name: 'Legacy Student', email: 'legacy-password@example.test', passwordHash: 'test-hash'
+    });
+    const legacyToken = jwt.sign(
+      { id: legacyUser._id.toString() }, process.env.JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '30d' }
+    );
+    assert.equal((await request('/api/me', { token: legacyToken })).response.status, 200);
+    await User.updateOne(
+      { _id: legacyUser._id }, { $set: { passwordChangedAt: new Date(Date.now() + 1000) } }
+    );
+    assert.equal((await request('/api/me', { token: legacyToken })).response.status, 401);
 
     const request = async (path, { method = 'GET', body, token, cookies = [], csrf } = {}) => {
       const headers = { Origin: origin };
