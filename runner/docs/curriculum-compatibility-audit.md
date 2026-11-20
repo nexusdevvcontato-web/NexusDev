@@ -142,3 +142,12 @@ O avaliador não aceita padrões regex arbitrários, flags, construtores RegExp,
 Os casos confiáveis foram ampliados para limites de senha, tipos incorretos, campos ausentes, preço `Infinity`, cabeçalhos com espaços repetidos, tabulações e quebras de linha. Entradas não finitas só são admitidas como fixtures internas confiáveis para testar `Number.isFinite`; resultados não finitos continuam rejeitados pelo avaliador. O CI do commit `bf09448` (incluindo o caso de preço `Infinity`) concluiu com **93 testes aprovados e zero falhas**.
 
 A classificação dos quatro desafios foi elevada para “Compatível com ressalva” no escopo do avaliador local. Isso não valida autenticação JWT real, não substitui `jwt.verify`, não faz hash de senha e não libera integração do runner, prova de conclusão ou XP.
+
+
+## Backend authentication and authorization review
+
+- Access tokens now use validated `JWT_EXPIRES_IN` (default `30d`, maximum `365d`) and explicit HS256 signing/verification.
+- Bearer parsing rejects malformed headers, multiple tokens, and trailing authorization data.
+- The auth middleware reloads the account from MongoDB for every authenticated request; the JWT role claim is not used for authorization.
+- Current API routes do not expose a dedicated administrative action surface. Admin role currently changes the comment badge only; an RBAC middleware should be added before any privileged routes are introduced.
+- Password reset/change and account recovery endpoints are not present. Do not assume these flows are supported.
