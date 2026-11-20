@@ -199,23 +199,6 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const leaderboard = await request('/api/leaderboard');
     assert.equal(leaderboard.response.status, 200);
     assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
-    const bCertificateCode = 'NXD-2026-TEST-700-BBCDEF1234567890';
-    await User.updateOne({ _id: (await request('/api/me', { token: b.accessToken })).payload.id }, {
-      $set: { certificateCode: bCertificateCode, certificateIssuedAt: new Date() }
-    });
-    const publicCertificate = await request('/api/certificates/' + bCertificateCode);
-    assert.equal(publicCertificate.payload.valid, true);
-    assert.equal(publicCertificate.payload.publicDetails, true);
-    assert.equal(publicCertificate.payload.studentName, 'Integration Student');
-    const bId = (await request('/api/me', { token: b.accessToken })).payload.id;
-    await User.updateOne({ _id: bId }, { $set: { 'privacyPreferences.showCertificateDetails': false } });
-    const optedOutCertificate = await request('/api/certificates/' + bCertificateCode);
-    assert.equal(optedOutCertificate.payload.valid, true);
-    assert.equal(optedOutCertificate.payload.publicDetails, false);
-    for (const field of ['studentName', 'completedCount', 'xp', 'issuedAt', 'githubUrl', 'liveUrl']) {
-      assert.equal(Object.hasOwn(optedOutCertificate.payload, field), false, field);
-    }
-
     const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
       method: 'POST', token: a.accessToken, body: { text: 'Comentário de teste de privacidade.' }
     });
@@ -278,6 +261,24 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactB.payload.comments.linkedCount, 0);
     assert.equal(impactB.payload.completionProofs.count, 0);
     assert.equal(impactB.payload.certificate.present, false);
+
+    const bCertificateCode = 'NXD-2026-TEST-700-BBCDEF1234567890';
+    await User.updateOne({ _id: (await request('/api/me', { token: b.accessToken })).payload.id }, {
+      $set: { certificateCode: bCertificateCode, certificateIssuedAt: new Date() }
+    });
+    const publicCertificate = await request('/api/certificates/' + bCertificateCode);
+    assert.equal(publicCertificate.payload.valid, true);
+    assert.equal(publicCertificate.payload.publicDetails, true);
+    assert.equal(publicCertificate.payload.studentName, 'Integration Student');
+    const bId = (await request('/api/me', { token: b.accessToken })).payload.id;
+    await User.updateOne({ _id: bId }, { $set: { 'privacyPreferences.showCertificateDetails': false } });
+    const optedOutCertificate = await request('/api/certificates/' + bCertificateCode);
+    assert.equal(optedOutCertificate.payload.valid, true);
+    assert.equal(optedOutCertificate.payload.publicDetails, false);
+    for (const field of ['studentName', 'completedCount', 'xp', 'issuedAt', 'githubUrl', 'liveUrl']) {
+      assert.equal(Object.hasOwn(optedOutCertificate.payload, field), false, field);
+    }
+
 
     const impactSerialized = JSON.stringify(impactA.payload);
     for (const forbidden of [
