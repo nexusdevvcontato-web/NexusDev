@@ -9,14 +9,15 @@ const image = 'ghcr.io/nexusdev/runner@sha256:' + 'a'.repeat(64);
 test('builds a fixed hardened Docker argument vector for an immutable image', () => {
   const args = buildDockerArgs({ image, workspace: '/var/lib/nexusdev/jobs/job-1' });
   for (const flag of [
-    '--network=none', '--read-only', '--cap-drop=ALL',
+    '--network=none', '--read-only', '--cap-drop=ALL', '--pull=never', '--ipc=private', '--shm-size=16m',
     '--security-opt=no-new-privileges:true', '--user=10001:10001',
     '--pids-limit=64', '--memory=128m', '--memory-swap=128m',
     '--cpus=0.5', '--ulimit=nofile=64:64',
     '--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=16m',
     '--mount=type=bind,src=/var/lib/nexusdev/jobs/job-1,dst=/workspace,readonly'
   ]) assert.ok(args.includes(flag), flag);
-  assert.equal(args.at(-2), 'node');
+  assert.equal(args.at(-3), 'node');
+  assert.equal(args.at(-2), '/opt/nexusdev/execute.js');
   assert.equal(args.at(-1), '--timeout-ms=5000');
   assert.ok(Object.isFrozen(args));
   assert.equal(DEFAULT_LIMITS.pids, '64');
