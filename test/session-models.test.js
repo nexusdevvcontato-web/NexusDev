@@ -15,7 +15,8 @@ test('defines session persistence models and indexes', () => {
       index(fields, options) { this.indexes.push({ fields, options }); }
     },
     models,
-    model(name, schema) { models[name] = { schema }; return models[name]; }
+    model(name, schema) { models[name] = { schema }; return models[name]; },
+    connection: { models, model(name, schema) { models[name] = { schema }; return models[name]; } }
   };
   const result = createSessionModels(mongoose);
   assert.ok(result.Session);
