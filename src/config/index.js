@@ -2,7 +2,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const PORT = Number(process.env.PORT || 5000);
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
-const REAUTH_TOKEN_SECRET = process.env.REAUTH_TOKEN_SECRET || '';
+const REAUTH_TOKEN_SECRET = process.env.REAUTH_TOKEN_SECRET || '';\nconst SESSION_ACCESS_TOKEN_SECRET = process.env.SESSION_ACCESS_TOKEN_SECRET || '';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const LESSON_PROOF_PUBLIC_KEY = process.env.LESSON_PROOF_PUBLIC_KEY || '';
@@ -30,7 +30,7 @@ if (typeof JWT_SECRET !== 'string' || JWT_SECRET.length < 32 ||
 if (REAUTH_TOKEN_SECRET && (REAUTH_TOKEN_SECRET.length < 32 || REAUTH_TOKEN_SECRET === JWT_SECRET || REAUTH_TOKEN_SECRET.includes('REPLACE_WITH'))) {
   throw new Error('REAUTH_TOKEN_SECRET deve ser distinto, aleatório e conter pelo menos 32 caracteres.');
 }
-if (!jwtDuration || jwtLifetimeSeconds > 365 * 24 * 60 * 60) {
+if (SESSION_ACCESS_TOKEN_SECRET && (SESSION_ACCESS_TOKEN_SECRET.length < 32 || SESSION_ACCESS_TOKEN_SECRET === JWT_SECRET || SESSION_ACCESS_TOKEN_SECRET === REAUTH_TOKEN_SECRET || SESSION_ACCESS_TOKEN_SECRET.includes('REPLACE_WITH'))) {\n  throw new Error('SESSION_ACCESS_TOKEN_SECRET deve ser distinto, aleatório e conter pelo menos 32 caracteres.');\n}\nif (!jwtDuration || jwtLifetimeSeconds > 365 * 24 * 60 * 60) {
   throw new Error('JWT_EXPIRES_IN deve usar s, m, h ou d e não pode exceder 365 dias.');
 }
 if (NODE_ENV === 'production' && configuredOrigins.length === 0) {
@@ -45,7 +45,7 @@ module.exports = Object.freeze({
   PORT,
   MONGO_URI,
   JWT_SECRET,
-  REAUTH_TOKEN_SECRET,
+  REAUTH_TOKEN_SECRET,\n  SESSION_ACCESS_TOKEN_SECRET,
   JWT_EXPIRES_IN,
   GOOGLE_CLIENT_ID,
   LESSON_PROOF_PUBLIC_KEY,
