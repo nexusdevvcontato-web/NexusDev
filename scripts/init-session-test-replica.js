@@ -12,7 +12,10 @@ if (!['127.0.0.1', 'localhost'].includes(parsed.hostname) ||
 }
 
 async function main() {
-  const connection = await mongoose.createConnection(uri, {
+  const initUrl = new URL(uri);
+  initUrl.searchParams.delete('replicaSet');
+  initUrl.searchParams.set('directConnection', 'true');
+  const connection = await mongoose.createConnection(initUrl.toString(), {
     serverSelectionTimeoutMS: 5000
   }).asPromise();
   try {
