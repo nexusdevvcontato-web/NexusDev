@@ -142,9 +142,12 @@ function executeFunction(fn, args, budget, options = {}) {
         if (object && typeof object === 'object' && !Array.isArray(object) &&
             [null, Object.prototype].includes(Object.getPrototypeOf(object)) &&
             typeof node.property.name === 'string' &&
-            !['__proto__', 'prototype', 'constructor'].includes(node.property.name) &&
-            Object.prototype.hasOwnProperty.call(object, node.property.name)) {
-          return object[node.property.name];
+            !['__proto__', 'prototype', 'constructor'].includes(node.property.name)) {
+          // Plain-object reads follow JavaScript semantics: absent own keys yield undefined.
+          // Prototype traversal remains impossible because only own data is read.
+          return Object.prototype.hasOwnProperty.call(object, node.property.name)
+            ? object[node.property.name]
+            : undefined;
         }
         throw new EvaluationError('unsupported-member');
       }
