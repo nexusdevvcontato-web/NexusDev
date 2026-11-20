@@ -64,7 +64,7 @@ function createSessionAccessMiddleware({ User, Session, secret, now = () => new 
     if (typeof header !== 'string') {
       return res.status(401).json({ error: 'Token de sessão ausente.' });
     }
-    const match = /^Bearer ([A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)$/i.exec(header);
+    const match = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(header);
     if (!match) return res.status(401).json({ error: 'Token de sessão inválido.' });
     const claims = verifySessionAccessToken(match[1], {
       secret,
