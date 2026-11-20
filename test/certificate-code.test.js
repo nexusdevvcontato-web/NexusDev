@@ -2,17 +2,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { generateCertificateCode } = require('../src/modules/certificates/code');
 
-test('generates certificate codes with an 80-bit cryptographic random suffix', () => {
+test('generates opaque certificate codes with 128 bits of cryptographic randomness', () => {
   const code = generateCertificateCode('Ana Silva', 700);
-  assert.match(code, /^NXD-2026-ANASIL-700-[A-F0-9]{20}$/);
+  assert.match(code, /^NXD-[A-F0-9]{32}$/);
+  assert.equal(code.includes('ANASIL'), false);
 });
 
-test('normalizes missing or unsafe names and invalid completion counts', () => {
-  assert.match(generateCertificateCode('!!!', -1), /^NXD-2026-DEV-000-[A-F0-9]{20}$/);
-  assert.match(generateCertificateCode(null, 1.5), /^NXD-2026-ALUNO-000-[A-F0-9]{20}$/);
+test('does not encode names or completion counts in generated codes', () => {
+  const first = generateCertificateCode('Ana Silva', 700);
+  const second = generateCertificateCode('Pessoa Diferente', 1);
+  assert.match(first, /^NXD-[A-F0-9]{32}$/);
+  assert.match(second, /^NXD-[A-F0-9]{32}$/);
 });
 
 test('does not repeat certificate codes across a batch of generated values', () => {
-  const codes = new Set(Array.from({ length: 1000 }, () => generateCertificateCode('Teste', 700)));
+  const codes = new Set(Array.from({ length: 1000 }, () => generateCertificateCode()));
   assert.equal(codes.size, 1000);
 });
