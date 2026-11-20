@@ -24,9 +24,11 @@ test('revision accepts only non-negative safe integers', () => {
 function harness() {
   let stored = null;
   const calls = [];
+  const reads = [];
   const User = {
     async findOneAndUpdate(filter, update, options) {
       calls.push({ filter, update, options });
+      assert.equal(filter._id, 'user-1', 'draft writes must be scoped to the authenticated user');
       const revision = stored?.revision;
       const matches = filter.$or
         ? filter.$or.some(condition => condition['savedDraftMap.mod-1-aula-1.revision'] === revision ||
@@ -36,10 +38,13 @@ function harness() {
       stored = update.$set['savedDraftMap.mod-1-aula-1'];
       return { _id: 'user-1' };
     },
-    findById() { return { lean: async () => ({ savedDraftMap: stored ? { 'mod-1-aula-1': stored } : {} }) }; }
+    findById(userId) {
+      reads.push(userId);
+      return { lean: async () => ({ savedDraftMap: stored ? { 'mod-1-aula-1': stored } : {} }) };
+    }
   };
   const service = createLessonDraftService({ User, now: () => new Date('2026-11-20T12:00:00.000Z') });
-  return { service, calls, get stored() { return stored; } };
+  return { service, calls, reads, get stored() { return stored; } };
 }
 
 test('first draft save creates revision one using a compare-and-swap filter', async () => {
@@ -48,6 +53,7 @@ test('first draft save creates revision one using a compare-and-swap filter', as
   assert.equal(result.ok, true);
   assert.equal(result.draft.revision, 1);
   assert.ok(h.calls[0].filter.$or);
+  assert.equal(h.calls[0].filter._id, 'user-1');
 });
 
 test('draft updates increment only the expected revision and stale writers receive latest data', async () => {
@@ -66,6 +72,7 @@ test('draft updates increment only the expected revision and stale writers recei
 test('draft read returns an empty revision without leaking another user scope', async () => {
   const h = harness();
   assert.deepEqual(await h.service.read('user-1', 'mod-1-aula-1'), { revision: 0, files: null, updatedAt: null });
+  assert.deepEqual(h.reads, ['user-1']);
 });
 
 test('stored malformed drafts fail closed instead of appearing as an empty revision', async () => {
