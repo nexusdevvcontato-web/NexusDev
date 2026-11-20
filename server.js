@@ -248,7 +248,7 @@ app.post('/api/auth/session/register', authLimiter, async (req, res) => {
     if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 80 ||
         typeof email !== 'string' || email.length > 254 ||
         typeof password !== 'string' || password.length < 8 || password.length > 128 ||
-        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({ error: 'Informe nome, e-mail e senha válidos.' });
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -274,7 +274,7 @@ app.post('/api/auth/session/login', authLimiter, async (req, res) => {
     const { email, password } = req.body || {};
     if (typeof email !== 'string' || email.length > 254 ||
         typeof password !== 'string' || password.length < 1 || password.length > 128 ||
-        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
     }
     const user = await User.findOne({ email: email.trim().toLowerCase() });
