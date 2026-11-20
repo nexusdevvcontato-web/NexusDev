@@ -130,3 +130,13 @@ O módulo `evaluateDeletionReadiness` agora exige, além dos controles anteriore
 Cada controle precisa ser explicitamente `true`; valores truthy, ausência de campo ou decisões desconhecidas não satisfazem a barreira. As decisões de certificado e comentário legado continuam em allowlists fechadas.
 
 **Importante:** os campos de prontidão são declarações de aprovação/teste para a futura implementação; não representam testes já realizados nem acionam exclusão. Nenhuma rota de exclusão, job de limpeza ou alteração de dados foi criada.
+
+
+## 11. Preparação técnica para limpeza transacional de sessões
+
+- Os novos registros de refresh token passam a carregar `userId` além de `sessionId`, permitindo localizar tokens de uma conta mesmo quando a sessão correspondente já tiver expirado e sido removida pelo TTL.
+- O método interno `purgeUserRecords` executa, dentro de uma transação MongoDB, a remoção dos refresh tokens associados ao usuário (por `userId` e também pelos IDs das sessões encontradas) e das sessões do usuário.
+- O método não está conectado a nenhuma rota, job ou interface e não foi executado contra dados de staging/produção. Ele é preparação para uma futura rotina controlada, não uma autorização para apagar contas.
+- Tokens antigos criados antes da inclusão de `userId` continuam localizáveis enquanto a sessão correspondente existir. Se uma sessão antiga já tiver sido removida por TTL, o token antigo depende do seu próprio TTL, que usa a mesma expiração da sessão.
+- A inicialização do backend agora aguarda a criação/verificação dos índices de `Session`, `RefreshToken` e `CompletionProof` antes de abrir a porta HTTP, para não aceitar tráfego antes dos índices TTL e de unicidade estarem disponíveis.
+- O teste de integração com replica set verifica remoção transacional, isolamento entre titulares e preservação da sessão de outra conta. A aprovação desse teste é necessária antes de considerar essa preparação validada.
