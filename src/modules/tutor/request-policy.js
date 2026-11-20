@@ -27,7 +27,7 @@ function validateTutorRequest(body) {
   let totalBytes = 0;
   const filesMap = {};
   for (const [name, content] of entries) {
-    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(name) || typeof content !== 'string') return { ok: false, error: 'Arquivo inválido.' };
+    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(name) || ['__proto__', 'prototype', 'constructor'].includes(name) || typeof content !== 'string') return { ok: false, error: 'Arquivo inválido.' };
     const bytes = Buffer.byteLength(content, 'utf8');
     if (bytes > MAX_FILE_BYTES) return { ok: false, error: 'Um dos arquivos excede 50 KB.' };
     totalBytes += bytes;
