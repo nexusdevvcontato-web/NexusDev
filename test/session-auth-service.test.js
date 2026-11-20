@@ -6,18 +6,19 @@ const { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } = require('../src/modules/auth/s
 test('session auth service sets HttpOnly refresh cookie and readable CSRF cookie without exposing refresh token', async () => {
   const now = new Date('2026-11-20T04:00:00.000Z');
   const cookies = [];
+  let createdSession;
   const service = createSessionAuthService({
     mongoose: { startSession() { return {
       async withTransaction(fn) { await fn(); },
       async endSession() {}
     }; } },
     Session: {
-      async create(docs) { return [{ ...docs[0], _id: '507f1f77bcf86cd799439012' }]; }
+      async create(docs) { createdSession = docs[0]; return [{ ...docs[0], _id: '507f1f77bcf86cd799439012' }]; }
     },
     RefreshToken: {
       async create() {}
     },
-    User: { async findById(id) { return { _id: id, name: 'Teste' }; } },
+    User: { async findById(id) { return { _id: id, name: 'Teste', authVersion: 3 }; } },
     accessTokenSecret: 'a'.repeat(48),
     now: () => now
   });
@@ -26,6 +27,7 @@ test('session auth service sets HttpOnly refresh cookie and readable CSRF cookie
     res: { cookie(name, value, options) { cookies.push({ name, value, options }); } }
   });
   assert.equal(result.status, 'created');
+  assert.equal(createdSession.authVersion, 3);
   assert.equal(typeof result.accessToken, 'string');
   assert.equal(Object.hasOwn(result, 'refreshToken'), false);
   assert.equal(cookies.length, 2);
