@@ -46,3 +46,19 @@ test('a later write failure aborts the transaction and releases the session', as
   await assert.rejects(() => completeLessonAtomically(input(deps)), /xp write failed/);
   assert.equal(deps.calls.includes('transaction:commit'), false); assert.equal(deps.calls.at(-1), 'session:end');
 });
+test('XP increment is guarded by an atomic not-yet-completed condition', async () => {
+  const deps = setup();
+  await completeLessonAtomically(input(deps));
+  const xpCall = deps.calls.find(x => Array.isArray(x) && x[0] === 'xp');
+  assert.deepEqual(xpCall[1], { _id: 'user-1', completedIds: { $ne: 'html-00-o-que-e-web' } });
+  assert.deepEqual(xpCall[2], { $addToSet: { completedIds: 'html-00-o-que-e-web' }, $inc: { xp: 50 } });
+  assert.deepEqual(xpCall[3], { new: true, session: xpCall[3].session });
+});
+
+test('daily streak increment is guarded by the stored activity date', async () => {
+  const deps = setup();
+  await completeLessonAtomically(input(deps));
+  const streakCall = deps.calls.find(x => Array.isArray(x) && x[0] === 'updateOne' && x[1].lastActiveDate);
+  assert.deepEqual(streakCall[1], { _id: 'user-1', lastActiveDate: { $ne: '2026-11-20' } });
+  assert.deepEqual(streakCall[2], { $inc: { streak: 1 }, $set: { lastActiveDate: '2026-11-20' } });
+});
