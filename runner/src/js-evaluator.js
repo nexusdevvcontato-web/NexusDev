@@ -208,25 +208,35 @@ function executeFunction(fn, args, budget, options = {}) {
               method === 'startsWith' ? target.startsWith(callArgs[0], callArgs[1]) :
               target.endsWith(callArgs[0], callArgs[1]);
           }
-          if (method === 'split' && callArgs.length <= 2) {
-            if (callArgs.length === 0) return [target];
-            if (typeof callArgs[0] !== 'string' || (callArgs.length === 2 && (!Number.isInteger(callArgs[1]) || callArgs[1] < 0))) {
+          if (method === 'split' && node.arguments.length <= 2) {
+            if (node.arguments.length === 0) return [target];
+            let separator;
+            const separatorNode = node.arguments[0];
+            if (separatorNode.type === 'Literal' && typeof separatorNode.value === 'string') {
+              separator = separatorNode.value;
+            } else if (separatorNode.type === 'Literal' && separatorNode.regex &&
+                separatorNode.regex.pattern === '\\s+' && separatorNode.regex.flags === '') {
+              // Deliberately allow only this fixed, linear whitespace pattern.
+              separator = /\\s+/;
+            } else {
               throw new EvaluationError('invalid-split-argument');
             }
-            const parts = target.split(callArgs[0], callArgs[1]);
+            const limit = node.arguments.length === 2 ? evalExpr(node.arguments[1], depth + 1) : undefined;
+            if (limit !== undefined && (!Number.isInteger(limit) || limit < 0)) throw new EvaluationError('invalid-split-argument');
+            const parts = target.split(separator, limit);
             if (parts.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
             return parts.map((part) => bounded(part));
           }
           throw new EvaluationError('unsupported-string-method');
         }
         if (!Array.isArray(target) || node.arguments.length < 1 ||
-            !['reduce', 'map', 'filter'].includes(method) ||
+            !['reduce', 'map', 'filter', 'some'].includes(method) ||
             node.arguments.length > (method === 'reduce' ? 2 : 1)) {
           throw new EvaluationError('unsupported-call-target');
         }
         const callback = node.arguments[0];
         if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type) || callback.async || callback.generator ||
-            callback.params.length < (method === 'reduce' ? 2 : 1) || callback.params.length > (method === 'reduce' ? 2 : 2) ||
+            callback.params.length < (method === 'reduce' ? 2 : 1) || callback.params.length > 2 ||
             callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-array-callback');
         if (method === 'reduce') {
           let accumulator;
@@ -246,10 +256,11 @@ function executeFunction(fn, args, budget, options = {}) {
           const callbackArgs = [target[index], index].slice(0, callback.params.length);
           const result = executeFunction(callback, callbackArgs, budget, { parentScope: scope });
           if (method === 'map') output.push(safeValue(result));
-          else if (result) output.push(target[index]);
+          else if (method === 'filter' && result) output.push(target[index]);
+          else if (method === 'some' && result) return true;
           if (output.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
         }
-        return output;
+        return method === 'some' ? false : output;
       }
       default: throw new EvaluationError('unsupported-expression');
     }
