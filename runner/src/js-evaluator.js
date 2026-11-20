@@ -180,7 +180,7 @@ function executeFunction(fn, args, budget, options = {}) {
               target.endsWith(callArgs[0], callArgs[1]);
           }
           if (method === 'split' && callArgs.length <= 2) {
-            if (callArgs.length === 0) return Array.from(target).slice(0, LIMITS.arrayLength);
+            if (callArgs.length === 0) { if (Array.from(target).length > LIMITS.arrayLength) throw new EvaluationError('array-limit'); return Array.from(target); }
             if (typeof callArgs[0] !== 'string' || (callArgs.length === 2 && (!Number.isInteger(callArgs[1]) || callArgs[1] < 0))) {
               throw new EvaluationError('invalid-split-argument');
             }
