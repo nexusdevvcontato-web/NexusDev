@@ -1,12 +1,12 @@
 # NexusDev trusted runner service (scaffold)
 
-This directory contains the trusted request boundary, a server-owned declarative challenge registry and RS256 proof signer for the future runner. It is **not an execution service** and intentionally exposes no HTTP endpoint or Docker control yet. The registry currently contains 17 authored lessons; generated placeholder lessons are not executable.
+This directory contains the trusted request boundary, a server-owned declarative challenge registry and RS256 proof signer for the future runner. It is **not an execution service** and intentionally exposes no HTTP endpoint or Docker control yet. The registry currently contains 20 authored lessons; generated placeholder lessons are not executable.
 
 ## Security boundary
 
 - Only the authenticated API may supply the user identity; the browser must never choose the proof subject.
-- Challenge IDs are resolved by `src/challenge-registry.js`; the registry currently contains 17 authored specifications with declarative checks. Unknown IDs and generated placeholder lessons are rejected before execution.
-- The current 17 checks cover basic HTML structure/text, JavaScript function cases, immutable cart behavior, React-style props/list/filter exercises, and an Express-style controller response. This is a trusted specification catalog, not yet an execution engine.
+- Challenge IDs are resolved by `src/challenge-registry.js`; the registry currently contains 20 authored specifications with declarative checks. Unknown IDs and generated placeholder lessons are rejected before execution.
+- The current 20 checks cover basic HTML structure/text, JavaScript function cases, immutable cart behavior, React-style props/list/filter exercises, Express-style route/controller, request validation and safe error formatting. This is a trusted specification catalog, not yet an execution engine.
 - Never accept tests, expected output, commands, image names, or container options from the request.
 - Input is bounded to 10 files, 50 KB per file and 200 KB total.
 - The proof signer creates RS256 JWTs for `nexusdev-runner` / `nexusdev-progress`, purpose `lesson-completion`, bound to one user and challenge, with a maximum 300-second lifetime.
@@ -18,7 +18,7 @@ There is no Docker invocation, queue, network listener, challenge test registry,
 
 ## Next integration gates
 
-1. Author and review trusted tests for the remaining 683 lessons before considering the 700-lesson curriculum complete or allowing certificate issuance.
+1. Author and review trusted tests for the remaining 680 lessons before considering the 700-lesson curriculum complete or allowing certificate issuance.
 2. Add an authenticated internal API-to-runner protocol with request IDs, replay protection, idempotency, queue/concurrency limits and audit events.
 3. Implement a fixed, digest-pinned job image and host-side Docker launcher. Never mount the Docker socket inside a job.
 4. Add adversarial isolation tests and verify the proof end-to-end against the API's public-key verifier.
