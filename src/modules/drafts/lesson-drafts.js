@@ -19,7 +19,7 @@ function validateDraftFiles(files) {
   for (const name of names) {
     const source = files[name];
     if (!MAX_FILE_NAME.test(name) || name.includes('..') ||
-        typeof source !== 'string' || source.includes('\\0')) {
+        typeof source !== 'string' || source.includes('\u0000')) {
       return { ok: false, error: 'Nome ou conteúdo de arquivo inválido.' };
     }
     const bytes = Buffer.byteLength(source, 'utf8');
