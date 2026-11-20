@@ -25,6 +25,8 @@ test('defines session persistence models and indexes', () => {
   assert.equal(models.Session.schema.definition.csrfTokenHash.required, true);
   assert.equal(models.Session.schema.definition.csrfTokenHash.select, false);
   assert.equal(models.RefreshToken.schema.definition.tokenHash.unique, true);
+  assert.equal(models.RefreshToken.schema.definition.userId.required, true);
+  assert.equal(models.RefreshToken.schema.definition.userId.index, true);
   assert.ok(models.Session.schema.indexes.some(index => index.options?.expireAfterSeconds === 0));
   assert.ok(models.RefreshToken.schema.indexes.some(index => index.options?.expireAfterSeconds === 0));
 });
