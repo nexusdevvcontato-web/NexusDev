@@ -39,7 +39,7 @@ test('retries a duplicate certificate-code index collision with a fresh code', a
   const User = {
     async findOneAndUpdate(query, update) {
       attempted.push(update.$set.certificateCode);
-      if (attempted.length === 1) { const error = new Error('duplicate'); error.code = 11000; throw error; }
+      if (attempted.length === 1) { const error = new Error('duplicate'); error.code = 11000; error.keyPattern = { certificateCode: 1 }; throw error; }
       return issued;
     },
     async findById() { assert.fail('successful retry should return issued document'); }
@@ -74,4 +74,22 @@ test('first issuance freezes a supplied certificate snapshot atomically', async 
   const result = await issueCertificateOnce(User, 'u1', 'NXD-X', issued.certificateIssuedAt, undefined, snapshot);
   assert.equal(result, issued);
   assert.deepEqual(update.$set, { ...snapshot, certificateCode: 'NXD-X', certificateIssuedAt: issued.certificateIssuedAt });
+});
+
+test('does not retry duplicate-key errors from unrelated unique indexes', async () => {
+  let calls = 0;
+  const User = {
+    async findOneAndUpdate() {
+      calls += 1;
+      const error = new Error('duplicate email');
+      error.code = 11000;
+      error.keyPattern = { email: 1 };
+      throw error;
+    }
+  };
+  await assert.rejects(
+    () => issueCertificateOnce(User, 'u1', 'NXD-X', new Date(), () => 'NXD-Y'),
+    /duplicate email/
+  );
+  assert.equal(calls, 1);
 });
