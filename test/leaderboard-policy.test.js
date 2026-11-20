@@ -27,9 +27,19 @@ test('avatar URLs must be HTTPS', () => {
   assert.equal(normalizePublicAvatar('https://example.com/a.png'), 'https://example.com/a.png');
 });
 
-test('ranking is capped at 15 entries and ranks are contiguous', () => {
+test('ranking is capped at 15 visible entries and ranks are contiguous', () => {
   const users = Array.from({ length: 20 }, (_, index) => ({ name: 'Aluno ' + index, xp: 100 - index, streak: 0 }));
   const result = buildLeaderboard(users);
   assert.equal(result.length, 15);
   assert.deepEqual(result.map(entry => entry.rank), Array.from({ length: 15 }, (_, index) => index + 1));
+});
+
+test('opted-out users are filtered even when the builder receives unfiltered data', () => {
+  const result = buildLeaderboard([
+    { name: 'Oculto', xp: 1000, privacyPreferences: { showInLeaderboard: false } },
+    { name: 'Visível', xp: 100, privacyPreferences: { showInLeaderboard: true } },
+    { name: 'Legado', xp: 50 }
+  ]);
+  assert.deepEqual(result.map(entry => entry.name), ['Visível', 'Legado']);
+  assert.deepEqual(result.map(entry => entry.rank), [1, 2]);
 });

@@ -15,7 +15,8 @@ function normalizePublicAvatar(value) {
 function buildLeaderboard(users) {
   if (!Array.isArray(users)) return [];
   return users
-    .filter(user => user && typeof user.xp === 'number' && Number.isSafeInteger(user.xp) && user.xp >= 0)
+    .filter(user => user && user.privacyPreferences?.showInLeaderboard !== false)
+    .filter(user => typeof user.xp === 'number' && Number.isSafeInteger(user.xp) && user.xp >= 0)
     .slice(0, 15)
     .map((user, index) => ({
       rank: index + 1,
