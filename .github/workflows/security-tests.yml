@@ -20,8 +20,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Generate reproducible dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Start disposable MongoDB replica set
         run: |
           docker run --rm -d --name nexusdev-session-mongo -p 27017:27017 mongo:7.0@sha256:884c055bff8b7144ca44830d01826facd3083b33c4dea44b94a1476c62de3c32 --replSet rs0 --bind_ip_all
@@ -40,3 +42,11 @@ jobs:
       - name: Stop disposable MongoDB
         if: always()
         run: docker rm -f nexusdev-session-mongo || true
+      - name: Publish generated lockfile for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 3
