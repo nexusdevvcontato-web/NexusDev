@@ -1,8 +1,8 @@
 function isCertificateCodeDuplicateKey(error) {
-  return error?.code === 11000 && (
+  return Boolean(error?.code === 11000 && (
     error?.keyPattern?.certificateCode === 1 ||
-    error?.keyValue && Object.prototype.hasOwnProperty.call(error.keyValue, 'certificateCode')
-  );
+    (error?.keyValue && Object.prototype.hasOwnProperty.call(error.keyValue, 'certificateCode'))
+  ));
 }
 
 async function createUserWithCertificateCode(UserModel, userData, generateCode, maxAttempts = 3) {
