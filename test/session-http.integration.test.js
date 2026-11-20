@@ -247,6 +247,35 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(finalDraftB.payload.draft.files['index.html'], '<h1>account B</h1>');
     const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
     assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
+    assert.deepEqual(preferences.payload.preferences, {
+      showInLeaderboard: true,
+      showCertificateDetails: true
+    });
+    const updatePreferences = await request('/api/privacy/preferences', {
+      method: 'PUT', token: a.accessToken,
+      body: { showInLeaderboard: false, showCertificateDetails: false }
+    });
+    assert.equal(updatePreferences.response.status, 200);
+    assert.deepEqual(updatePreferences.payload.preferences, {
+      showInLeaderboard: false,
+      showCertificateDetails: false
+    });
+    const persistedPreferences = await request('/api/privacy/preferences', { token: a.accessToken });
+    assert.deepEqual(persistedPreferences.payload.preferences, updatePreferences.payload.preferences);
+    const invalidPreferences = await request('/api/privacy/preferences', {
+      method: 'PUT', token: a.accessToken,
+      body: { showInLeaderboard: 'false', isAdmin: true }
+    });
+    assert.equal(invalidPreferences.response.status, 400);
+    assert.deepEqual(
+      (await request('/api/privacy/preferences', { token: a.accessToken })).payload.preferences,
+      updatePreferences.payload.preferences
+    );
+    const restorePreferences = await request('/api/privacy/preferences', {
+      method: 'PUT', token: a.accessToken,
+      body: { showInLeaderboard: true, showCertificateDetails: true }
+    });
+    assert.equal(restorePreferences.response.status, 200);
     const anonymousPreferences = await request('/api/privacy/preferences');
     assert.equal(anonymousPreferences.response.status, 401);
     assert.match(anonymousPreferences.response.headers.get('cache-control') || '', /no-store/i);
@@ -392,6 +421,13 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       'tokenHash', 'authorUserId', 'internalSecret'
     ]) assert.equal(exportSerialized.includes(forbidden), false, forbidden);
     assert.ok(exportA.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
+    const exportB = await request('/api/privacy/export', { token: b.accessToken });
+    assert.equal(exportB.response.status, 200);
+    assert.equal(exportB.payload.comments.length, 0);
+    assert.equal(exportB.payload.sessions.length, 1);
+    assert.equal(exportB.payload.data.savedDraftMap['html-00-o-que-e-web'], undefined);
+    assert.equal(JSON.stringify(exportB.payload).includes('Comentário de teste de privacidade.'), false);
+    assert.equal(JSON.stringify(exportB.payload).includes('<h1>account A</h1>'), false);
 
     await User.updateOne({ _id: aProfile.payload.id }, {
       $set: { name: 'Leaderboard Optout A', xp: 999999, 'privacyPreferences.showInLeaderboard': false }
