@@ -127,3 +127,18 @@ Nenhum servidor Express é iniciado. O mock não oferece `send`, `redirect`, hea
 O CI do commit `762f479` concluiu com 88 testes aprovados e zero falhas. Isso confirma a suíte automatizada do branch, não a compatibilidade dos arquivos auxiliares do exercício Node nem a segurança de um ambiente de execução real.
 
 **Estado atual substitui as observações históricas anteriores:** os dois desafios de controller deixam de estar totalmente bloqueados, mas permanecem com ressalvas de escopo. A facade continua exigindo exatamente um arquivo por desafio.
+
+
+## Atualização — validação de cadastro e parsing de autenticação (2026-11-20)
+
+O subconjunto JavaScript recebeu primitivas explícitas para quatro desafios:
+- `mod-4-aula-3`: `String.trim()` e `Number.isFinite()` para validar título e preço.
+- `mod-5-aula-4`: uma única expressão regular fixa para formato plausível de e-mail, além de limites de nome e senha.
+- `mod-5-aula-5`: somente três padrões fixos para detectar maiúscula, minúscula e dígito; o tamanho permitido continua entre 8 e 128.
+- `mod-5-aula-6`: parsing do esquema Bearer com comparação case-insensitive, exatamente um separador e rejeição de whitespace no token.
+
+O avaliador não aceita padrões regex arbitrários, flags, construtores RegExp, métodos arbitrários ou execução de globals. `Number.isFinite` é uma exceção explicitamente tratada; o identificador global `Number` não é exposto ao programa.
+
+Os casos confiáveis foram ampliados para limites de senha, tipos incorretos, campos ausentes, cabeçalhos com espaços repetidos, tabulações e quebras de linha. O CI do commit `1947ae4` concluiu com **93 testes aprovados e zero falhas**.
+
+A classificação dos quatro desafios foi elevada para “Compatível com ressalva” no escopo do avaliador local. Isso não valida autenticação JWT real, não substitui `jwt.verify`, não faz hash de senha e não libera integração do runner, prova de conclusão ou XP.
