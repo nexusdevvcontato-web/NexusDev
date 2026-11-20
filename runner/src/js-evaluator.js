@@ -164,7 +164,9 @@ function executeFunction(fn, args, budget, options = {}) {
         }
         const method = node.callee.property.name;
         const target = evalExpr(node.callee.object, depth + 1);
-        const callArgs = node.arguments.map((arg) => evalExpr(arg, depth + 1));
+        const callArgs = typeof target === 'string'
+          ? node.arguments.map((arg) => evalExpr(arg, depth + 1))
+          : node.arguments.slice(1).map((arg) => evalExpr(arg, depth + 1));
         if (typeof target === 'string') {
           if (['trim', 'toLowerCase', 'toUpperCase'].includes(method) && callArgs.length === 0) {
             const result = method === 'trim' ? target.trim() :
@@ -180,7 +182,7 @@ function executeFunction(fn, args, budget, options = {}) {
               target.endsWith(callArgs[0], callArgs[1]);
           }
           if (method === 'split' && callArgs.length <= 2) {
-            if (callArgs.length === 0) { if (Array.from(target).length > LIMITS.arrayLength) throw new EvaluationError('array-limit'); return Array.from(target); }
+            if (callArgs.length === 0) return [target];
             if (typeof callArgs[0] !== 'string' || (callArgs.length === 2 && (!Number.isInteger(callArgs[1]) || callArgs[1] < 0))) {
               throw new EvaluationError('invalid-split-argument');
             }
@@ -190,7 +192,7 @@ function executeFunction(fn, args, budget, options = {}) {
           }
           throw new EvaluationError('unsupported-string-method');
         }
-        if (method !== 'reduce' || !Array.isArray(target) || callArgs.length < 1 || callArgs.length > 2) {
+        if (method !== 'reduce' || !Array.isArray(target) || node.arguments.length < 1 || node.arguments.length > 2) {
           throw new EvaluationError('unsupported-call-target');
         }
         const callback = node.arguments[0];
