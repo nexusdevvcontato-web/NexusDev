@@ -1,6 +1,6 @@
 # Arquitetura proposta do ambiente de staging — NexusDev 2.0
 
-**Status:** desenho técnico; ainda não provisionado nem executado.
+**Status:** autorizado pelo usuário; provisionamento aguardando conexão às contas Render e MongoDB Atlas. Nenhum recurso externo foi criado.
 **Escopo:** serviço backend isolado no Render, frontend Preview na Vercel e banco de testes separado.
 **Regra de segurança:** nenhuma configuração descrita aqui autoriza alterar produção, conectar ao banco real, publicar secrets, migrar dados ou habilitar endpoints incompletos.
 
@@ -34,7 +34,7 @@ Criar um novo Web Service, sem editar o serviço atual:
 - Branch: `rebuild/v2-security`.
 - URL: host próprio atribuído pelo Render ao serviço de staging.
 - Nenhum domínio personalizado necessário.
-- Health check: endpoint de saúde não autenticado, depois de confirmar que ele não consulta nem altera dados.
+- Health check: `GET /api/health` (público, somente leitura, não consulta nem altera dados).
 - Logs: não registrar cookies, Authorization, senhas, tokens, códigos OAuth, CSRF ou corpos sensíveis.
 
 O plano gratuito pode suspender serviços inativos e causar cold starts. Isso é aceitável para testes manuais, mas não deve ser confundido com disponibilidade de produção.
@@ -60,6 +60,7 @@ Configurar no Render de staging, nunca no Git:
 | `MONGO_URI` | URI exclusiva do banco de staging |
 | `JWT_SECRET` | segredo aleatório exclusivo, mínimo 32 caracteres |
 | `REAUTH_TOKEN_SECRET` | segredo aleatório exclusivo, mínimo 32 caracteres e diferente de `JWT_SECRET` |
+| `SESSION_ACCESS_TOKEN_SECRET` | segredo aleatório exclusivo, mínimo 32 caracteres e diferente de `JWT_SECRET` e `REAUTH_TOKEN_SECRET`; obrigatório para habilitar a API paralela de sessões |
 | `CORS_ORIGINS` | origem HTTPS exata e estável do Preview Vercel usado para teste |
 | `GOOGLE_CLIENT_ID` | OAuth Client ID de teste, se os fluxos Google forem validados |
 | `LESSON_PROOF_PUBLIC_KEY` | manter ausente até haver executor real e chave pública provisionada |
@@ -101,7 +102,7 @@ Se o teste de Google login for necessário:
 8. Executar smoke tests e testes reais em navegador.
 9. Registrar evidências sem segredos e corrigir problemas antes de qualquer decisão sobre produção.
 
-Nenhuma dessas ações externas foi executada nesta etapa.
+O usuário autorizou a criação de recursos isolados de staging. A autorização não abrange editar o serviço Render atual, conectar ao banco de produção, copiar dados reais ou alterar qualquer recurso de produção. A execução externa depende da conexão às contas de hospedagem e banco. Nenhum recurso externo foi criado ainda.
 
 ## 7. Matriz de testes obrigatórios
 
@@ -131,8 +132,8 @@ Não avançar para produção se:
 ## 9. Limites e decisões pendentes
 
 - O desenho não cria serviço Render, banco, usuário de banco, OAuth Client, secrets ou deploy.
-- O middleware CSRF e os primitives de sessão ainda não estão integrados às rotas Express nem ao frontend.
+- As rotas paralelas de sessão, middleware CSRF e cliente frontend já foram integrados na branch `rebuild/v2-security`; continuam opt-in e ainda dependem de `SESSION_ACCESS_TOKEN_SECRET` no staging e validação real em navegador.
 - A arquitetura de autenticação completa por cookie ainda precisa de migração coordenada.
-- A política final de `SameSite` depende da topologia e de testes reais.
+- A política atual do serviço de sessão usa `SameSite=Lax`; confirmar comportamento no navegador real através do proxy Vercel antes de liberar.
 - O plano gratuito e seus limites devem ser confirmados no painel das plataformas antes do provisionamento.
 - Staging não substitui revisão de segurança, privacidade ou jurídica.
