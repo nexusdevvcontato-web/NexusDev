@@ -14,7 +14,13 @@ const STATIC_CHALLENGE_IDS = new Set([
   'node-01-controller-produto'
 ]);
 
-const GENERATED_MODULES = new Set([1, 2, 3, 4, 5]);
+const GENERATED_MODULE_STARTS = Object.freeze({
+  1: 7,
+  2: 4,
+  3: 2,
+  4: 2,
+  5: 1
+});
 const LESSONS_PER_GENERATED_MODULE = 140;
 
 function isKnownChallengeId(value) {
