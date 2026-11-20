@@ -3,7 +3,7 @@
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50 * 1024;
 // Keep the full JSON body comfortably below the API-wide 100 KB parser limit.
-const MAX_TOTAL_BYTES = 80 * 1024;
+const MAX_TOTAL_BYTES = 40 * 1024;
 const MAX_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
 function validateDraftFiles(files) {
@@ -20,7 +20,7 @@ function validateDraftFiles(files) {
   for (const name of names) {
     const source = files[name];
     if (!MAX_FILE_NAME.test(name) || name.includes('..') ||
-        typeof source !== 'string' || source.includes('\u0000')) {
+        typeof source !== 'string' || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(source)) {
       return { ok: false, error: 'Nome ou conteúdo de arquivo inválido.' };
     }
     const bytes = Buffer.byteLength(source, 'utf8');
