@@ -8,6 +8,7 @@ test('draft validator accepts bounded plain-text files and rejects unsafe shapes
   assert.deepEqual(validateDraftFiles({ 'index.html': '<h1>Olá</h1>', 'style.css': 'h1 { color: red; }' }).ok, true);
   assert.equal(validateDraftFiles([]).ok, false);
   assert.equal(validateDraftFiles({ '../secret': 'x' }).ok, false);
+  assert.equal(validateDraftFiles(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`file${i}.js`, 'x']))).ok, false);
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(20 * 1024), 'style.css': 'y'.repeat(20 * 1024), 'app.js': 'z'.repeat(20 * 1024), 'readme.md': 'a'.repeat(20 * 1024), 'extra.txt': 'b'.repeat(20 * 1024), 'six.txt': 'c'.repeat(1) }).ok, false);
   const withNull = { 'index.html': 'a\u0000b' };
@@ -67,6 +68,19 @@ test('draft updates increment only the expected revision and stale writers recei
   assert.equal(stale.reason, 'conflict');
   assert.equal(stale.draft.revision, 2);
   assert.equal(stale.draft.files['index.html'], 'v2');
+});
+
+
+test('concurrent writers using the same revision cannot overwrite each other', async () => {
+  const h = harness();
+  const results = await Promise.all([
+    h.service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-a' }, expectedRevision: 0 }),
+    h.service.save({ userId: 'user-1', challengeId: 'mod-1-aula-1', files: { 'index.html': 'writer-b' }, expectedRevision: 0 })
+  ]);
+  assert.equal(results.filter(result => result.ok).length, 1);
+  assert.equal(results.filter(result => result.reason === 'conflict').length, 1);
+  assert.equal(h.stored.revision, 1);
+  assert.ok(['writer-a', 'writer-b'].includes(h.stored.files['index.html']));
 });
 
 test('draft read returns an empty revision without leaking another user scope', async () => {
