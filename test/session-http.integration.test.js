@@ -198,6 +198,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     const leaderboard = await request('/api/leaderboard');
     assert.equal(leaderboard.response.status, 200);
+    assert.ok(Array.isArray(leaderboard.payload.leaderboard));
     assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
     const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
       method: 'POST',
