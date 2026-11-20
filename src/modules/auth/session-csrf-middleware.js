@@ -1,6 +1,6 @@
 const { hashRefreshToken } = require('./refresh-token');
 const { verifySessionCsrfToken } = require('./session-csrf-token');
-const { isTrustedOrigin, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } = require('./session-http-policy');
+const { isTrustedOrigin, safeEqual, CSRF_HEADER_NAME, CSRF_COOKIE_NAME, SESSION_COOKIE_NAME } = require('./session-http-policy');
 
 function readCookie(header, name) {
   if (typeof header !== 'string' || typeof name !== 'string') return null;
@@ -36,8 +36,9 @@ function createSessionCsrfMiddleware({
     }
 
     const rawRefreshToken = readCookie(req.headers?.cookie, cookieName);
+    const csrfCookie = readCookie(req.headers?.cookie, CSRF_COOKIE_NAME);
     const csrfToken = req.get ? req.get(CSRF_HEADER_NAME) : req.headers?.[CSRF_HEADER_NAME];
-    if (!rawRefreshToken || typeof csrfToken !== 'string') {
+    if (!rawRefreshToken || !csrfCookie || typeof csrfToken !== 'string' || !safeEqual(csrfCookie, csrfToken)) {
       return res.status(403).json({ error: 'Validação CSRF obrigatória.' });
     }
 
