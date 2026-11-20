@@ -41,7 +41,7 @@ test('public certificate returns the allowlisted public details only', async () 
   const issuedAt = new Date('2026-11-20T00:00:00Z');
   const User = modelWith([
     { _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: issuedAt, privacyPreferences: { showCertificateDetails: true } },
-    { _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: issuedAt, name: 'Student', completedIds: ['lesson-1', 'lesson-2'], xp: 700, githubUrl: 'https://github.com/student', liveUrl: 'https://student.example', email: 'private@example.test', passwordHash: 'secret' }
+    { _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: issuedAt, name: 'Student', completedIds: ['js-03-arrays-soma', 'mod-5-aula-7', 'not-a-real-lesson'], xp: 700, githubUrl: 'https://github.com/student', liveUrl: 'https://student.example', email: 'private@example.test', passwordHash: 'secret' }
   ]);
   const result = await lookupPublicCertificate(User, 'NXD-X');
   assert.equal(result.status, 200);
@@ -51,7 +51,7 @@ test('public certificate returns the allowlisted public details only', async () 
     githubUrl: 'https://github.com/student', liveUrl: 'https://student.example'
   });
   assert.equal(User.calls.length, 2);
-  assert.match(User.calls[1].filter['privacyPreferences.showCertificateDetails'].$ne, /$^/);
+  assert.equal(User.calls[1].filter['privacyPreferences.showCertificateDetails'].$ne, false);
   assert.doesNotMatch(User.calls[1].projection, /email|passwordHash/);
 });
 
