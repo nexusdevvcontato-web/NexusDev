@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { createSessionModels } = require('../src/modules/auth/session-models');
 const { createSessionStore } = require('../src/modules/auth/session-store');
+const { hashRefreshToken } = require('../src/modules/auth/refresh-token');
 
 const uri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = Boolean(uri);
@@ -66,6 +67,25 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     const fourth = await store.create({ userId, ttlMs: 60_000 });
     assert.equal(await store.revokeAll({ userId }), 1);
     assert.equal((await store.rotate({ refreshToken: fourth.refreshToken })).status, 'invalid');
+
+    const fifth = await store.create({ userId, ttlMs: 60_000 });
+    const originalCreate = RefreshToken.create;
+    try {
+      RefreshToken.create = async function (...args) {
+        throw new Error('injected transaction failure');
+      };
+      await assert.rejects(
+        store.rotate({ refreshToken: fifth.refreshToken }),
+        /injected transaction failure/
+      );
+    } finally {
+      RefreshToken.create = originalCreate;
+    }
+    const unconsumed = await RefreshToken.findOne({
+      tokenHash: hashRefreshToken(fifth.refreshToken)
+    }).lean();
+    assert.equal(unconsumed.usedAt, null, 'transaction rollback must restore the consumed token');
+    assert.equal((await store.rotate({ refreshToken: fifth.refreshToken })).status, 'rotated');
   } finally {
     await connection.dropDatabase();
     await connection.close();
