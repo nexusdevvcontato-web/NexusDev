@@ -1,13 +1,13 @@
 # Runbook de staging — reautenticação recente
 
-**Status:** roteiro preparado; não executado. Não usar produção.
+**Status:** `REAUTH_TOKEN_SECRET` foi provisionado exclusivamente no serviço Render `nexusdev-staging-v2`; deploy `dep-dc087qptn18s73etgs1g` está live no commit `e2e2bfef`. O smoke test com contas descartáveis ainda não foi executado. Não usar produção.
 
 ## 1. Pré-requisitos
 
 Provisionar em um ambiente de staging isolado:
 - `MONGO_URI`: banco de staging, sem dados reais de usuários;
 - `JWT_SECRET`: segredo aleatório exclusivo, com pelo menos 32 caracteres;
-- `REAUTH_TOKEN_SECRET`: segredo aleatório exclusivo, com pelo menos 32 caracteres, diferente de `JWT_SECRET`;
+- `REAUTH_TOKEN_SECRET`: segredo aleatório exclusivo, com pelo menos 32 caracteres, diferente de `JWT_SECRET` (já provisionado somente no serviço Render staging; nunca copiar o valor para este runbook);
 - `GOOGLE_CLIENT_ID`: OAuth Client ID de staging;
 - `CORS_ORIGINS`: origem exata da prévia frontend de staging.
 
