@@ -87,3 +87,8 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 - Os testes HTTP de integração verificam cabeçalhos no-store do ranking, da emissão e da consulta de certificado, além da ocultação dos campos pessoais.
 - O conteúdo de comentários permanece público por decisão funcional atual. A remoção/anonimização por titular não foi ativada porque ainda falta decisão de produto entre remoção e anonimização, e não há política aprovada para comentários legados sem authorUserId.
 - Nenhuma conta, comentário ou certificado existente foi alterado por esta revisão.
+
+
+## Prévia de impacto de encerramento de conta
+
+Foi adicionada à branch de reconstrução uma rota autenticada somente leitura para apresentar contagens agregadas dos registros associados à própria conta. A consulta é sempre limitada ao usuário autenticado e a resposta não contém conteúdo de comentários, e-mail, código de certificado, IDs de sessão ou hashes/tokens. Comentários legados são sinalizados como não atribuíveis; logs, backups e provedores externos ficam marcados como não inspecionados. A resposta é explicitamente não executável (`deletionEnabled: false`) e mantém bloqueios de política pendentes. Nenhum dado foi removido ou alterado.
