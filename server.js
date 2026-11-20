@@ -734,7 +734,10 @@ app.get('/api/leaderboard', (req, res, next) => {
 });
 
 // Tutor IA Contextual (Analisa código e enunciado da aula sem entregar a resposta pronta)
-app.post('/api/tutor/analyze', tutorLimiter, (req, res) => {
+app.post('/api/tutor/analyze', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, tutorLimiter, (req, res) => {
   const validation = validateTutorRequest(req.body);
   if (!validation.ok) return res.status(400).json({ error: validation.error });
   const { challengeTitle, language, targetFunction, instructions, filesMap, failedTests } = validation.value;
