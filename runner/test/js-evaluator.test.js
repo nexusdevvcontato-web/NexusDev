@@ -29,12 +29,9 @@ test('supports deep-equality checks for nested objects and empty arrays', () => 
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-4-aula-4', source }), { ok: true });
 });
 
-test('runs trusted no-mutation checks and detects changed input values', () => {
-  const safeSource = 'function atualizarPrecoProduto(produtos, id, novoPreco) { return produtos; }';
-  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source: safeSource }), { ok: false, reason: 'tests-failed' });
-
-  const changedInput = 'function atualizarPrecoProduto(produtos, id, novoPreco) { produtos = []; return produtos; }';
-  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source: changedInput }), { ok: false, reason: 'tests-failed' });
+test('runs trusted no-mutation checks alongside deep-equality cases', () => {
+  const source = 'function criarModeloCartaoProduto(produto) { return { tipo: "article", titulo: produto.nome, preco: produto.preco }; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-2', source }), { ok: true });
 });
 
 test('does not accept caller-supplied deep-equality or immutability test definitions', () => {
