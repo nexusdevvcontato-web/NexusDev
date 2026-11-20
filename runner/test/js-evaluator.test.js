@@ -48,9 +48,14 @@ test('supports immutable object spread inside a trusted map callback', () => {
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source }), { ok: true });
 });
 
-test('supports bounded array spread and object shorthand', () => {
-  const source = 'function somarArray(numeros) { const copia = [...numeros]; const total = copia.reduce((soma, numero) => soma + numero, 0); return total; }';
+test('supports bounded array spread and preserves reduction results', () => {
+  const source = 'function somarArray(numeros) { const copia = [...numeros]; return copia.reduce((soma, numero) => soma + numero, 0); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source }), { ok: true });
+});
+
+test('supports object shorthand properties in trusted object construction', () => {
+  const source = 'function criarModeloCartaoProduto(produto) { const titulo = produto.nome; return { tipo: "article", titulo, preco: produto.preco }; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-2', source }), { ok: true });
 });
 
 test('rejects unsafe spread sources and prototype-related object keys', () => {
@@ -64,7 +69,7 @@ test('supports bounded filter callbacks with lexical parameters', () => {
 });
 
 test('supports bounded map callbacks with index and lexical parameters', () => {
-  const source = 'function somarArray(numeros) { return numeros.map(numero => numero).reduce((total, numero) => total + numero, 0); }';
+  const source = 'function somarArray(numeros) { return numeros.map((numero, indice) => numero + indice - indice).reduce((total, numero) => total + numero, 0); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source }), { ok: true });
 });
 
@@ -73,6 +78,13 @@ test('rejects arbitrary callback methods and oversized array inputs', () => {
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-4', source }), { ok: true });
   const unsafe = 'function filtrarProdutosPorPreco(produtos, limite) { return produtos.filter(produto => produto.constructor); }';
   assert.equal(evaluateChallenge({ challengeId: 'mod-3-aula-4', source: unsafe }).ok, false);
+});
+
+test('keeps find and some unavailable until their semantics are implemented', () => {
+  const findSource = 'function somarArray(numeros) { return numeros.find(numero => numero > 2); }';
+  const someSource = 'function somarArray(numeros) { return numeros.some(numero => numero > 2); }';
+  assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: findSource }).ok, false);
+  assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: someSource }).ok, false);
 });
 
 test('supports bounded string normalization methods in trusted email cases', () => {
