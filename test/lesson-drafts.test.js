@@ -8,9 +8,10 @@ test('draft validator accepts bounded plain-text files and rejects unsafe shapes
   assert.equal(validateDraftFiles([]).ok, false);
   assert.equal(validateDraftFiles({ '../secret': 'x' }).ok, false);
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
-  assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(40 * 1024), 'style.css': 'y'.repeat(40 * 1024), 'app.js': 'z'.repeat(40 * 1024), 'readme.md': 'a'.repeat(40 * 1024), 'extra.txt': 'b'.repeat(40 * 1024), 'six.txt': 'c'.repeat(1) }).ok, false);
+  assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(20 * 1024), 'style.css': 'y'.repeat(20 * 1024), 'app.js': 'z'.repeat(20 * 1024), 'readme.md': 'a'.repeat(20 * 1024), 'extra.txt': 'b'.repeat(20 * 1024), 'six.txt': 'c'.repeat(1) }).ok, false);
   const withNull = { 'index.html': 'a\u0000b' };
   assert.equal(validateDraftFiles(withNull).ok, false);
+  assert.equal(validateDraftFiles({ 'index.html': 'bad\\u0001control' }).ok, false);
 });
 
 test('revision accepts only non-negative safe integers', () => {
@@ -85,7 +86,7 @@ test('stored drafts use the same per-file and total byte limits as incoming draf
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
   assert.equal(validateDraftFiles({
     'a.txt': 'a'.repeat(40 * 1024),
-    'b.txt': 'b'.repeat(40 * 1024),
+    'b.txt': 'b'.repeat(20 * 1024),
     'c.txt': 'c'.repeat(1)
   }).ok, false);
 });
