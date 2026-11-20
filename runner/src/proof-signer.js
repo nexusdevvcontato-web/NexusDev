@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const { isRunnerSupportedChallenge } = require('./challenge-registry');
+const { hashCompletionFiles } = require('../../src/modules/proofs/completion-files-hash');
 
 const ISSUER = 'nexusdev-runner';
 const AUDIENCE = 'nexusdev-progress';
@@ -12,7 +13,7 @@ function base64url(value) {
   return Buffer.from(value).toString('base64url');
 }
 
-function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor(Date.now() / 1000), ttlSeconds = 120 }) {
+function signCompletionProof({ userId, challengeId, files, privateKey, now = Math.floor(Date.now() / 1000), ttlSeconds = 120 }) {
   if (typeof privateKey !== 'string' || !privateKey.includes('PRIVATE KEY')) {
     throw new Error('RUNNER_PRIVATE_KEY must contain a PEM private key.');
   }
@@ -36,6 +37,13 @@ function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor
     throw new Error('RUNNER_PRIVATE_KEY must be an RSA key with at least 2048 bits.');
   }
 
+  let filesHash;
+  try {
+    filesHash = hashCompletionFiles(files);
+  } catch {
+    throw new Error('A valid bounded set of evaluated files is required to sign a completion proof.');
+  }
+
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = base64url(JSON.stringify({
     iss: ISSUER,
@@ -43,6 +51,7 @@ function signCompletionProof({ userId, challengeId, privateKey, now = Math.floor
     purpose: PURPOSE,
     sub: userId,
     challengeId,
+    filesHash,
     jti: crypto.randomUUID(),
     iat: now,
     exp: now + ttlSeconds
