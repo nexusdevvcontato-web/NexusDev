@@ -19,6 +19,7 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
+const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
@@ -164,6 +165,7 @@ const commentSchema = new mongoose.Schema(
 );
 
 const Comment = mongoose.model('Comment', commentSchema);
+const CompletionProof = createCompletionProofModel(mongoose);
 
 // Session authentication is the only supported authenticated API path.
 // Production startup fails closed if its dedicated signing secret is missing.
@@ -482,6 +484,12 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
     }
 
+    // The unique jti record makes each signed runner proof single-use, even under concurrent requests.
+    const proofConsumed = await consumeCompletionProof(CompletionProof, proofResult.proof, req.user._id);
+    if (!proofConsumed) {
+      return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
+    }
+
     if (files !== undefined) {
       if (!files || typeof files !== 'object' || Array.isArray(files)) {
         return res.status(400).json({ error: 'Arquivos do editor inválidos.' });
@@ -730,6 +738,7 @@ app.post('/api/lessons/:lessonId/comments', requireAuth, commentLimiter, async (
 async function startServer() {
   try {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+    await CompletionProof.init();
     console.log('✅ Conectado ao MongoDB');
     return app.listen(PORT, () => {
       console.log(`🚀 Servidor NexusDev v2.0 rodando na porta ${PORT}`);
