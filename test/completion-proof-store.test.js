@@ -31,7 +31,7 @@ test('consumes a valid proof identifier exactly once', async () => {
 
 test('only one concurrent request can consume the same proof', async () => {
   const model = fakeModel();
-  const proof = { jti: '123e4567-e89b-42d3-a456-426614174001', exp: 1800000120, challengeId: 'html-01-test' };
+  const proof = { jti: '123e4567-e89b-42d3-a456-426614174001', exp: 1800000120, challengeId: 'html-00-o-que-e-web', filesHash };
   const results = await Promise.all([
     consumeCompletionProof(model, proof, 'user-1'),
     consumeCompletionProof(model, proof, 'user-1')
