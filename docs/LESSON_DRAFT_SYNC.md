@@ -22,9 +22,9 @@ Não há mesclagem automática de arquivos, pois uma mesclagem textual sem conhe
 - IDs de aula precisam pertencer ao catálogo oficial.
 - 1 a 10 arquivos por rascunho.
 - Até 50 KiB por arquivo.
-- Até 80 KiB no total, mantendo a requisição abaixo do limite global de JSON de 100 KiB.
+- Até 40 KiB no total, mantendo o JSON serializado abaixo do limite global de 100 KiB mesmo com escape de aspas e barras invertidas.
 - Nomes de arquivos restritos a caracteres alfanuméricos, ponto, sublinhado e hífen.
-- Conteúdo textual; bytes nulos são rejeitados.
+- Conteúdo textual; bytes nulos e caracteres de controle não imprimíveis são rejeitados.
 - Respostas usam Cache-Control: no-store.
 - Limite de 60 operações por minuto por IP, além do limitador global.
 
