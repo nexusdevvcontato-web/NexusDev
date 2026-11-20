@@ -69,6 +69,6 @@ test('bounds input bytes, parsed node count, nesting depth and extracted text', 
 test('does not treat a button click handler as proof of behavior', () => {
   assert.deepEqual(evaluateChallenge({
     challengeId: 'html-05-botao-clicavel',
-    source: '<button onclick="fetch(\\'https://invalid.example\\')">Começar Agora</button>'
+    source: `<button onclick="fetch('https://invalid.example')">Começar Agora</button>`
   }), { ok: true });
 });
