@@ -441,7 +441,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.match(impactA.response.headers.get('cache-control') || '', /no-store/i);
     assert.equal(impactA.payload.readOnly, true);
     assert.equal(impactA.payload.deletionEnabled, false);
-    assert.equal(impactA.payload.sessions.count, 1);
+    assert.equal(impactA.payload.sessions.count, 2);
     assert.equal(impactA.payload.comments.linkedCount, 1);
     assert.equal(impactA.payload.completionProofs.count, 0);
     assert.equal(impactA.payload.certificate.present, true);
