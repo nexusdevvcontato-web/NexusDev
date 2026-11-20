@@ -287,10 +287,19 @@ app.get('/api/me', requireAuth, async (req, res) => {
 });
 
 // Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
-app.get('/api/privacy/export', requireAuth, (req, res) => {
-  res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
-  res.set('Cache-Control', 'no-store');
-  return res.json(buildUserDataExport(req.user));
+app.get('/api/privacy/export', requireAuth, async (req, res) => {
+  try {
+    // Scope the query to the authenticated database identity; never accept an owner ID from the client.
+    const comments = await Comment.find({ authorUserId: req.user._id })
+      .sort({ createdAt: 1, _id: 1 })
+      .select('_id lessonId author badge text createdAt updatedAt')
+      .lean();
+    res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
+    res.set('Cache-Control', 'no-store');
+    return res.json(buildUserDataExport(req.user, comments));
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
+  }
 });
 
 // ============================================================================
