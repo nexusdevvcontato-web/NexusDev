@@ -1,5 +1,7 @@
 'use strict';
 
+const { isRunnerSupportedChallenge } = require('./challenge-registry');
+
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50_000;
 const MAX_TOTAL_BYTES = 200_000;
@@ -14,6 +16,9 @@ function validateExecutionRequest(input) {
       typeof challengeId !== 'string' || !/^([a-z0-9]+-)*[a-z0-9]+$/.test(challengeId) ||
       !files || typeof files !== 'object' || Array.isArray(files)) {
     return { ok: false, reason: 'invalid-request' };
+  }
+  if (!isRunnerSupportedChallenge(challengeId)) {
+    return { ok: false, reason: 'challenge-not-authored' };
   }
   const entries = Object.entries(files);
   if (entries.length < 1 || entries.length > MAX_FILES) {
