@@ -64,7 +64,7 @@ function createSessionCsrfMiddleware({
         return res.status(403).json({ error: 'Token CSRF inválido.' });
       }
 
-      req.session = { id: session._id, userId: session.userId };
+      req.csrfSession = { id: session._id, userId: session.userId };
       return next();
     } catch {
       return res.status(503).json({ error: 'Não foi possível validar a sessão com segurança.' });
@@ -72,4 +72,20 @@ function createSessionCsrfMiddleware({
   };
 }
 
-module.exports = { createSessionCsrfMiddleware, readCookie };
+function requireMatchingSession(req, res, next) {
+  const csrfSession = req.csrfSession;
+  const accessSession = req.session;
+  const userId = req.user?._id;
+  const same = (a, b) => a !== undefined && a !== null && b !== undefined && b !== null &&
+    a.toString() === b.toString();
+
+  if (!csrfSession || !accessSession ||
+      !same(csrfSession.id, accessSession.id) ||
+      !same(csrfSession.userId, accessSession.userId) ||
+      !same(userId, accessSession.userId)) {
+    return res.status(403).json({ error: 'A sessão do cookie não corresponde à sessão autenticada.' });
+  }
+  return next();
+}
+
+module.exports = { createSessionCsrfMiddleware, readCookie, requireMatchingSession };
