@@ -1,5 +1,3 @@
-const crypto = require('node:crypto');
-
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const PORT = Number(process.env.PORT || 5000);
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
