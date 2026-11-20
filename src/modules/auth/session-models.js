@@ -6,6 +6,7 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
   const sessionSchema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     familyId: { type: String, required: true, unique: true, index: true },
+    csrfTokenHash: { type: String, required: true, select: false, match: /^[a-f0-9]{64}$/ },
     createdAt: { type: Date, required: true, default: Date.now },
     lastUsedAt: { type: Date, required: true, default: Date.now },
     expiresAt: { type: Date, required: true },
