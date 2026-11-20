@@ -13,7 +13,7 @@ function validateIsolatedReplicaSetUri(value) {
   try { parsed = new URL(value); } catch { throw new Error('MONGO_SESSION_TEST_URI precisa ser uma URI MongoDB válida.'); }
   const dbName = parsed.pathname.replace(/^\//, '');
   if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) ||
-      !dbName.endsWith('_nexusdev_session_test') ||
+      (dbName !== 'nexusdev_session_test' && !dbName.endsWith('_nexusdev_session_test')) ||
       !parsed.searchParams.has('replicaSet')) {
     throw new Error('Testes exigem MongoDB replica set local e banco *_nexusdev_session_test.');
   }
