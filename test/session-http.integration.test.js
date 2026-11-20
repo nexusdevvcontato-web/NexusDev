@@ -196,6 +196,10 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.ok(publicComments.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
 
     // Deletion-impact preview is private, aggregate-only, and scoped to the authenticated owner.
+    const anonymousExport = await request('/api/privacy/export');
+    assert.equal(anonymousExport.response.status, 401);
+    assert.match(anonymousExport.response.headers.get('cache-control') || '', /no-store/i);
+
     const anonymousImpact = await request('/api/privacy/deletion-impact');
     assert.equal(anonymousImpact.response.status, 401);
     assert.match(anonymousImpact.response.headers.get('cache-control') || '', /no-store/i);
@@ -210,6 +214,21 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.completionProofs.count, 0);
     assert.equal(impactA.payload.certificate.present, true);
     assert.equal(impactA.payload.learning.dataPresent, false);
+
+    const exportA = await request('/api/privacy/export', { token: a.accessToken });
+    assert.equal(exportA.response.status, 200, JSON.stringify(exportA.payload));
+    assert.match(exportA.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(exportA.payload.schemaVersion, 2);
+    assert.equal(exportA.payload.sessions.length, impactA.payload.sessions.count);
+    assert.equal(exportA.payload.comments.length, impactA.payload.comments.linkedCount);
+    assert.equal(exportA.payload.data.certificateIssuedAt != null, impactA.payload.certificate.present);
+    assert.equal(exportA.payload.data.completedIds.length, 0);
+    const exportSerialized = JSON.stringify(exportA.payload);
+    for (const forbidden of [
+      'passwordHash', 'googleId', 'reauthProofHash', 'csrfTokenHash',
+      'tokenHash', 'authorUserId', 'internalSecret'
+    ]) assert.equal(exportSerialized.includes(forbidden), false, forbidden);
+    assert.ok(exportA.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
 
     const impactB = await request('/api/privacy/deletion-impact', { token: b.accessToken });
     assert.equal(impactB.response.status, 200, JSON.stringify(impactB.payload));
