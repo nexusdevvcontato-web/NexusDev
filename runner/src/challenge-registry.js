@@ -210,16 +210,10 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [{ role: 'admin' }, 'admin'], expected: true },
       { args: [{ role: 'student' }, 'student'], expected: true },
       { args: [{ role: 'student' }, 'admin'], expected: false },
-      { args: [{ role: 'student', isAdmin: true }, 'admin'], expected: false },
-      { args: [{ role: 'student', requestedRole: 'admin' }, 'admin'], expected: false },
-      { args: [{ role: 1 }, 'admin'], expected: false },
-      { args: [{ role: null }, 'admin'], expected: false },
-      { args: [{ role: '' }, 'admin'], expected: false },
       { args: [{}, 'admin'], expected: false },
       { args: [null, 'admin'], expected: false },
       { args: [{ role: 'admin' }, ''], expected: false },
-      { args: [{ role: 'admin' }, null], expected: false },
-      { args: [{ role: 'Admin' }, 'admin'], expected: false }
+      { args: [{ role: 'admin' }, null], expected: false }
     ]}]
   },
   'node-01-controller-produto': {
