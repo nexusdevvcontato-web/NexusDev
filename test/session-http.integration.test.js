@@ -16,7 +16,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
   process.env.SESSION_ACCESS_TOKEN_SECRET = 'session-test-secret-'.padEnd(48, 's');
   process.env.REAUTH_TOKEN_SECRET = 'reauth-test-secret-'.padEnd(48, 'r');
   process.env.CORS_ORIGINS = 'https://app.example.test';
-  process.env.PORT = '0';
+  process.env.PORT = '43129';
 
   const mongoose = require('mongoose');
   const { app } = require('../server');
