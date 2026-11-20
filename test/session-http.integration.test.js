@@ -175,6 +175,23 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(anonymousProgress.response.status, 401);
     assert.match(anonymousProgress.response.headers.get('cache-control') || '', /no-store/i);
 
+    const tutorResponse = await request('/api/tutor/analyze', {
+      method: 'POST',
+      body: {
+        challengeTitle: 'Exercício de teste',
+        language: 'javascript',
+        instructions: 'Crie uma função simples.',
+        filesMap: { 'script.js': 'const answer = 42;' }
+      }
+    });
+    assert.equal(tutorResponse.response.status, 200);
+    assert.match(tutorResponse.response.headers.get('cache-control') || '', /no-store/i);
+    const invalidTutorResponse = await request('/api/tutor/analyze', {
+      method: 'POST', body: {}
+    });
+    assert.equal(invalidTutorResponse.response.status, 400);
+    assert.match(invalidTutorResponse.response.headers.get('cache-control') || '', /no-store/i);
+
     const challengeId = 'html-00-o-que-e-web';
     const certificateCode = 'NXD-2026-TEST-700-ABCDEF1234567890';
     await mongoose.model('User').updateOne({ _id: aProfile.payload.id }, {
