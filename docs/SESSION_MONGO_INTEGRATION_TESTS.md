@@ -24,6 +24,7 @@ Depois execute `node scripts/init-session-test-replica.js` e `npm test`.
 - rotação de token;
 - replay serial e revogação;
 - duas rotações concorrentes do mesmo token;
+- rollback transacional após falha simulada na gravação do sucessor;
 - revogação individual e global.
 
 TTL indexes são apenas limpeza eventual; as operações validam a expiração explicitamente. As transações exigem replica set ou cluster compatível.
