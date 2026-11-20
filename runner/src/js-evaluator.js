@@ -138,8 +138,14 @@ function executeFunction(fn, args, budget, options = {}) {
           return object[key];
         }
         const object = evalExpr(node.object, depth + 1);
-        if (node.property.name !== 'length' || (!Array.isArray(object) && typeof object !== 'string')) throw new EvaluationError('unsupported-member');
-        return object.length;
+        if (node.property.name === 'length' && (Array.isArray(object) || typeof object === 'string')) return object.length;
+        if (object && typeof object === 'object' && !Array.isArray(object) &&
+            Object.getPrototypeOf(object) === null &&
+            !['__proto__', 'prototype', 'constructor'].includes(node.property.name) &&
+            Object.prototype.hasOwnProperty.call(object, node.property.name)) {
+          return object[node.property.name];
+        }
+        throw new EvaluationError('unsupported-member');
       }
       case 'CallExpression': {
         if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement') || node.callee.type !== 'MemberExpression' ||
