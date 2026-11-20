@@ -155,6 +155,37 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const a = await register('session-a@example.test');
     const b = await register('session-b@example.test');
 
+    // Device management must list only safe metadata and revoke another device without
+    // terminating the authenticated current session or affecting a different account.
+    const secondDeviceLogin = await request('/api/auth/session/login', {
+      method: 'POST',
+      body: { email: 'session-a@example.test', password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(secondDeviceLogin.response.status, 200, JSON.stringify(secondDeviceLogin.payload));
+    const secondDeviceToken = secondDeviceLogin.payload.accessToken;
+    const sessionsBeforeRevoke = await request('/api/auth/session/sessions', { token: a.accessToken });
+    assert.equal(sessionsBeforeRevoke.response.status, 200);
+    assert.equal(sessionsBeforeRevoke.payload.sessions.length, 2);
+    assert.ok(sessionsBeforeRevoke.payload.sessions.every(item =>
+      typeof item.id === 'string' && typeof item.current === 'boolean' &&
+      !Object.hasOwn(item, 'tokenHash') && !Object.hasOwn(item, 'csrfTokenHash')
+    ));
+    const otherDevice = sessionsBeforeRevoke.payload.sessions.find(item => !item.current);
+    assert.ok(otherDevice);
+    const revokeOtherDevice = await request('/api/auth/session/sessions/' + otherDevice.id, {
+      method: 'DELETE',
+      token: a.accessToken,
+      cookies: [
+        `__Host-nexusdev_refresh=${a.refresh}`,
+        `__Host-nexusdev_csrf=${a.csrf}`
+      ],
+      csrf: a.csrf
+    });
+    assert.equal(revokeOtherDevice.response.status, 204);
+    assert.equal((await request('/api/me', { token: a.accessToken })).response.status, 200);
+    assert.equal((await request('/api/me', { token: secondDeviceToken })).response.status, 401);
+    assert.equal((await request('/api/me', { token: b.accessToken })).response.status, 200);
+
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
     const aProfile = await request('/api/me', { token: a.accessToken });
     assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
