@@ -2,6 +2,8 @@
 
 const acorn = require('acorn');
 
+const RESPONSE_MOCKS = new WeakMap();
+
 const LIMITS = Object.freeze({ sourceBytes: 50_000, astNodes: 2_000, depth: 80, steps: 10_000, arrayLength: 1_000, stringLength: 10_000 });
 
 class EvaluationError extends Error {
@@ -9,6 +11,7 @@ class EvaluationError extends Error {
 }
 
 function safeValue(value, depth = 0) {
+  if (value && typeof value === 'object' && RESPONSE_MOCKS.has(value)) return value;
   if (depth > LIMITS.depth) throw new EvaluationError('value-depth-limit');
   if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
     if (typeof value === 'number' && !Number.isFinite(value)) throw new EvaluationError('invalid-number');
@@ -191,6 +194,20 @@ function executeFunction(fn, args, budget, options = {}) {
         }
         const method = node.callee.property.name;
         const target = evalExpr(node.callee.object, depth + 1);
+        if (target && typeof target === 'object' && RESPONSE_MOCKS.has(target)) {
+          const args = node.arguments.map((arg) => evalExpr(arg, depth + 1));
+          const response = RESPONSE_MOCKS.get(target);
+          if (method === 'status' && args.length === 1 && Number.isInteger(args[0]) && args[0] >= 100 && args[0] <= 599) {
+            response.status = args[0];
+            return target;
+          }
+          if (method === 'json' && args.length === 1) {
+            response.body = safeValue(args[0]);
+            response.sent = true;
+            return target;
+          }
+          throw new EvaluationError('unsupported-response-method');
+        }
         const callArgs = typeof target === 'string'
           ? node.arguments.map((arg) => evalExpr(arg, depth + 1))
           : node.arguments.slice(1).map((arg) => evalExpr(arg, depth + 1));
@@ -289,9 +306,13 @@ function executeFunction(fn, args, budget, options = {}) {
   };
   const body = fn.body.type === 'BlockStatement' ? fn.body : { type: 'BlockStatement', body: [{ type: 'ReturnStatement', argument: fn.body }] };
   const result = execStatement(body);
-  const value = result.returned ? safeValue(result.value) : null;
+  const value = result.returned && result.value && typeof result.value === 'object' &&
+    RESPONSE_MOCKS.has(result.value) ? result.value : (result.returned ? safeValue(result.value) : null);
   if (options.includeFinalArgs === true) {
     return { value, finalArgs: params.map((param) => safeValue(scope.get(param.name))) };
+  }
+  if (options.controllerResponse) {
+    return { status: options.controllerResponse.status, body: options.controllerResponse.body, sent: options.controllerResponse.sent };
   }
   return value;
 }
@@ -301,13 +322,33 @@ function evaluateChallenge({ challengeId, source }) {
   const spec = getChallengeSpec(challengeId);
   const tests = spec?.tests;
   if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(tests) || tests.length === 0 ||
-      tests.some((test) => !['function-cases', 'function-deep-equals', 'does-not-mutate-input'].includes(test.type))) {
+      tests.some((test) => !['function-cases', 'function-deep-equals', 'does-not-mutate-input', 'http-controller-case'].includes(test.type))) {
     return { ok: false, reason: 'unsupported-challenge' };
   }
   try {
     const fn = parseSolution(source, spec.exportName);
     for (const test of tests) {
-      if (test.type === 'function-cases') {
+      if (test.type === 'http-controller-case') {
+        if (!Number.isInteger(test.expectedStatus) || test.expectedStatus < 100 || test.expectedStatus > 599 ||
+            (Object.prototype.hasOwnProperty.call(test, 'body') && (!test.body || typeof test.body !== 'object' || Array.isArray(test.body)))) {
+          return { ok: false, reason: 'invalid-test-spec' };
+        }
+        const responseState = { status: 200, body: null, sent: false };
+        const responseMock = Object.create(null);
+        RESPONSE_MOCKS.set(responseMock, responseState);
+        const requestMock = safeValue({ body: test.body ?? {} });
+        const result = executeFunction(fn, [requestMock, responseMock], { steps: 0 }, { controllerResponse: responseState });
+        if (!result.sent || result.status !== test.expectedStatus) return { ok: false, reason: 'tests-failed' };
+        if (Object.prototype.hasOwnProperty.call(test, 'expectedBody') && !equal(result.body, test.expectedBody)) {
+          return { ok: false, reason: 'tests-failed' };
+        }
+        if (Object.prototype.hasOwnProperty.call(test, 'expectedBodyIncludes')) {
+          if (!result.body || typeof result.body !== 'object' ||
+              !Object.prototype.hasOwnProperty.call(result.body, test.expectedBodyIncludes)) {
+            return { ok: false, reason: 'tests-failed' };
+          }
+        }
+      } else if (test.type === 'function-cases') {
         if (!Array.isArray(test.cases) || test.cases.length === 0) return { ok: false, reason: 'unsupported-challenge' };
         for (const testCase of test.cases) {
           if (!Array.isArray(testCase.args)) return { ok: false, reason: 'invalid-test-spec' };
