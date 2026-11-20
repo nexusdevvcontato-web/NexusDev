@@ -139,6 +139,6 @@ O subconjunto JavaScript recebeu primitivas explícitas para quatro desafios:
 
 O avaliador não aceita padrões regex arbitrários, flags, construtores RegExp, métodos arbitrários ou execução de globals. `Number.isFinite` é uma exceção explicitamente tratada; o identificador global `Number` não é exposto ao programa.
 
-Os casos confiáveis foram ampliados para limites de senha, tipos incorretos, campos ausentes, cabeçalhos com espaços repetidos, tabulações e quebras de linha. O CI do commit `1947ae4` concluiu com **93 testes aprovados e zero falhas**.
+Os casos confiáveis foram ampliados para limites de senha, tipos incorretos, campos ausentes, preço `Infinity`, cabeçalhos com espaços repetidos, tabulações e quebras de linha. Entradas não finitas só são admitidas como fixtures internas confiáveis para testar `Number.isFinite`; resultados não finitos continuam rejeitados pelo avaliador. O CI do commit `bf09448` (incluindo o caso de preço `Infinity`) concluiu com **93 testes aprovados e zero falhas**.
 
 A classificação dos quatro desafios foi elevada para “Compatível com ressalva” no escopo do avaliador local. Isso não valida autenticação JWT real, não substitui `jwt.verify`, não faz hash de senha e não libera integração do runner, prova de conclusão ou XP.
