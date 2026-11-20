@@ -497,6 +497,7 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
     const hasLearningData = Boolean(
       (Array.isArray(req.user.completedIds) && req.user.completedIds.length) ||
       (req.user.savedCodeMap && Object.keys(req.user.savedCodeMap).length) ||
+      (req.user.savedDraftMap && Object.keys(req.user.savedDraftMap).length) ||
       req.user.xp > 0 || req.user.streak > 1
     );
     return res.json(buildDeletionImpact({
