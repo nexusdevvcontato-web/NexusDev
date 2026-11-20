@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const jwt = require('jsonwebtoken');
+const { hashCompletionFiles } = require('../src/modules/proofs/completion-files-hash');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = typeof sourceUri === 'string' && sourceUri.length > 0;
@@ -346,10 +347,12 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(await mongoose.model('CompletionProof').countDocuments({ userId: aProfile.payload.id }), 0);
 
     const proofNow = Math.floor(Date.now() / 1000);
+    const evaluatedFiles = { 'index.html': '<h1>Primeira versão</h1>' };
     const completionProof = jwt.sign({
       jti: crypto.randomUUID(),
       purpose: 'lesson-completion',
       challengeId,
+      filesHash: hashCompletionFiles(evaluatedFiles),
       sub: aProfile.payload.id,
       iss: 'nexusdev-runner',
       aud: 'nexusdev-progress',
@@ -358,9 +361,22 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     }, completionKeys.privateKey, { algorithm: 'RS256' });
     const completionBody = {
       challengeId,
-      files: { 'index.html': '<h1>Primeira versão</h1>' },
+      files: evaluatedFiles,
       completionProof
     };
+
+    // A proof for one source must not authorize saving a different source or awarding XP.
+    const substituted = await request('/api/progress/complete', {
+      method: 'POST',
+      token: a.accessToken,
+      body: { ...completionBody, files: { 'index.html': '<h1>Conteúdo não avaliado</h1>' } }
+    });
+    assert.equal(substituted.response.status, 403);
+    assert.equal(await mongoose.model('CompletionProof').countDocuments({ userId: aProfile.payload.id }), 0);
+    const userAfterSubstitution = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    assert.equal(userAfterSubstitution.xp, 0);
+    assert.deepEqual(userAfterSubstitution.completedIds, []);
+
     const completed = await request('/api/progress/complete', {
       method: 'POST', token: a.accessToken, body: completionBody
     });
