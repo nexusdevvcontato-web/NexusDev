@@ -21,8 +21,9 @@ test('sends a one-time reset message through Gmail API using OAuth access token'
   const payload = JSON.parse(request.options.body);
   const decoded = Buffer.from(payload.raw, 'base64url').toString('utf8');
   assert.match(decoded, /To: student@example\.test/);
-  const textPart = decoded.split('Content-Type: text/plain; charset="UTF-8"')[1].split('\\r\\n\\r\\n')[1].split('\\r\\n--')[0].replace(/\\r\\n/g, '');
-  const textBody = Buffer.from(textPart, 'base64').toString('utf8');
+  const textPartMatch = decoded.match(/Content-Type: text\\/plain; charset="UTF-8"\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n([A-Za-z0-9+/=\\r\\n]+)\\r\\n--/);
+  assert.ok(textPartMatch, 'text MIME part should be present');
+  const textBody = Buffer.from(textPartMatch[1].replace(/\\r\\n/g, ''), 'base64').toString('utf8');
   assert.match(textBody, /passwordResetToken=A{43}/);
   assert.match(decoded, /multipart\/alternative/);
 });
