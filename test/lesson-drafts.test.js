@@ -9,7 +9,7 @@ test('draft validator accepts bounded plain-text files and rejects unsafe shapes
   assert.equal(validateDraftFiles({ '../secret': 'x' }).ok, false);
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(50 * 1024 + 1) }).ok, false);
   assert.equal(validateDraftFiles({ 'index.html': 'x'.repeat(40 * 1024), 'style.css': 'y'.repeat(40 * 1024), 'app.js': 'z'.repeat(40 * 1024), 'readme.md': 'a'.repeat(40 * 1024), 'extra.txt': 'b'.repeat(40 * 1024), 'six.txt': 'c'.repeat(1) }).ok, false);
-  const withNull = { 'index.html': 'a\\0b' };
+  const withNull = { 'index.html': 'a\u0000b' };
   assert.equal(validateDraftFiles(withNull).ok, false);
 });
 
