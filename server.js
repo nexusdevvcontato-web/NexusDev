@@ -14,6 +14,7 @@ const { recordDailyActivity } = require('./src/modules/users/daily-activity');
 const { issueCertificateOnce } = require('./src/modules/certificates/issue-once');
 const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const { issueReauthProof, consumeReauthProof } = require('./src/modules/auth/reauthentication');
+const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthentication-credentials');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
@@ -310,35 +311,15 @@ app.post('/api/auth/reauthenticate', requireAuth, reauthLimiter, async (req, res
   }
 
   try {
-    const body = req.body || {};
-    const keys = Object.keys(body);
-    const hasPassword = typeof body.password === 'string';
-    const hasGoogleCredential = typeof body.credential === 'string';
-    if (keys.length !== 1 || hasPassword === hasGoogleCredential) {
-      return res.status(400).json({ error: 'Informe somente a credencial do método de autenticação original.' });
-    }
-
-    if (req.user.googleId) {
-      if (!hasGoogleCredential || !googleClient || body.credential.length < 20 || body.credential.length > 10000) {
-        return res.status(401).json({ error: 'Use a verificação Google da conta vinculada.' });
-      }
-      const ticket = await googleClient.verifyIdToken({
-        idToken: body.credential,
-        audience: GOOGLE_CLIENT_ID
-      });
-      const payload = ticket.getPayload();
-      if (!payload || payload.sub !== req.user.googleId ||
-          payload.email?.toLowerCase() !== req.user.email ||
-          payload.email_verified !== true) {
-        return res.status(401).json({ error: 'A identidade Google não corresponde à conta autenticada.' });
-      }
-    } else {
-      if (!hasPassword || !req.user.passwordHash ||
-          body.password.length < 1 || body.password.length > 128) {
-        return res.status(401).json({ error: 'Informe a senha da conta para reautenticar.' });
-      }
-      const validPassword = await bcrypt.compare(body.password, req.user.passwordHash);
-      if (!validPassword) return res.status(401).json({ error: 'Credencial inválida.' });
+    const verification = await verifyReauthenticationCredential({
+      user: req.user,
+      body: req.body,
+      bcrypt,
+      googleClient,
+      googleClientId: GOOGLE_CLIENT_ID
+    });
+    if (!verification.ok) {
+      return res.status(verification.status).json({ error: verification.error });
     }
 
     const proof = issueReauthProof({
