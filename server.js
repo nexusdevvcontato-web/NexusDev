@@ -681,14 +681,35 @@ app.get('/api/certificates/:code', (req, res, next) => {
   try {
     const code = normalizeCertificateLookupCode(req.params.code);
     if (!code) return res.status(400).json({ valid: false, error: 'Código de certificado inválido.' });
-    const user = await User.findOne({ certificateCode: code })
-      .select('certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl')
+    // Check issuance and visibility before querying any certificate profile details.
+    const certificate = await User.findOne({ certificateCode: code })
+      .select('certificateCode certificateIssuedAt privacyPreferences')
       .lean();
-    if (!user || !user.certificateIssuedAt) {
+    if (!certificate || !certificate.certificateIssuedAt) {
       return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
     }
-    if (normalizePrivacyPreferences(user.privacyPreferences).showCertificateDetails === false) {
-      return res.json({ valid: true, code: user.certificateCode, publicDetails: false });
+    if (normalizePrivacyPreferences(certificate.privacyPreferences).showCertificateDetails === false) {
+      return res.json({ valid: true, code: certificate.certificateCode, publicDetails: false });
+    }
+
+    // Re-check visibility in the details query to avoid returning a stale public snapshot
+    // if the owner changes the privacy preference between the two reads.
+    const user = await User.findOne({
+      _id: certificate._id,
+      certificateCode: code,
+      certificateIssuedAt: { $ne: null },
+      'privacyPreferences.showCertificateDetails': { $ne: false }
+    })
+      .select('certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl')
+      .lean();
+    if (!user) {
+      const latest = await User.findOne({ certificateCode: code })
+        .select('certificateCode certificateIssuedAt privacyPreferences')
+        .lean();
+      if (!latest || !latest.certificateIssuedAt) {
+        return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
+      }
+      return res.json({ valid: true, code: latest.certificateCode, publicDetails: false });
     }
     return res.json({
       valid: true,
@@ -697,7 +718,7 @@ app.get('/api/certificates/:code', (req, res, next) => {
       studentName: user.name,
       completedCount: new Set(user.completedIds.filter(isKnownChallengeId)).size,
       xp: user.xp,
-      issuedAt: user.certificateIssuedAt || user.updatedAt,
+      issuedAt: user.certificateIssuedAt,
       githubUrl: user.githubUrl,
       liveUrl: user.liveUrl
     });
