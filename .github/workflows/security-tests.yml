@@ -29,6 +29,7 @@ jobs:
         run: npm ci
       - name: Generate and verify Render Yarn lockfile
         run: |
+          rm -f yarn.lock
           npx --yes yarn@1.22.22 import
           npx --yes yarn@1.22.22 install --frozen-lockfile --ignore-scripts
       - name: Audit production dependencies
