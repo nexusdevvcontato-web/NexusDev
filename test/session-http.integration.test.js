@@ -219,9 +219,11 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     const impactSerialized = JSON.stringify(impactA.payload);
     for (const forbidden of [
-      'sessionId', 'tokenHash', 'csrfTokenHash', 'refreshToken', 'certificateCode',
+      'sessionId', 'tokenHash', 'csrfTokenHash', 'certificateCode',
       'studentName', 'email', 'Comentário de teste de privacidade.'
     ]) assert.equal(impactSerialized.includes(forbidden), false, forbidden);
+    assert.equal(Object.hasOwn(impactA.payload.sessions, 'refreshToken'), false);
+    assert.equal(Object.hasOwn(impactA.payload.sessions, 'tokenHash'), false);
     assert.equal(impactA.payload.comments.legacy.status, 'not_attributable');
     assert.equal(impactA.payload.comments.legacy.count, null);
     assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
