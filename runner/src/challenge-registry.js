@@ -169,6 +169,41 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [null], expected: false }
     ]}]
   },
+  'mod-5-aula-5': {
+    language: 'javascript', entrypoint: 'senha.js', exportName: 'validarPoliticaSenha',
+    tests: [{ type: 'function-cases', cases: [
+      { args: ['NexusDev2026'], expected: true },
+      { args: ['nexusdev2026'], expected: false },
+      { args: ['NEXUSDEV2026'], expected: false },
+      { args: ['NexusDevSenha'], expected: false },
+      { args: ['Ab1'], expected: false },
+      { args: [12345678], expected: false }
+    ]}]
+  },
+  'mod-5-aula-6': {
+    language: 'javascript', entrypoint: 'token.js', exportName: 'extrairTokenBearer',
+    tests: [{ type: 'function-cases', cases: [
+      { args: ['Bearer abc.def.ghi'], expected: 'abc.def.ghi' },
+      { args: ['bearer token123'], expected: 'token123' },
+      { args: ['Basic abc'], expected: null },
+      { args: ['Bearer '], expected: null },
+      { args: ['Bearer abc extra'], expected: null },
+      { args: [' Bearer abc'], expected: null },
+      { args: [null], expected: null }
+    ]}]
+  },
+  'mod-5-aula-7': {
+    language: 'javascript', entrypoint: 'rbac.js', exportName: 'podeAcessarPerfil',
+    tests: [{ type: 'function-cases', cases: [
+      { args: [{ role: 'admin' }, 'admin'], expected: true },
+      { args: [{ role: 'student' }, 'student'], expected: true },
+      { args: [{ role: 'student' }, 'admin'], expected: false },
+      { args: [{}, 'admin'], expected: false },
+      { args: [null, 'admin'], expected: false },
+      { args: [{ role: 'admin' }, ''], expected: false },
+      { args: [{ role: 'admin' }, null], expected: false }
+    ]}]
+  },
   'node-01-controller-produto': {
     language: 'javascript', entrypoint: 'produtoController.js', exportName: 'criarProdutoController',
     tests: [
