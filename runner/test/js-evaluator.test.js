@@ -124,37 +124,37 @@ test('supports safe product validation with trim and Number.isFinite', () => {
 });
 
 test('supports allowlisted email validation and strict signup boundaries', () => {
-  const source = String.raw\`function validarCadastroUsuario(dados) {
+  const source = String.raw`function validarCadastroUsuario(dados) {
     if (!dados || typeof dados !== "object" || typeof dados.nome !== "string" || !dados.nome.trim()) return false;
     if (typeof dados.email !== "string" || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(dados.email)) return false;
     if (typeof dados.senha !== "string" || dados.senha.length < 8 || dados.senha.length > 128) return false;
     return true;
-  }\`;
+  }`;
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-4', source }), { ok: true });
 });
 
 test('supports password character classes only through fixed regex patterns', () => {
-  const source = String.raw\`function validarPoliticaSenha(senha) {
+  const source = String.raw`function validarPoliticaSenha(senha) {
     if (typeof senha !== "string" || senha.length < 8 || senha.length > 128) return false;
     return /[A-Z]/.test(senha) && /[a-z]/.test(senha) && /[0-9]/.test(senha);
-  }\`;
+  }`;
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-5', source }), { ok: true });
 });
 
 test('supports strict Bearer extraction without arbitrary regex or whitespace', () => {
-  const source = String.raw\`function extrairTokenBearer(cabecalho) {
+  const source = String.raw`function extrairTokenBearer(cabecalho) {
     if (typeof cabecalho !== "string") return null;
     const partes = cabecalho.split(" ");
     if (partes.length !== 2 || partes[0].toLowerCase() !== "bearer" || !/^\\S+$/.test(partes[1])) return null;
     return partes[1];
-  }\`;
+  }`;
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-6', source }), { ok: true });
 });
 
 test('rejects unapproved regex patterns and flags', () => {
-  const emailUnsafe = String.raw\`function validarCadastroUsuario(dados) { return /(.+)+/.test(dados.email); }\`;
+  const emailUnsafe = String.raw`function validarCadastroUsuario(dados) { return /(.+)+/.test(dados.email); }`;
   assert.equal(evaluateChallenge({ challengeId: 'mod-5-aula-4', source: emailUnsafe }).ok, false);
-  const flagsUnsafe = String.raw\`function validarPoliticaSenha(senha) { return /[A-Z]/gi.test(senha); }\`;
+  const flagsUnsafe = String.raw`function validarPoliticaSenha(senha) { return /[A-Z]/gi.test(senha); }`;
   assert.equal(evaluateChallenge({ challengeId: 'mod-5-aula-5', source: flagsUnsafe }).ok, false);
 });
 
