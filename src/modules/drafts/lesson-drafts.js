@@ -45,9 +45,12 @@ function createLessonDraftService({ User, now = () => new Date() } = {}) {
   async function read(userId, challengeId) {
     const user = await User.findById(userId).lean();
     const draft = user?.savedDraftMap?.[challengeId];
-    if (!draft || !Number.isSafeInteger(draft.revision) || draft.revision < 1 ||
-        !draft.files || typeof draft.files !== 'object') {
-      return { revision: 0, files: null, updatedAt: null };
+    if (!draft) return { revision: 0, files: null, updatedAt: null };
+    if (!Number.isSafeInteger(draft.revision) || draft.revision < 1 ||
+        draft.revision >= Number.MAX_SAFE_INTEGER || !validateDraftFiles(draft.files).ok) {
+      // Do not turn malformed persisted data into revision zero: that could
+      // make a client repeatedly attempt an overwrite against an invalid record.
+      throw new Error('Stored lesson draft is malformed.');
     }
     return { revision: draft.revision, files: draft.files, updatedAt: draft.updatedAt || null };
   }
