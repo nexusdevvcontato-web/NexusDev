@@ -159,7 +159,9 @@ const CHALLENGE_SPECS = Object.freeze({
     tests: [{ type: 'function-deep-equals', args: [{ titulo: '  Mouse Gamer ', preco: 120, ativo: false, admin: true }], expected: { $set: { titulo: 'Mouse Gamer', preco: 120, ativo: false } } },
       { type: 'function-deep-equals', args: [{ titulo: ' ', preco: -1, ativo: 'sim', role: 'admin' }], expected: { $set: {} } },
       { type: 'function-deep-equals', args: [{ ativo: true }], expected: { $set: { ativo: true } } },
-      { type: 'does-not-mutate-input', args: [{ titulo: 'Novo', admin: false }] }]
+      { type: 'function-deep-equals', args: [{ titulo: '  Teclado  ', preco: Infinity, ativo: false, $set: { admin: true }, $inc: { preco: 1000 }, $where: 'return true', role: 'admin', _id: 'forjado' }], expected: { $set: { titulo: 'Teclado', ativo: false } } },
+      { type: 'function-deep-equals', args: [{ titulo: 123, preco: '120', ativo: 1, $unset: { admin: 1 }, isAdmin: true }], expected: { $set: {} } },
+      { type: 'does-not-mutate-input', args: [{ titulo: 'Novo', admin: false, $inc: { preco: 1 } }] }]
   },
   'mod-5-aula-4': {
     language: 'javascript', entrypoint: 'cadastro.js', exportName: 'validarCadastroUsuario',
