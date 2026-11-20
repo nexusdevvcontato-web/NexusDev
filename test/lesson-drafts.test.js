@@ -150,3 +150,11 @@ test('draft validator rejects prototype-sensitive file names', () => {
     assert.equal(validateDraftFiles({ [name]: 'x' }).ok, false, `${name} must not be accepted as a file name`);
   }
 });
+
+
+test('draft HTTP contract scopes reads and writes to the authenticated identity and disables caching', async () => {
+  const server = await readFile(require.resolve('../server'), 'utf8');
+  assert.match(server, /app\.get\('\/api\/lessons\/:lessonId\/draft',[\s\S]*?res\.set\('Cache-Control', 'no-store'\)[\s\S]*?requireAuth[\s\S]*?lessonDraftService\.read\(req\.user\._id, lessonId\)/);
+  assert.match(server, /app\.put\('\/api\/lessons\/:lessonId\/draft',[\s\S]*?res\.set\('Cache-Control', 'no-store'\)[\s\S]*?requireAuth[\s\S]*?lessonDraftService\.save\(\{[\s\S]*?userId: req\.user\._id[\s\S]*?challengeId: lessonId/);
+  assert.doesNotMatch(server, /lessonDraftService\.(?:read|save)\([^\n]*req\.body\?*\.userId/);
+});
