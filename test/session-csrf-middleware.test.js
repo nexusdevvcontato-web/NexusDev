@@ -225,7 +225,8 @@ async function runCombinedSessionGuards(cookieSessionId, bearerSessionId) {
   req.headers.authorization = `Bearer ${token}`;
   const res = responseRecorder();
   await new Promise((resolve) => csrf(req, res, () => access(req, res, () => {
-    requireMatchingSession(req, res, resolve);
+    requireMatchingSession(req, res, () => {});
+    resolve();
   })));
   return res;
 }
