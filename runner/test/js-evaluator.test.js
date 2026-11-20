@@ -19,6 +19,33 @@ test('passes trusted bounded array-reduction cases', () => {
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source }), { ok: true });
 });
 
+test('supports trusted deep-equality checks for plain objects and arrays', () => {
+  const source = 'function criarModeloCartaoProduto(produto) { return { tipo: "article", titulo: produto.nome, preco: produto.preco }; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-2', source }), { ok: true });
+});
+
+test('supports deep-equality checks for nested objects and empty arrays', () => {
+  const source = 'function formatarErroApi(erro) { if (erro.code) { return { mensagem: erro.message, codigo: erro.code }; } else { return { mensagem: "Erro interno", codigo: "INTERNAL_ERROR" }; } }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-4-aula-4', source }), { ok: true });
+});
+
+test('runs trusted no-mutation checks and detects changed input values', () => {
+  const safeSource = 'function atualizarPrecoProduto(produtos, id, novoPreco) { return produtos; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source: safeSource }), { ok: false, reason: 'tests-failed' });
+
+  const changedInput = 'function atualizarPrecoProduto(produtos, id, novoPreco) { produtos = []; return produtos; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-3', source: changedInput }), { ok: false, reason: 'tests-failed' });
+});
+
+test('does not accept caller-supplied deep-equality or immutability test definitions', () => {
+  const source = 'function formatarErroApi(erro) { return {}; }';
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-4-aula-4',
+    source,
+    tests: [{ type: 'function-deep-equals', args: [{}], expected: {} }]
+  }), { ok: false, reason: 'tests-failed' });
+});
+
 test('accepts a function assigned to a const', () => {
   const source = 'const calcularPrecoComDesconto = (preco, desconto) => preco - (preco * desconto / 100);';
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source }), { ok: true });
