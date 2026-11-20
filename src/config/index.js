@@ -10,9 +10,8 @@ const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
 const GMAIL_REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN || '';
 const GMAIL_FROM_EMAIL = process.env.GMAIL_FROM_EMAIL || '';
-if (GMAIL_FROM_EMAIL && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(GMAIL_FROM_EMAIL)) throw new Error('GMAIL_FROM_EMAIL inválido.');
+if (GMAIL_FROM_EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(GMAIL_FROM_EMAIL)) throw new Error('GMAIL_FROM_EMAIL inválido.');
 const FRONTEND_URL = process.env.FRONTEND_URL || '';
-if (PASSWORD_RESET_FROM_EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(PASSWORD_RESET_FROM_EMAIL)) throw new Error('PASSWORD_RESET_FROM_EMAIL inválido.');
 if (FRONTEND_URL) { try { const url = new URL(FRONTEND_URL); if (url.protocol !== 'https:') throw new Error(); } catch { throw new Error('FRONTEND_URL deve ser uma URL HTTPS válida.'); } }
 const LESSON_PROOF_PUBLIC_KEY = process.env.LESSON_PROOF_PUBLIC_KEY || '';
 const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
