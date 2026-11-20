@@ -260,3 +260,21 @@ test('rejects MongoDB document implementations that spread untrusted input', () 
   const unsafe = 'function criarDocumentoProduto(dados) { return { ...dados, ativo: true }; }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-2', source: unsafe }), { ok: false, reason: 'tests-failed' });
 });
+
+test('enforces exact RBAC role equality and rejects client-controlled privilege flags', () => {
+  const source = String.raw`function podeAcessarPerfil(usuario, perfilNecessario) {
+    return usuario !== null &&
+      typeof usuario === "object" &&
+      typeof usuario.role === "string" &&
+      usuario.role.length > 0 &&
+      typeof perfilNecessario === "string" &&
+      perfilNecessario.length > 0 &&
+      usuario.role === perfilNecessario;
+  }`;
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-7', source }), { ok: true });
+});
+
+test('rejects RBAC shortcuts based on isAdmin or requestedRole supplied in the user object', () => {
+  const unsafe = 'function podeAcessarPerfil(usuario, perfilNecessario) { return usuario.isAdmin === true || usuario.role === perfilNecessario; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-7', source: unsafe }), { ok: false, reason: 'tests-failed' });
+});
