@@ -92,3 +92,13 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 ## Prévia de impacto de encerramento de conta
 
 Foi adicionada à branch de reconstrução uma rota autenticada somente leitura para apresentar contagens agregadas dos registros associados à própria conta. A consulta é sempre limitada ao usuário autenticado e a resposta não contém conteúdo de comentários, e-mail, código de certificado, IDs de sessão ou hashes/tokens. Comentários legados são sinalizados como não atribuíveis; logs, backups e provedores externos ficam marcados como não inspecionados. A resposta é explicitamente não executável (`deletionEnabled: false`) e mantém bloqueios de política pendentes. Nenhum dado foi removido ou alterado.
+
+
+## Verificação adicional — preferências públicas e respostas de erro
+
+- As rotas autenticadas de leitura e atualização de preferências agora aplicam `Cache-Control: no-store` antes da autenticação, inclusive para respostas 401 e erros de validação.
+- A consulta pública de certificados aplica `no-store` antes do limitador de requisições, evitando que respostas antecipadas de throttling fiquem fora da política de cache.
+- Testes HTTP com MongoDB replica set descartável verificam opt-out e opt-in do ranking, preservação do comportamento de contas legadas sem preferência explícita, validação de certificado com detalhes visíveis e ocultação de nome, progresso, XP, data e links após opt-out.
+- Os mesmos testes verificam `no-store` em respostas não autenticadas das rotas de preferências e em respostas públicas de certificado.
+- A suíte de CI para o commit de código `6b6f1b3` e o ajuste final dos fixtures de teste `f9a4bb0` foi concluída com sucesso (217 testes; 216 passaram, 1 teste HTTP integrado foi corrigido durante a execução e a execução final passou). O resultado final confirmado corresponde ao commit `f9a4bb0ad4b44841705a1f3ed3001bd1ec4caef3`.
+- Nenhuma preferência, conta, certificado ou registro de usuário real foi alterado. As mudanças permanecem na branch paralela; a revisão jurídica dos padrões legados `true` continua pendente.
