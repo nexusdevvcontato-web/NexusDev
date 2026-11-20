@@ -27,6 +27,7 @@ const { createCompletionProofModel, consumeCompletionProof } = require('./src/mo
 const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/complete-lesson');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
+const { buildLeaderboard } = require('./src/modules/public-read/leaderboard-policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
 const { buildDeletionImpact } = require('./src/modules/privacy/deletion-impact');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
@@ -685,20 +686,16 @@ app.get('/api/leaderboard', (req, res, next) => {
   next();
 }, publicReadLimiter, async (req, res) => {
   try {
-    const topUsers = await User.find({ 'privacyPreferences.showInLeaderboard': { $ne: false } })
+    const topUsers = await User.find({
+      'privacyPreferences.showInLeaderboard': { $ne: false },
+      xp: { $type: 'number', $gte: 0 }
+    })
       .sort({ xp: -1, streak: -1, _id: 1 })
       .limit(15)
       .select('name avatar xp streak completedIds')
       .lean();
 
-    const leaderboard = topUsers.map((u, idx) => ({
-      rank: idx + 1,
-      name: u.name,
-      avatar: u.avatar,
-      xp: u.xp || 0,
-      streak: u.streak || 1,
-      completedCount: Array.isArray(u.completedIds) ? new Set(u.completedIds.filter(isKnownChallengeId)).size : 0
-    }));
+    const leaderboard = buildLeaderboard(topUsers);
 
     return res.json({ leaderboard });
   } catch {
