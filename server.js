@@ -376,6 +376,7 @@ app.post('/api/auth/login', authLimiter, legacyAuthRetired);
 app.post('/api/auth/google', authLimiter, legacyAuthRetired);
 
 app.get('/api/me', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.json(formatUserResponse(req.user));
 });
 
@@ -423,6 +424,7 @@ app.post('/api/auth/reauthenticate', requireAuth, reauthLimiter, async (req, res
 
 // Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
 app.get('/api/privacy/preferences', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
   return res.json({ preferences: normalizePrivacyPreferences(req.user.privacyPreferences) });
 });
 
