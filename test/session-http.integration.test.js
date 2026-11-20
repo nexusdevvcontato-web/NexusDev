@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const { hashCompletionFiles } = require('../src/modules/proofs/completion-files-hash');
+const { consumeReauthProof } = require('../src/modules/auth/reauthentication');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = typeof sourceUri === 'string' && sourceUri.length > 0;
@@ -221,6 +222,54 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       crypto.createHash('sha256').update(reauthClaims.jti).digest('hex'));
     assert.ok(reauthUser.reauthProofExpiresAt instanceof Date);
     assert.equal('reauthToken' in reauthUser, false);
+
+    // The stored proof is bound to its owner and consumed atomically in real MongoDB.
+    const bProfileIdForReauth = (await request('/api/me', { token: b.accessToken })).payload.id;
+    assert.equal(await consumeReauthProof(User, {
+      userId: bProfileIdForReauth,
+      token: acceptedReauth.payload.reauthToken,
+      secret: process.env.REAUTH_TOKEN_SECRET
+    }), false);
+    const consumedOnce = await consumeReauthProof(User, {
+      userId: aProfile.payload.id,
+      token: acceptedReauth.payload.reauthToken,
+      secret: process.env.REAUTH_TOKEN_SECRET
+    });
+    assert.equal(consumedOnce, true);
+    const consumedAgain = await consumeReauthProof(User, {
+      userId: aProfile.payload.id,
+      token: acceptedReauth.payload.reauthToken,
+      secret: process.env.REAUTH_TOKEN_SECRET
+    });
+    assert.equal(consumedAgain, false);
+    const afterConsumption = await User.findById(aProfile.payload.id).lean();
+    assert.equal(Boolean(afterConsumption.reauthProofHash), false);
+    assert.ok(!afterConsumption.reauthProofExpiresAt);
+
+    // A second issued proof is consumed by concurrent MongoDB compare-and-set operations:
+    // exactly one caller can remove the matching stored hash.
+    const concurrentReauthIssue = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: a.accessToken,
+      body: { password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(concurrentReauthIssue.response.status, 200);
+    const concurrentReauthResults = await Promise.all([
+      consumeReauthProof(User, {
+        userId: aProfile.payload.id,
+        token: concurrentReauthIssue.payload.reauthToken,
+        secret: process.env.REAUTH_TOKEN_SECRET
+      }),
+      consumeReauthProof(User, {
+        userId: aProfile.payload.id,
+        token: concurrentReauthIssue.payload.reauthToken,
+        secret: process.env.REAUTH_TOKEN_SECRET
+      })
+    ]);
+    assert.equal(concurrentReauthResults.filter(Boolean).length, 1);
+    assert.equal(concurrentReauthResults.filter(value => value === false).length, 1);
+    const afterConcurrentConsumption = await User.findById(aProfile.payload.id).lean();
+    assert.equal(Boolean(afterConcurrentConsumption.reauthProofHash), false);
+    assert.ok(!afterConcurrentConsumption.reauthProofExpiresAt);
 
     // Draft endpoints are tested through authenticated HTTP requests, including CAS conflicts and account isolation.
     const anonymousDraftRead = await request('/api/lessons/html-00-o-que-e-web/draft');
