@@ -16,9 +16,9 @@ test('exports the authenticated user data using an explicit allowlist', () => {
     googleId: 'private-google-sub',
     internalSecret: 'never-export',
     __v: 4
-  });
+  }, [{ _id: 'comment-1', lessonId: 'html-00-o-que-e-web', author: 'Ana', badge: 'Aluno NexusDev', text: 'Meu comentário', createdAt: '2026-01-01', authorUserId: 'user-123', internalSecret: 'never-export' }]);
 
-  assert.equal(result.schemaVersion, 1);
+  assert.equal(result.schemaVersion, 2);
   assert.equal(result.data.id, 'user-123');
   assert.equal(result.data.email, 'ana@example.com');
   assert.deepEqual(result.data.completedIds, ['html-00-o-que-e-web']);
@@ -26,6 +26,9 @@ test('exports the authenticated user data using an explicit allowlist', () => {
   assert.equal('googleId' in result.data, false);
   assert.equal('internalSecret' in result.data, false);
   assert.equal('__v' in result.data, false);
+  assert.deepEqual(result.comments, [{ id: 'comment-1', lessonId: 'html-00-o-que-e-web', author: 'Ana', badge: 'Aluno NexusDev', text: 'Meu comentário', createdAt: '2026-01-01' }]);
+  assert.equal('authorUserId' in result.comments[0], false);
+  assert.equal('internalSecret' in result.comments[0], false);
 });
 
 test('supports Mongoose-like documents without exporting private fields', () => {
@@ -38,8 +41,25 @@ test('supports Mongoose-like documents without exporting private fields', () => 
   assert.equal(result.data.name, 'Bia');
   assert.equal('passwordHash' in result.data, false);
   assert.equal('googleId' in result.data, false);
+  assert.deepEqual(result.comments, []);
 });
 
 test('rejects missing user data', () => {
   assert.throws(() => buildUserDataExport(null), /User data is required/);
+});
+
+test('exports only the comments supplied by the authenticated owner query', () => {
+  const ownComments = [
+    { _id: 'own-1', lessonId: 'html-00-o-que-e-web', text: 'Meu', authorUserId: 'user-1' }
+  ];
+  const result = buildUserDataExport({ _id: 'user-1' }, ownComments);
+  assert.equal(result.comments.length, 1);
+  assert.equal(result.comments[0].id, 'own-1');
+  assert.equal(result.comments[0].text, 'Meu');
+  assert.equal('authorUserId' in result.comments[0], false);
+});
+
+test('rejects malformed comment export input', () => {
+  assert.throws(() => buildUserDataExport({ _id: 'user-1' }, {}), /Comments must be an array/);
+  assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [null]), /Invalid comment/);
 });
