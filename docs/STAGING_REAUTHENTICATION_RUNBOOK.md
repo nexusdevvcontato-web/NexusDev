@@ -84,7 +84,7 @@ O backend atualmente armazena apenas o hash do identificador da prova e a expira
 - o consumo atômico remove o hash e a expiração;
 - repetição ou concorrência não permite segundo consumo.
 
-Não existe endpoint de ação sensível conectado à prova. O teste de integração consome a prova diretamente pelo serviço interno para verificar atomicidade; isso não equivale a um fluxo de produto ponta a ponta. Não simular exclusão de conta nem alterar documentos reais.
+Exportação de dados pessoais (`GET /api/privacy/export`) agora exige e consome `X-Reauth-Token` antes de liberar o arquivo. A integração HTTP testa ausência de prova, exportação autorizada, replay negado e isolamento entre contas. A prova não autoriza exclusão de conta nem outras operações.
 
 ## 7. Critérios de aprovação
 

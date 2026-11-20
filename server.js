@@ -535,6 +535,20 @@ app.get('/api/privacy/export', (req, res, next) => {
   next();
 }, requireAuth, async (req, res) => {
   try {
+    // Exportação contém dados pessoais e exige uma prova recente de identidade, além da sessão.
+    if (!REAUTH_TOKEN_SECRET) {
+      return res.status(503).json({ error: 'A confirmação de identidade não está configurada neste ambiente.' });
+    }
+    const reauthToken = req.get('X-Reauth-Token');
+    const consumed = await consumeReauthProof(User, {
+      userId: req.user._id.toString(),
+      token: reauthToken,
+      secret: REAUTH_TOKEN_SECRET
+    });
+    if (!consumed) {
+      return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
+    }
+
     // Scope every query to the authenticated database identity; never accept an owner ID from the client.
     const [comments, sessions] = await Promise.all([
       Comment.find({ authorUserId: req.user._id })

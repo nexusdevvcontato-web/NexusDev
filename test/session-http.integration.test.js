@@ -43,12 +43,13 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const base = `http://127.0.0.1:${server.address().port}`;
     const origin = 'https://app.example.test';
 
-    const request = async (path, { method = 'GET', body, token, cookies = [], csrf } = {}) => {
+    const request = async (path, { method = 'GET', body, token, cookies = [], csrf, reauthToken } = {}) => {
       const headers = { Origin: origin };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (token) headers.Authorization = `Bearer ${token}`;
       if (cookies.length) headers.Cookie = cookies.join('; ');
       if (csrf) headers['X-CSRF-Token'] = csrf;
+      if (reauthToken) headers['X-Reauth-Token'] = reauthToken;
       const response = await fetch(base + path, {
         method, headers,
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -496,8 +497,26 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.certificate.present, true);
     assert.equal(impactA.payload.learning.dataPresent, true);
 
-    const exportA = await request('/api/privacy/export', { token: a.accessToken });
+    const exportWithoutReauth = await request('/api/privacy/export', { token: a.accessToken });
+    assert.equal(exportWithoutReauth.response.status, 403);
+    assert.match(exportWithoutReauth.response.headers.get('cache-control') || '', /no-store/i);
+
+    const exportReauthA = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: a.accessToken,
+      body: { password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(exportReauthA.response.status, 200);
+    const exportA = await request('/api/privacy/export', {
+      token: a.accessToken,
+      reauthToken: exportReauthA.payload.reauthToken
+    });
     assert.equal(exportA.response.status, 200, JSON.stringify(exportA.payload));
+    const replayedExportA = await request('/api/privacy/export', {
+      token: a.accessToken,
+      reauthToken: exportReauthA.payload.reauthToken
+    });
+    assert.equal(replayedExportA.response.status, 403);
+    assert.match(replayedExportA.response.headers.get('cache-control') || '', /no-store/i);
     assert.match(exportA.response.headers.get('cache-control') || '', /no-store/i);
     assert.equal(exportA.payload.schemaVersion, 2);
     assert.equal(exportA.payload.sessions.length, impactA.payload.sessions.count);
@@ -511,7 +530,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       'tokenHash', 'authorUserId', 'internalSecret'
     ]) assert.equal(exportSerialized.includes(forbidden), false, forbidden);
     assert.ok(exportA.payload.comments.some(comment => comment.text === 'Comentário de teste de privacidade.'));
-    const exportB = await request('/api/privacy/export', { token: b.accessToken });
+    const exportReauthB = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: b.accessToken,
+      body: { password: 'A-strong-test-password-2026' }
+    });
+    assert.equal(exportReauthB.response.status, 200);
+    const exportB = await request('/api/privacy/export', {
+      token: b.accessToken,
+      reauthToken: exportReauthB.payload.reauthToken
+    });
     assert.equal(exportB.response.status, 200);
     assert.equal(exportB.payload.comments.length, 0);
     assert.equal(exportB.payload.sessions.length, 1);
