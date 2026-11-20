@@ -1,0 +1,44 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { consumeCompletionProof, UUID_PATTERN } = require('../src/modules/proofs/completion-proof-store');
+
+function fakeModel() {
+  const seen = new Set();
+  return {
+    async create(record) {
+      if (seen.has(record.jti)) {
+        const error = new Error('duplicate key');
+        error.code = 11000;
+        throw error;
+      }
+      seen.add(record.jti);
+      return record;
+    }
+  };
+}
+
+test('consumes a valid proof identifier exactly once', async () => {
+  const model = fakeModel();
+  const proof = { jti: '123e4567-e89b-42d3-a456-426614174000', exp: 1800000120, challengeId: 'html-01-test' };
+  assert.equal(UUID_PATTERN.test(proof.jti), true);
+  assert.equal(await consumeCompletionProof(model, proof, 'user-1'), true);
+  assert.equal(await consumeCompletionProof(model, proof, 'user-1'), false);
+});
+
+test('only one concurrent request can consume the same proof', async () => {
+  const model = fakeModel();
+  const proof = { jti: '123e4567-e89b-42d3-a456-426614174001', exp: 1800000120, challengeId: 'html-01-test' };
+  const results = await Promise.all([
+    consumeCompletionProof(model, proof, 'user-1'),
+    consumeCompletionProof(model, proof, 'user-1')
+  ]);
+  assert.equal(results.filter(Boolean).length, 1);
+});
+
+test('rejects malformed proof records and propagates database failures', async () => {
+  await assert.rejects(consumeCompletionProof(fakeModel(), { jti: 'bad', exp: 1800000120, challengeId: 'x' }, 'user-1'));
+  await assert.rejects(consumeCompletionProof({ create: async () => { throw new Error('database unavailable'); } },
+    { jti: '123e4567-e89b-42d3-a456-426614174002', exp: 1800000120, challengeId: 'x' }, 'user-1'), /database unavailable/);
+});
