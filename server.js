@@ -151,7 +151,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         typeof password !== 'string' || password.length < 8 || password.length > 128) {
       return res.status(400).json({ error: 'Informe nome válido, e-mail válido e senha entre 8 e 128 caracteres.' });
     }
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({ error: 'Informe um endereço de e-mail válido.' });
     }
 
@@ -181,7 +181,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { email, password } = req.body || {};
     if (typeof email !== 'string' || email.length > 254 ||
         typeof password !== 'string' || password.length < 1 || password.length > 128 ||
-        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
     }
 
