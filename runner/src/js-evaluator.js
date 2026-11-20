@@ -79,7 +79,7 @@ function parseSolution(source, exportName) {
   throw new EvaluationError('expected-function-export');
 }
 
-function executeFunction(fn, args, budget) {
+function executeFunction(fn, args, budget, options = {}) {
   if (fn.async || fn.generator) throw new EvaluationError('unsupported-function-kind');
   const scope = new Map();
   const params = fn.params;
@@ -189,21 +189,45 @@ function executeFunction(fn, args, budget) {
   };
   const body = fn.body.type === 'BlockStatement' ? fn.body : { type: 'BlockStatement', body: [{ type: 'ReturnStatement', argument: fn.body }] };
   const result = execStatement(body);
-  return result.returned ? safeValue(result.value) : null;
+  const value = result.returned ? safeValue(result.value) : null;
+  if (options.includeFinalArgs === true) {
+    return { value, finalArgs: params.map((param) => safeValue(scope.get(param.name))) };
+  }
+  return value;
 }
 
 function evaluateChallenge({ challengeId, source }) {
   const { getChallengeSpec } = require('./challenge-registry');
   const spec = getChallengeSpec(challengeId);
-  const cases = spec?.tests?.find((test) => test.type === 'function-cases')?.cases;
-  if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(cases) || cases.length === 0) {
+  const tests = spec?.tests;
+  if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(tests) || tests.length === 0 ||
+      tests.some((test) => !['function-cases', 'function-deep-equals', 'does-not-mutate-input'].includes(test.type))) {
     return { ok: false, reason: 'unsupported-challenge' };
   }
   try {
     const fn = parseSolution(source, spec.exportName);
-    const results = cases.map((testCase) => executeFunction(fn, testCase.args, { steps: 0 }));
-    const passed = results.every((actual, index) => equal(actual, cases[index].expected));
-    return passed ? { ok: true } : { ok: false, reason: 'tests-failed' };
+    for (const test of tests) {
+      if (test.type === 'function-cases') {
+        if (!Array.isArray(test.cases) || test.cases.length === 0) return { ok: false, reason: 'unsupported-challenge' };
+        for (const testCase of test.cases) {
+          if (!Array.isArray(testCase.args)) return { ok: false, reason: 'invalid-test-spec' };
+          const actual = executeFunction(fn, testCase.args, { steps: 0 });
+          if (!equal(actual, testCase.expected)) return { ok: false, reason: 'tests-failed' };
+        }
+      } else if (test.type === 'function-deep-equals') {
+        if (!Array.isArray(test.args) || !Object.prototype.hasOwnProperty.call(test, 'expected')) {
+          return { ok: false, reason: 'invalid-test-spec' };
+        }
+        const actual = executeFunction(fn, test.args, { steps: 0 });
+        if (!equal(actual, test.expected)) return { ok: false, reason: 'tests-failed' };
+      } else if (test.type === 'does-not-mutate-input') {
+        if (!Array.isArray(test.args)) return { ok: false, reason: 'invalid-test-spec' };
+        const before = safeValue(test.args);
+        const execution = executeFunction(fn, test.args, { steps: 0 }, { includeFinalArgs: true });
+        if (!equal(before, execution.finalArgs)) return { ok: false, reason: 'input-mutated' };
+      }
+    }
+    return { ok: true };
   } catch (error) {
     return { ok: false, reason: error instanceof EvaluationError ? error.code : 'evaluation-failed' };
   }
