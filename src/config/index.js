@@ -15,7 +15,7 @@ if (!MONGO_URI) {
   throw new Error('MONGO_URI (ou MONGODB_URI) é obrigatória. Inicialização cancelada.');
 }
 if (typeof JWT_SECRET !== 'string' || JWT_SECRET.length < 32 ||
-    JWT_SECRET === 'nexusdev-super-secret-key-2026') {
+    JWT_SECRET === 'nexusdev-super-secret-key-2026' || JWT_SECRET.includes('REPLACE_WITH')) {
   throw new Error('JWT_SECRET deve conter pelo menos 32 caracteres aleatórios e não pode usar segredo padrão.');
 }
 if (NODE_ENV === 'production' && configuredOrigins.length === 0) {
