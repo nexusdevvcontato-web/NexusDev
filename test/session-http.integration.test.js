@@ -191,6 +191,21 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     assert.equal(invalidTutorResponse.response.status, 400);
     assert.match(invalidTutorResponse.response.headers.get('cache-control') || '', /no-store/i);
+    // Tutor is intentionally usable by guests, but its per-IP budget must be enforced.
+    for (let i = 0; i < 18; i++) {
+      const withinBudget = await request('/api/tutor/analyze', {
+        method: 'POST',
+        body: { challengeTitle: 'Teste', language: 'javascript', filesMap: { 'script.js': 'return 1;' } }
+      });
+      assert.equal(withinBudget.response.status, 200);
+      assert.match(withinBudget.response.headers.get('cache-control') || '', /no-store/i);
+    }
+    const rateLimitedTutor = await request('/api/tutor/analyze', {
+      method: 'POST',
+      body: { challengeTitle: 'Teste', language: 'javascript', filesMap: { 'script.js': 'return 1;' } }
+    });
+    assert.equal(rateLimitedTutor.response.status, 429);
+    assert.match(rateLimitedTutor.response.headers.get('cache-control') || '', /no-store/i);
 
     const challengeId = 'html-00-o-que-e-web';
     const certificateCode = 'NXD-2026-TEST-700-ABCDEF1234567890';
