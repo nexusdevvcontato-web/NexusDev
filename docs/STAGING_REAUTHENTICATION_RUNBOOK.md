@@ -35,7 +35,7 @@ Com uma conta local descartável já autenticada no staging, definir as variáve
 STAGING_API_URL="https://api-staging.example.com" \
 STAGING_ACCESS_TOKEN="<ACCESS_TOKEN_DE_STAGING>" \
 STAGING_TEST_PASSWORD="<SENHA_DA_CONTA_DESCARTAVEL>" \
-npm run test:staging:reauth
+yarn test:staging:reauth
 ```
 
 O comando testa ausência de autenticação (401), senha incorreta (401), senha correta (200), `Cache-Control: no-store` e validade estrutural/TTL de cinco minutos da prova. A prova é mantida somente em memória e descartada pelo processo; não é consumida, pois ainda não existe rota de ação sensível. Não executar com contas reais.
