@@ -9,6 +9,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
@@ -92,12 +93,6 @@ const commentSchema = new mongoose.Schema(
 );
 
 const Comment = mongoose.model('Comment', commentSchema);
-
-function generateCertificateCode(name, completedCount) {
-  const cleanName = (name || 'ALUNO').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `NXD-2026-${cleanName || 'DEV'}-${String(completedCount).padStart(3, '0')}-${randomSuffix}`;
-}
 
 function signUserToken(user) {
   return jwt.sign(
@@ -404,7 +399,7 @@ app.get('/api/certificates/:code', async (req, res) => {
       valid: true,
       code: user.certificateCode,
       studentName: user.name,
-      completedCount: user.completedIds.length,
+      completedCount: new Set(user.completedIds.filter(isKnownChallengeId)).size,
       xp: user.xp,
       issuedAt: user.certificateIssuedAt || user.updatedAt,
       githubUrl: user.githubUrl,
@@ -429,7 +424,7 @@ app.get('/api/leaderboard', async (req, res) => {
       avatar: u.avatar,
       xp: u.xp || 0,
       streak: u.streak || 1,
-      completedCount: Array.isArray(u.completedIds) ? u.completedIds.length : 0
+      completedCount: Array.isArray(u.completedIds) ? new Set(u.completedIds.filter(isKnownChallengeId)).size : 0
     }));
 
     return res.json({ leaderboard });
