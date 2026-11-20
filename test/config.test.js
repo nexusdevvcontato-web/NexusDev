@@ -37,6 +37,13 @@ test('rejects short JWT secret', () => {
   assert.match(result.stderr, /32 caracteres/);
 });
 
+
+test('rejects the example placeholder as a signing secret', () => {
+  const result = loadConfig({ JWT_SECRET: 'REPLACE_WITH_A_LONG_RANDOM_SECRET' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /JWT_SECRET/);
+});
+
 test('requires explicit CORS origins in production', () => {
   const result = loadConfig({ NODE_ENV: 'production', CORS_ORIGINS: '', FRONTEND_URL: '' });
   assert.notEqual(result.status, 0);
