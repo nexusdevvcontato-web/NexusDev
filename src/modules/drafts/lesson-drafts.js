@@ -26,7 +26,7 @@ function validateDraftFiles(files) {
     const bytes = Buffer.byteLength(source, 'utf8');
     if (bytes > MAX_FILE_BYTES) return { ok: false, error: 'Um arquivo excede 50 KB.' };
     totalBytes += bytes;
-    if (totalBytes > MAX_TOTAL_BYTES) return { ok: false, error: 'O rascunho excede 80 KB.' };
+    if (totalBytes > MAX_TOTAL_BYTES) return { ok: false, error: 'O rascunho excede 40 KB.' };
     normalized[name] = source;
   }
   return { ok: true, files: normalized };
