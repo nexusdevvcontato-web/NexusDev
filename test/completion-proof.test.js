@@ -50,7 +50,7 @@ test('rejects missing key, missing token, and oversized token', () => {
 
 test('rejects a token signed by another key', () => {
   const other = generateKeyPairSync('rsa', { modulusLength: 2048 });
-  const token = jwt.sign({ purpose: 'lesson-completion', challengeId: context.challengeId }, other.privateKey, {
+  const token = jwt.sign({ purpose: 'lesson-completion', challengeId: context.challengeId, filesHash: context.filesHash }, other.privateKey, {
     algorithm: 'RS256', subject: context.userId, issuer: 'nexusdev-runner',
     audience: 'nexusdev-progress', expiresIn: 120
   });
@@ -75,6 +75,7 @@ test('rejects expired, future-issued, and longer-than-five-minute proofs', () =>
   const make = (iat, exp) => jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    filesHash: context.filesHash,
     jti: require('node:crypto').randomUUID(),
     sub: context.userId,
     iss: 'nexusdev-runner',
@@ -91,6 +92,7 @@ test('rejects a token using a non-RS256 algorithm', () => {
   const token = jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    filesHash: context.filesHash,
     sub: context.userId,
     iss: 'nexusdev-runner',
     aud: 'nexusdev-progress',
@@ -103,6 +105,7 @@ test('rejects proofs without a unique identifier', () => {
   const token = jwt.sign({
     purpose: 'lesson-completion',
     challengeId: context.challengeId,
+    filesHash: context.filesHash,
     sub: context.userId,
     iss: 'nexusdev-runner',
     aud: 'nexusdev-progress',
