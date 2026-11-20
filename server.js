@@ -18,6 +18,7 @@ const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthe
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
+const { isRunnerSupportedChallenge } = require('./runner/src/challenge-registry');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
@@ -525,6 +526,10 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
     const { challengeId, files, completionProof } = req.body || {};
     if (!isKnownChallengeId(challengeId)) {
       return res.status(400).json({ error: 'Aula inválida ou não encontrada no currículo oficial.' });
+    }
+
+    if (!isRunnerSupportedChallenge(challengeId)) {
+      return res.status(400).json({ error: 'Esta aula ainda não possui um validador seguro habilitado.' });
     }
 
     // Never trust a client-side "tests passed" flag. Only a separate runner can sign this proof.
