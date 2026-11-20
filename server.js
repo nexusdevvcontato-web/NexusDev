@@ -31,6 +31,9 @@ const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/m
 const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
 
 const app = express();
+// Render terminates the public connection at one trusted proxy hop.
+// This lets rate-limit middleware use the forwarded client IP safely.
+app.set('trust proxy', 1);
 
 const config = require('./src/config');
 const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
