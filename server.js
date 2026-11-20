@@ -750,14 +750,20 @@ app.post('/api/tutor/analyze', tutorLimiter, (req, res) => {
 // ============================================================================
 // FÓRUM DA COMUNIDADE POR AULA (PERSISTIDO NO MONGODB)
 // ============================================================================
-app.get('/api/lessons/:lessonId/comments', publicReadLimiter, async (req, res) => {
+app.get('/api/lessons/:lessonId/comments', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, publicReadLimiter, async (req, res) => {
   try {
     const lessonId = typeof req.params.lessonId === 'string' ? req.params.lessonId.trim() : '';
     if (!isPublicLessonLookupAllowed(lessonId)) {
       return res.status(400).json({ error: 'Identificador de aula inválido.' });
     }
-    const docs = await Comment.find({ lessonId }).sort({ createdAt: -1 }).limit(50).lean();
+    const docs = await Comment.find({ lessonId })
+      .select('_id author badge text createdAt')
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(50)
+      .lean();
     const comments = docs.map((d) => ({
       id: d._id.toString(),
       author: d.author,
@@ -767,11 +773,14 @@ app.get('/api/lessons/:lessonId/comments', publicReadLimiter, async (req, res) =
     }));
     return res.json({ comments });
   } catch {
-    return res.json({ comments: [] });
+    return res.status(500).json({ error: 'Não foi possível carregar os comentários.' });
   }
 });
 
-app.post('/api/lessons/:lessonId/comments', requireAuth, commentLimiter, async (req, res) => {
+app.post('/api/lessons/:lessonId/comments', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, commentLimiter, async (req, res) => {
   try {
     const lessonId = String(req.params.lessonId || '').trim();
     const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
