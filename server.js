@@ -20,6 +20,7 @@ const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletion
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
+const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
 
 const app = express();
 
@@ -101,7 +102,11 @@ const userSchema = new mongoose.Schema(
     certificateCode: { type: String, unique: true, sparse: true },
     certificateIssuedAt: { type: Date, default: null },
     githubUrl: { type: String, default: '' },
-    liveUrl: { type: String, default: '' }
+    liveUrl: { type: String, default: '' },
+    privacyPreferences: {
+      showInLeaderboard: { type: Boolean, default: true },
+      showCertificateDetails: { type: Boolean, default: true }
+    }
   },
   { timestamps: true }
 );
@@ -145,7 +150,8 @@ function formatUserResponse(user) {
     certificateIssuedAt: user.certificateIssuedAt,
     githubUrl: user.githubUrl,
     liveUrl: user.liveUrl,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    privacyPreferences: normalizePrivacyPreferences(user.privacyPreferences)
   };
 }
 
@@ -287,6 +293,30 @@ app.get('/api/me', requireAuth, async (req, res) => {
 });
 
 // Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
+app.get('/api/privacy/preferences', requireAuth, (req, res) => {
+  return res.json({ preferences: normalizePrivacyPreferences(req.user.privacyPreferences) });
+});
+
+app.put('/api/privacy/preferences', requireAuth, async (req, res) => {
+  const validation = validatePrivacyPreferenceUpdate(req.body);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+  try {
+    const update = {};
+    for (const [key, value] of Object.entries(validation.value)) {
+      update[`privacyPreferences.${key}`] = value;
+    }
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Conta não encontrada.' });
+    return res.json({ preferences: normalizePrivacyPreferences(updated.privacyPreferences) });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível salvar as preferências de privacidade.' });
+  }
+});
+
 app.get('/api/privacy/export', requireAuth, async (req, res) => {
   try {
     // Scope the query to the authenticated database identity; never accept an owner ID from the client.
@@ -446,8 +476,12 @@ app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) =>
     if (!user || !user.certificateIssuedAt) {
       return res.status(404).json({ valid: false, error: 'Código de certificado não encontrado.' });
     }
+    if (normalizePrivacyPreferences(user.privacyPreferences).showCertificateDetails === false) {
+      return res.json({ valid: true, code: user.certificateCode, publicDetails: false });
+    }
     return res.json({
       valid: true,
+      publicDetails: true,
       code: user.certificateCode,
       studentName: user.name,
       completedCount: new Set(user.completedIds.filter(isKnownChallengeId)).size,
@@ -464,7 +498,7 @@ app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) =>
 // Ranking Top 15 da Comunidade
 app.get('/api/leaderboard', publicReadLimiter, async (req, res) => {
   try {
-    const topUsers = await User.find({})
+    const topUsers = await User.find({ 'privacyPreferences.showInLeaderboard': { $ne: false } })
       .sort({ xp: -1, streak: -1, _id: 1 })
       .limit(15)
       .select('name avatar xp streak completedIds')
