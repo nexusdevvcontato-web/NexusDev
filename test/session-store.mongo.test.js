@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { createSessionModels } = require('../src/modules/auth/session-models');
 const { createSessionStore } = require('../src/modules/auth/session-store');
 const { hashRefreshToken } = require('../src/modules/auth/refresh-token');
+const { verifySessionCsrfToken } = require('../src/modules/auth/session-csrf-token');
 
 const uri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = Boolean(uri);
@@ -38,10 +39,18 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     const userId = new mongoose.Types.ObjectId();
     const created = await store.create({ userId, ttlMs: 60_000 });
     assert.ok(created.refreshToken);
+    assert.match(created.csrfToken, /^[A-Za-z0-9_-]{43}$/);
+    const createdRecord = await Session.findById(created.session._id).select('+csrfTokenHash').lean();
+    assert.ok(verifySessionCsrfToken(created.csrfToken, createdRecord.csrfTokenHash));
     assert.equal(await RefreshToken.countDocuments({ sessionId: created.session._id, usedAt: null }), 1);
 
     const rotated = await store.rotate({ refreshToken: created.refreshToken });
     assert.equal(rotated.status, 'rotated');
+    assert.match(rotated.csrfToken, /^[A-Za-z0-9_-]{43}$/);
+    assert.notEqual(rotated.csrfToken, created.csrfToken);
+    const rotatedRecord = await Session.findById(created.session._id).select('+csrfTokenHash').lean();
+    assert.ok(verifySessionCsrfToken(rotated.csrfToken, rotatedRecord.csrfTokenHash));
+    assert.equal(verifySessionCsrfToken(created.csrfToken, rotatedRecord.csrfTokenHash), false);
     assert.equal(await RefreshToken.countDocuments({ sessionId: created.session._id, usedAt: { $ne: null } }), 1);
 
     const replay = await store.rotate({ refreshToken: created.refreshToken });
