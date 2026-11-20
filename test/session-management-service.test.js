@@ -71,3 +71,35 @@ test('rejects untrusted origin before modifying session state',async()=>{
   assert.equal(c.res.statusCode,403);
   assert.equal(c.calls.length,0);
 });
+
+test('individual revocation returns the same not-found response for foreign or missing sessions', async () => {
+  const c = setup();
+  c.service = createSessionManagementService({
+    mongoose: { startSession() { throw new Error('not used'); } },
+    Session: {
+      find() { throw new Error('not used'); },
+      findOne() { throw new Error('not used'); },
+      async updateOne(query) {
+        c.calls.push(['updateOne', query]);
+        return { modifiedCount: 0 };
+      }
+    },
+    RefreshToken: {},
+    allowedOrigins: ['https://nexusdev-frontend.vercel.app'],
+    now: () => new Date('2026-11-20T04:00:00Z')
+  });
+  await c.service.revokeOne(c.req, c.res);
+  assert.equal(c.res.statusCode, 404);
+  assert.deepEqual(c.calls[0][1], {
+    _id: 's-other', userId: 'u1', revokedAt: null
+  });
+  assert.equal(c.res.cleared.length, 0);
+});
+
+test('individual revocation rejects a missing or untrusted Origin without querying sessions', async () => {
+  const c = setup();
+  c.req.headers.origin = undefined;
+  await c.service.revokeOne(c.req, c.res);
+  assert.equal(c.res.statusCode, 403);
+  assert.equal(c.calls.length, 0);
+});
