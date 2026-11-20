@@ -159,6 +159,14 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
     const preferences = await request('/api/privacy/preferences', { token: a.accessToken });
     assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
+    const anonymousPreferences = await request('/api/privacy/preferences');
+    assert.equal(anonymousPreferences.response.status, 401);
+    assert.match(anonymousPreferences.response.headers.get('cache-control') || '', /no-store/i);
+    const anonymousPreferenceUpdate = await request('/api/privacy/preferences', {
+      method: 'PUT', body: { showInLeaderboard: false }
+    });
+    assert.equal(anonymousPreferenceUpdate.response.status, 401);
+    assert.match(anonymousPreferenceUpdate.response.headers.get('cache-control') || '', /no-store/i);
 
     const challengeId = 'html-00-o-que-e-web';
     const certificateCode = 'NXD-2026-TEST-700-ABCDEF1234567890';
@@ -176,6 +184,12 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(privateCertificate.payload.publicDetails, false);
     assert.equal('studentName' in privateCertificate.payload, false);
     assert.equal('xp' in privateCertificate.payload, false);
+    assert.equal('issuedAt' in privateCertificate.payload, false);
+    assert.equal('githubUrl' in privateCertificate.payload, false);
+    assert.equal('liveUrl' in privateCertificate.payload, false);
+    const anonymousCertificate = await request('/api/certificates/' + certificateCode);
+    assert.equal(anonymousCertificate.response.status, 200);
+    assert.match(anonymousCertificate.response.headers.get('cache-control') || '', /no-store/i);
     const certificateIssueDenied = await request('/api/certificates/issue', {
       method: 'POST', token: a.accessToken, body: {}
     });
@@ -185,6 +199,33 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const leaderboard = await request('/api/leaderboard');
     assert.equal(leaderboard.response.status, 200);
     assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
+    await User.updateOne({ _id: aProfile.payload.id }, {
+      $set: { xp: 999999, 'privacyPreferences.showInLeaderboard': false }
+    });
+    const optedOutLeaderboard = await request('/api/leaderboard');
+    assert.equal(optedOutLeaderboard.payload.leaderboard.some(row => row.name === 'Integration Student'), false);
+    await User.updateOne({ _id: aProfile.payload.id }, {
+      $set: { 'privacyPreferences.showInLeaderboard': true }
+    });
+    const optedInLeaderboard = await request('/api/leaderboard');
+    assert.equal(optedInLeaderboard.payload.leaderboard.some(row => row.name === 'Integration Student'), true);
+
+    const bCertificateCode = 'NXD-2026-TEST-700-BBCDEF1234567890';
+    await User.updateOne({ _id: (await request('/api/me', { token: b.accessToken })).payload.id }, {
+      $set: { certificateCode: bCertificateCode, certificateIssuedAt: new Date() }
+    });
+    const publicCertificate = await request('/api/certificates/' + bCertificateCode);
+    assert.equal(publicCertificate.payload.valid, true);
+    assert.equal(publicCertificate.payload.publicDetails, true);
+    assert.equal(publicCertificate.payload.studentName, 'Integration Student');
+    const bId = (await request('/api/me', { token: b.accessToken })).payload.id;
+    await User.updateOne({ _id: bId }, { $set: { 'privacyPreferences.showCertificateDetails': false } });
+    const optedOutCertificate = await request('/api/certificates/' + bCertificateCode);
+    assert.equal(optedOutCertificate.payload.valid, true);
+    assert.equal(optedOutCertificate.payload.publicDetails, false);
+    for (const field of ['studentName', 'completedCount', 'xp', 'issuedAt', 'githubUrl', 'liveUrl']) {
+      assert.equal(Object.hasOwn(optedOutCertificate.payload, field), false, field);
+    }
 
     const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
       method: 'POST', token: a.accessToken, body: { text: 'Comentário de teste de privacidade.' }
