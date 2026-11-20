@@ -72,6 +72,7 @@ function parseSolution(source, exportName) {
 }
 
 function executeFunction(fn, args, budget) {
+  if (fn.async || fn.generator) throw new EvaluationError('unsupported-function-kind');
   const scope = new Map();
   const params = fn.params;
   if (params.some((p) => p.type !== 'Identifier') || args.length > params.length) throw new EvaluationError('unsupported-parameters');
@@ -140,7 +141,7 @@ function executeFunction(fn, args, budget) {
         const array = evalExpr(node.callee.object, depth + 1);
         if (!Array.isArray(array)) throw new EvaluationError('unsupported-call-target');
         const callback = node.arguments[0];
-        if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type) ||
+        if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type) || callback.async || callback.generator ||
             callback.params.length !== 2 || callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-reducer');
         let accumulator;
         let index;
