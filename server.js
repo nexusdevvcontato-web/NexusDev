@@ -19,6 +19,7 @@ const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modul
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
+const { buildUserDataExport } = require('./src/modules/privacy/user-export');
 
 const app = express();
 
@@ -121,7 +122,7 @@ const Comment = mongoose.model('Comment', commentSchema);
 
 function signUserToken(user) {
   return jwt.sign(
-    { id: user._id.toString(), email: user.email, role: user.role },
+    { id: user._id.toString() },
     JWT_SECRET,
     { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN }
   );
@@ -281,6 +282,13 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
 
 app.get('/api/me', requireAuth, async (req, res) => {
   res.json(formatUserResponse(req.user));
+});
+
+// Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
+app.get('/api/privacy/export', requireAuth, (req, res) => {
+  res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
+  res.set('Cache-Control', 'no-store');
+  return res.json(buildUserDataExport(req.user));
 });
 
 // ============================================================================
