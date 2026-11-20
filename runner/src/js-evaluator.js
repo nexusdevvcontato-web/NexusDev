@@ -82,11 +82,12 @@ function parseSolution(source, exportName) {
 function executeFunction(fn, args, budget, options = {}) {
   if (fn.async || fn.generator) throw new EvaluationError('unsupported-function-kind');
   const scope = new Map();
+  const parentScope = options.parentScope || null;
   const params = fn.params;
   if (params.some((p) => p.type !== 'Identifier') || args.length > params.length) throw new EvaluationError('unsupported-parameters');
   params.forEach((p, i) => scope.set(p.name, safeValue(args[i] === undefined ? null : args[i])));
   const tick = () => { budget.steps += 1; if (budget.steps > LIMITS.steps) throw new EvaluationError('step-limit'); };
-  const lookup = (name) => { if (!scope.has(name)) throw new EvaluationError('unknown-identifier'); return scope.get(name); };
+  const lookup = (name) => { if (scope.has(name)) return scope.get(name); if (parentScope?.has(name)) return parentScope.get(name); throw new EvaluationError('unknown-identifier'); };
   const assign = (name, value) => { if (!scope.has(name)) throw new EvaluationError('unknown-assignment'); scope.set(name, value); return value; };
   const evalExpr = (node, depth = 0) => {
     tick(); if (depth > LIMITS.depth) throw new EvaluationError('evaluation-depth-limit');
@@ -192,21 +193,37 @@ function executeFunction(fn, args, budget, options = {}) {
           }
           throw new EvaluationError('unsupported-string-method');
         }
-        if (method !== 'reduce' || !Array.isArray(target) || node.arguments.length < 1 || node.arguments.length > 2) {
+        if (!Array.isArray(target) || node.arguments.length < 1 ||
+            !['reduce', 'map', 'filter'].includes(method) ||
+            node.arguments.length > (method === 'reduce' ? 2 : 1)) {
           throw new EvaluationError('unsupported-call-target');
         }
         const callback = node.arguments[0];
         if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type) || callback.async || callback.generator ||
-            callback.params.length !== 2 || callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-reducer');
-        let accumulator;
-        let index;
-        if (node.arguments.length === 2) { accumulator = callArgs[0]; index = 0; }
-        else { if (!target.length) throw new EvaluationError('reduce-empty-without-initial'); accumulator = target[0]; index = 1; }
-        for (; index < target.length; index += 1) {
-          tick();
-          accumulator = executeFunction(callback, [accumulator, target[index]], budget);
+            callback.params.length < (method === 'reduce' ? 2 : 1) || callback.params.length > (method === 'reduce' ? 2 : 2) ||
+            callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-array-callback');
+        if (method === 'reduce') {
+          let accumulator;
+          let index;
+          if (node.arguments.length === 2) { accumulator = callArgs[0]; index = 0; }
+          else { if (!target.length) throw new EvaluationError('reduce-empty-without-initial'); accumulator = target[0]; index = 1; }
+          for (; index < target.length; index += 1) {
+            tick();
+            accumulator = executeFunction(callback, [accumulator, target[index]], budget, { parentScope: scope });
+          }
+          return bounded(accumulator);
         }
-        return accumulator;
+        if (target.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
+        const output = [];
+        for (let index = 0; index < target.length; index += 1) {
+          tick();
+          const callbackArgs = [target[index], index].slice(0, callback.params.length);
+          const result = executeFunction(callback, callbackArgs, budget, { parentScope: scope });
+          if (method === 'map') output.push(safeValue(result));
+          else if (result) output.push(target[index]);
+          if (output.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
+        }
+        return output;
       }
       default: throw new EvaluationError('unsupported-expression');
     }
