@@ -22,6 +22,18 @@ test('does not treat generated placeholder curriculum IDs as executable lessons'
   assert.equal(isRunnerSupportedChallenge('unknown-lesson'), false);
 });
 
+test('registers the three new JavaScript foundation lessons', () => {
+  for (const id of ['mod-2-aula-4', 'mod-2-aula-5', 'mod-2-aula-6']) {
+    const spec = getChallengeSpec(id);
+    assert.ok(spec);
+    assert.equal(spec.language, 'javascript');
+    assert.equal(spec.entrypoint, 'script.js');
+    assert.ok(spec.exportName);
+    assert.ok(spec.tests.some((check) => check.type === 'function-cases'));
+  }
+  assert.equal(getChallengeSpec('mod-2-aula-7'), null);
+});
+
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
