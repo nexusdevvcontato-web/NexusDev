@@ -142,7 +142,7 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password } = req.body || {};
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
     }
@@ -212,7 +212,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
 app.post('/api/auth/google', authLimiter, async (req, res) => {
   try {
-    const { credential } = req.body;
+    const { credential } = req.body || {};
     if (!credential || !googleClient) {
       return res.status(400).json({ error: 'Credencial inválida ou Google Client ID não configurado.' });
     }
