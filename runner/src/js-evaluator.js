@@ -200,7 +200,7 @@ function executeFunction(fn, args, budget, options = {}) {
             callback.params.length !== 2 || callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-reducer');
         let accumulator;
         let index;
-        if (node.arguments.length === 2) { accumulator = callArgs[1]; index = 0; }
+        if (node.arguments.length === 2) { accumulator = callArgs[0]; index = 0; }
         else { if (!target.length) throw new EvaluationError('reduce-empty-without-initial'); accumulator = target[0]; index = 1; }
         for (; index < target.length; index += 1) {
           tick();
