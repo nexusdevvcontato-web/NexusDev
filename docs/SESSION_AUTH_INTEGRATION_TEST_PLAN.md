@@ -1,7 +1,7 @@
 # Session authentication integration test plan
 
 **Branch:** `rebuild/v2-security`  
-**Status:** automated middleware integration tests added; real HTTP/browser staging tests pending.
+**Status:** combined middleware tests and a real HTTP test against disposable MongoDB added; browser/staging tests pending.
 
 ## Security correction found during audit
 
@@ -19,6 +19,7 @@ The combined test exercises the actual CSRF middleware, access-token middleware,
 - Access token signature, issuer, audience, expiry and active session.
 - Cookie session equals Bearer session.
 - Cookie user equals Bearer user.
+- Real HTTP registration, cookie attributes, authenticated profile access, mismatched-session logout rejection, matching logout revocation, refresh rotation and replay-family revocation are covered by `test/session-http.integration.test.js` when CI provides its disposable MongoDB replica set.
 - Logout and revocation ownership boundaries.
 - Refresh replay and rotation unit/integration coverage in existing suite.
 - Mongo replica-set session-store tests run against a disposable database in CI.
