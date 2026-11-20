@@ -140,3 +140,13 @@ Cada controle precisa ser explicitamente `true`; valores truthy, ausência de ca
 - Tokens antigos criados antes da inclusão de `userId` continuam localizáveis enquanto a sessão correspondente existir. Se uma sessão antiga já tiver sido removida por TTL, o token antigo depende do seu próprio TTL, que usa a mesma expiração da sessão.
 - A inicialização do backend agora aguarda a criação/verificação dos índices de `Session`, `RefreshToken` e `CompletionProof` antes de abrir a porta HTTP, para não aceitar tráfego antes dos índices TTL e de unicidade estarem disponíveis.
 - O teste de integração com replica set verifica remoção transacional, isolamento entre titulares e preservação da sessão de outra conta. A aprovação desse teste é necessária antes de considerar essa preparação validada.
+
+
+## 12. Prévia agregada do impacto de encerramento (somente leitura)
+
+- A rota autenticada `GET /api/privacy/deletion-impact` consulta exclusivamente registros associados ao usuário autenticado no servidor; não aceita identificador de titular enviado pelo cliente.
+- A resposta contém apenas contagens e indicadores: sessões, refresh tokens associados, comprovantes de conclusão, comentários com vínculo estável, presença de dados de aprendizagem/perfil e presença de certificado.
+- Não retorna texto de comentários, e-mail, código de certificado, IDs de sessão, hashes ou tokens. Respostas usam `Cache-Control: no-store`, inclusive falhas de autenticação.
+- Comentários legados sem vínculo são apresentados como não atribuíveis, sem tentativa de correspondência por nome. Logs, backups e provedores externos são explicitamente marcados como não inspecionados.
+- A prévia declara `readOnly: true` e `deletionEnabled: false`; os bloqueios de política permanecem. Nenhum endpoint, job ou botão de exclusão foi habilitado e nenhuma informação persistida é modificada.
+- A rota e o modelo devem ser validados por CI e testes integrados antes de serem considerados prontos para uso. Esta implementação não altera contas, comentários, certificados ou sessões existentes.
