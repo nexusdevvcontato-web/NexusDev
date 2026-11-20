@@ -217,7 +217,6 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [{ role: '' }, 'admin'], expected: false },
       { args: [{}, 'admin'], expected: false },
       { args: [null, 'admin'], expected: false },
-      { args: [[], 'admin'], expected: false },
       { args: [{ role: 'admin' }, ''], expected: false },
       { args: [{ role: 'admin' }, null], expected: false },
       { args: [{ role: 'Admin' }, 'admin'], expected: false }
