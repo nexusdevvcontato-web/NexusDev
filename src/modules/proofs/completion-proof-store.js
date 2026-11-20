@@ -2,11 +2,10 @@
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FILES_HASH_PATTERN = /^[a-f0-9]{64}$/;
+const REPLAY_CODE = 'COMPLETION_PROOF_ALREADY_CONSUMED';
 
 function createCompletionProofModel(mongoose) {
-  if (!mongoose?.Schema || typeof mongoose.model !== 'function') {
-    throw new TypeError('Instância Mongoose inválida.');
-  }
+  if (!mongoose?.Schema || typeof mongoose.model !== 'function') throw new TypeError('Instância Mongoose inválida.');
   const schema = new mongoose.Schema({
     jti: { type: String, required: true, unique: true, match: UUID_PATTERN },
     userId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
@@ -18,27 +17,22 @@ function createCompletionProofModel(mongoose) {
   return mongoose.models?.CompletionProof || mongoose.model('CompletionProof', schema);
 }
 
-async function consumeCompletionProof(CompletionProof, proof, userId) {
-  if (!CompletionProof || typeof CompletionProof.create !== 'function' ||
-      !proof || typeof proof.jti !== 'string' || !UUID_PATTERN.test(proof.jti) ||
-      !Number.isInteger(proof.exp) || typeof proof.challengeId !== 'string' ||
-      typeof proof.filesHash !== 'string' || !FILES_HASH_PATTERN.test(proof.filesHash) ||
-      !userId) {
-    throw new TypeError('Comprovante de conclusão inválido.');
-  }
+async function consumeCompletionProof(CompletionProof, proof, userId, { session } = {}) {
+  if (!CompletionProof || typeof CompletionProof.create !== 'function' || !proof ||
+      typeof proof.jti !== 'string' || !UUID_PATTERN.test(proof.jti) || !Number.isInteger(proof.exp) ||
+      typeof proof.challengeId !== 'string' || typeof proof.filesHash !== 'string' ||
+      !FILES_HASH_PATTERN.test(proof.filesHash) || !userId) throw new TypeError('Comprovante de conclusão inválido.');
+  const record = { jti: proof.jti, userId, challengeId: proof.challengeId, filesHash: proof.filesHash, expiresAt: new Date(proof.exp * 1000) };
   try {
-    await CompletionProof.create({
-      jti: proof.jti,
-      userId,
-      challengeId: proof.challengeId,
-      filesHash: proof.filesHash,
-      expiresAt: new Date(proof.exp * 1000)
-    });
+    if (session) await CompletionProof.create([record], { session });
+    else await CompletionProof.create(record);
     return true;
   } catch (error) {
-    if (error?.code === 11000) return false;
+    if (error?.code === 11000) {
+      if (session) { const replay = new Error('Comprovante já utilizado.'); replay.code = REPLAY_CODE; throw replay; }
+      return false;
+    }
     throw error;
   }
 }
-
-module.exports = { createCompletionProofModel, consumeCompletionProof, UUID_PATTERN, FILES_HASH_PATTERN };
+module.exports = { createCompletionProofModel, consumeCompletionProof, UUID_PATTERN, FILES_HASH_PATTERN, REPLAY_CODE };
