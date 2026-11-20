@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { recordDailyActivity } = require('./src/modules/users/daily-activity');
+const { issueCertificateOnce } = require('./src/modules/certificates/issue-once');
 const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
@@ -374,12 +375,7 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
       studentName ? studentName.trim() : user.name,
       completedCount
     );
-    let issuedUser = await User.findOneAndUpdate(
-      { _id: user._id, certificateIssuedAt: null },
-      { $set: { certificateCode: candidateCode, certificateIssuedAt: new Date() } },
-      { new: true }
-    );
-    if (!issuedUser) issuedUser = await User.findById(user._id);
+    const issuedUser = await issueCertificateOnce(User, user._id, candidateCode, new Date());
     if (!issuedUser || !issuedUser.certificateIssuedAt) {
       return res.status(409).json({ error: 'Não foi possível confirmar a emissão do certificado. Tente novamente.' });
     }
