@@ -33,10 +33,10 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 | `mod-3-aula-3` | Atualizar preço sem mutar | deep-equals e does-not-mutate-input | Compatível com ressalva | `map()` e spread de objeto suportam o padrão de atualização imutável registrado; sem mutadores arbitrários. |
 | `mod-3-aula-4` | Filtrar produtos | function-deep-equals | Compatível | `filter()` com callback restrito e comparação profunda estão implementados. |
 | `react-01-carrinho-imutavel` | Adicionar/incrementar item sem mutação | deep-equals e does-not-mutate-input | Compatível com ressalva | `some()`, `map()`, spread e comparação de objetos cobrem o padrão de carrinho da solução de referência; React/DOM não são executados. |
-| `mod-4-aula-2` | Controller GET com resposta Express | http-controller-case | Bloqueado | Tipo de teste HTTP não implementado. |
+| `mod-4-aula-2` | Controller GET com resposta Express | http-controller-case | Compatível com ressalva | Mock local suporta `res.status()` e `res.json()`; não inicia Express nem acessa rede. |
 | `mod-4-aula-3` | Validar produto | function-cases | Parcial | O formato de teste é reconhecido, mas trim e Number.isFinite não são suportados. |
 | `mod-4-aula-4` | Sanitizar formato de erro | function-deep-equals | Compatível com ressalva | Construção condicional de objetos e comparação profunda estão cobertas; não implica suporte a sanitização geral ou bibliotecas externas. |
-| `node-01-controller-produto` | Controller POST com req/res | http-controller-case | Bloqueado | Tipo de teste HTTP não implementado. O currículo também apresenta arquivo de rota auxiliar; a facade atual rejeita arquivos extras. |
+| `node-01-controller-produto` | Controller POST com req/res | http-controller-case | Compatível com ressalva | Casos de sucesso/erro avaliados com `req.body` e mock restrito de resposta. A facade ainda aceita somente o entrypoint registrado; arquivos auxiliares de rota não são avaliados. |
 | `mod-5-aula-2` | Documento MongoDB com campos permitidos | deep-equals e does-not-mutate-input | Bloqueado | Tipos de teste não suportados; trim não suportado. |
 | `mod-5-aula-3` | Atualização MongoDB com $set | deep-equals e does-not-mutate-input | Bloqueado | Tipos de teste não suportados; trim e validação numérica precisam de suporte. |
 | `mod-5-aula-4` | Validar cadastro | function-cases | Parcial | Regex de e-mail e validações de string não são suportadas. |
@@ -48,8 +48,8 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 
 1. A facade aceita somente **um arquivo**, com nome idêntico ao `entrypoint` registrado. Isso conflita com os dois exercícios Express que apresentam mais de um arquivo no editor.
 2. O HTML evaluator implementa os cinco tipos de teste declarados para HTML, mas a aula de botão promete comportamento que os testes estáticos não observam.
-3. O JavaScript evaluator procura exclusivamente testes do tipo `function-cases`; os tipos `function-deep-equals`, `does-not-mutate-input` e `http-controller-case` nunca chegam a ser avaliados como sucesso.
-4. Mesmo nos desafios `function-cases`, a linguagem é intencionalmente limitada: chamadas permitidas incluem apenas `Array.prototype.reduce` no trecho de chamadas. Não há suporte geral a métodos de string, regex, `map`, `filter`, `some` ou loops.
+3. O JavaScript evaluator agora suporta `function-cases`, `function-deep-equals`, `does-not-mutate-input` e `http-controller-case` nos padrões explicitamente implementados. Controllers recebem apenas `req.body` e um mock `res` com `status()`/`json()`.
+4. A linguagem permanece intencionalmente limitada: métodos de string e arrays têm allowlists explícitas; somente `/\\s+/` é aceita como regex fixa em `split()`. Não há loops, chamadas arbitrárias, acesso à rede, Express real ou MongoDB.
 5. A facade e os avaliadores permanecem protótipos internos; não estão integrados à API nem autorizam emissão de prova de conclusão.
 
 ## Plano de correção recomendado
@@ -113,3 +113,17 @@ A solução de referência do currículo React para `react-01-carrinho-imutavel`
 A aula `mod-2-aula-6` usa `trim()` e divisão por whitespace. O avaliador permite somente a expressão regular literal `/\\s+/` em `split()`, sem flags e sem padrões controlados pelo aluno. Padrões arbitrários continuam rejeitados para evitar superfície de regex não limitada.
 
 O frontend continua executando o código de aula no navegador durante a experiência de aprendizagem; este avaliador isolado é um caminho separado e ainda não substitui nem altera esse comportamento. Os testes de referência cobrem o subconjunto explicitamente registrado, não os 700 IDs do currículo.
+
+
+## Atualização — controllers Express simulados (2026-11-20)
+
+O avaliador agora reconhece o tipo declarativo `http-controller-case` para os dois desafios de controller registrados (`mod-4-aula-2` e `node-01-controller-produto`). O controller recebe:
+- `req.body` como objeto de dados isolado, vindo exclusivamente dos casos de teste confiáveis;
+- `res.status(code)`, limitado a códigos inteiros de 100 a 599;
+- `res.json(body)`, que registra a resposta serializável para comparação.
+
+Nenhum servidor Express é iniciado. O mock não oferece `send`, `redirect`, headers, cookies, sessão, parâmetros de rota, query string, middleware, banco ou rede. Chamadas a métodos não previstos são rejeitadas. Os testes exercitam o GET, POST válido, POST inválido e a rejeição de `res.send()`.
+
+O CI do commit `762f479` concluiu com 88 testes aprovados e zero falhas. Isso confirma a suíte automatizada do branch, não a compatibilidade dos arquivos auxiliares do exercício Node nem a segurança de um ambiente de execução real.
+
+**Estado atual substitui as observações históricas anteriores:** os dois desafios de controller deixam de estar totalmente bloqueados, mas permanecem com ressalvas de escopo. A facade continua exigindo exatamente um arquivo por desafio.
