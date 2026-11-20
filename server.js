@@ -382,8 +382,10 @@ app.get('/api/me', requireAuth, async (req, res) => {
 
 // Reauthenticate the account owner before a future sensitive action.
 // The returned proof is short-lived, bound to this user, and single-use.
-app.post('/api/auth/reauthenticate', requireAuth, reauthLimiter, async (req, res) => {
+app.post('/api/auth/reauthenticate', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, reauthLimiter, async (req, res) => {
   if (!REAUTH_TOKEN_SECRET) {
     return res.status(503).json({ error: 'Reautenticação segura ainda não está configurada neste ambiente.' });
   }
