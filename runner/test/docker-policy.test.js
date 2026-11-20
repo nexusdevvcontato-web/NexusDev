@@ -16,6 +16,7 @@ test('builds a fixed hardened Docker argument vector for an immutable image', ()
     '--pids-limit=64', '--memory=128m', '--memory-swap=128m',
     '--cpus=0.5', '--ulimit=nofile=64:64',
     '--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=16m',
+    '--env=NODE_OPTIONS=--disable-proto=throw --max-old-space-size=64',
     '--mount=type=bind,src=/var/lib/nexusdev/jobs/job-1,dst=/workspace,readonly'
   ]) assert.ok(args.includes(flag), flag);
   assert.equal(args.at(-3), 'node');
