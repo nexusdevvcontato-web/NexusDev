@@ -57,3 +57,27 @@ test('does not consume expired stored proof or invalid model input', async () =>
   assert.equal(await consumeReauthProof(model, { userId: 'user-1', token: proof.token, secret, now: new Date((now + 301) * 1000) }), false);
   assert.equal(await consumeReauthProof(null, { userId: 'user-1', token: proof.token, secret, now: new Date(now * 1000) }), false);
 });
+
+
+test('concurrent proof consumption allows exactly one winner', async () => {
+  const proof = issueReauthProof({ userId: 'user-1', secret, now });
+  let storedHash = proof.proofHash;
+  let storedExpiry = proof.expiresAt;
+  const model = {
+    async findOneAndUpdate(filter) {
+      // Model MongoDB's atomic compare-and-set: only the first matching update
+      // can observe and remove the stored proof hash.
+      if (filter._id !== 'user-1' || filter.reauthProofHash !== storedHash ||
+          !storedExpiry || storedExpiry <= filter.reauthProofExpiresAt.$gt) return null;
+      storedHash = null;
+      storedExpiry = null;
+      return { _id: 'user-1' };
+    }
+  };
+  const results = await Promise.all([
+    consumeReauthProof(model, { userId: 'user-1', token: proof.token, secret, now: new Date(now * 1000) }),
+    consumeReauthProof(model, { userId: 'user-1', token: proof.token, secret, now: new Date(now * 1000) })
+  ]);
+  assert.equal(results.filter(Boolean).length, 1);
+  assert.equal(results.filter(value => value === false).length, 1);
+});
