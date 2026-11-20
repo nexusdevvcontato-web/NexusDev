@@ -506,6 +506,12 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       body: { password: 'A-strong-test-password-2026' }
     });
     assert.equal(exportReauthA.response.status, 200);
+    const crossAccountExport = await request('/api/privacy/export', {
+      token: b.accessToken,
+      reauthToken: exportReauthA.payload.reauthToken
+    });
+    assert.equal(crossAccountExport.response.status, 403);
+    assert.match(crossAccountExport.response.headers.get('cache-control') || '', /no-store/i);
     const exportA = await request('/api/privacy/export', {
       token: a.accessToken,
       reauthToken: exportReauthA.payload.reauthToken
