@@ -15,9 +15,9 @@ test('exposes a finite deletion request lifecycle', () => {
     'cooling_off',
     'ready_for_execution',
     'processing',
+    'failed',
     'completed',
-    'cancelled',
-    'failed'
+    'cancelled'
   ]);
 });
 
