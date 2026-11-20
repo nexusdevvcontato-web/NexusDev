@@ -1,114 +1,73 @@
-const {
-  SESSION_COOKIE_NAME,
-  CSRF_COOKIE_NAME,
-  getClearCookieOptions,
-  isTrustedOrigin
-} = require('./session-http-policy');
-const { createSessionStore } = require('./session-store');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createSessionManagementService } = require('../src/modules/auth/session-management-service');
+const { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } = require('../src/modules/auth/session-http-policy');
 
-function createSessionManagementService({
-  mongoose,
-  Session,
-  RefreshToken,
-  allowedOrigins,
-  sameSite = 'lax',
-  now = () => new Date()
-} = {}) {
-  if (!Array.isArray(allowedOrigins) ||
-      allowedOrigins.some(origin => typeof origin !== 'string' || !/^https:\/\//.test(origin)) ||
-      !Session || typeof Session.find !== 'function' ||
-      typeof Session.findOne !== 'function') {
-    throw new TypeError('Dependências do gerenciamento de sessões inválidas.');
-  }
-  const store = createSessionStore({ mongoose, Session, RefreshToken });
-
-  function assertOrigin(req) {
-    const origin = req.get ? req.get('origin') : req.headers?.origin;
-    return isTrustedOrigin(origin, allowedOrigins);
-  }
-
-  function clearCookies(res) {
-    const options = getClearCookieOptions({ sameSite });
-    res.clearCookie(SESSION_COOKIE_NAME, options);
-    res.clearCookie(CSRF_COOKIE_NAME, options);
-  }
-
-  async function logoutCurrent(req, res) {
-    res.set('Cache-Control', 'no-store');
-    if (!assertOrigin(req)) return res.status(403).json({ error: 'Origem não permitida.' });
-    if (!req.session?.id || !req.user?._id) return res.status(401).json({ error: 'Sessão não autenticada.' });
-    try {
-      await store.revoke({
-        sessionId: req.session.id,
-        userId: req.user._id,
-        reason: 'logout',
-        now: now()
-      });
-      clearCookies(res);
-      return res.status(204).end();
-    } catch {
-      return res.status(503).json({ error: 'Não foi possível encerrar a sessão.' });
-    }
-  }
-
-  async function logoutAll(req, res) {
-    res.set('Cache-Control', 'no-store');
-    if (!assertOrigin(req)) return res.status(403).json({ error: 'Origem não permitida.' });
-    if (!req.user?._id) return res.status(401).json({ error: 'Autenticação obrigatória.' });
-    try {
-      await store.revokeAll({ userId: req.user._id, now: now() });
-      clearCookies(res);
-      return res.status(204).end();
-    } catch {
-      return res.status(503).json({ error: 'Não foi possível encerrar as sessões.' });
-    }
-  }
-
-  async function listSessions(req, res) {
-    res.set('Cache-Control', 'no-store');
-    if (!assertOrigin(req)) return res.status(403).json({ error: 'Origem não permitida.' });
-    if (!req.user?._id || !req.session?.id) return res.status(401).json({ error: 'Autenticação obrigatória.' });
-    try {
-      const sessions = await Session.find({
-        userId: req.user._id,
-        revokedAt: null,
-        expiresAt: { $gt: now() }
-      }).select('_id createdAt lastUsedAt expiresAt').sort({ lastUsedAt: -1 }).lean();
-      return res.json({
-        sessions: sessions.map(session => ({
-          id: session._id.toString(),
-          createdAt: session.createdAt,
-          lastUsedAt: session.lastUsedAt,
-          expiresAt: session.expiresAt,
-          current: session._id.toString() === req.session.id.toString()
-        }))
-      });
-    } catch {
-      return res.status(503).json({ error: 'Não foi possível consultar as sessões.' });
-    }
-  }
-
-  async function revokeOne(req, res) {
-    res.set('Cache-Control', 'no-store');
-    if (!assertOrigin(req)) return res.status(403).json({ error: 'Origem não permitida.' });
-    if (!req.user?._id || !req.params?.sessionId) return res.status(401).json({ error: 'Autenticação obrigatória.' });
-    try {
-      const result = await Session.updateOne({
-        _id: req.params.sessionId,
-        userId: req.user._id,
-        revokedAt: null
-      }, {
-        $set: { revokedAt: now(), revokeReason: 'security' }
-      });
-      if (result.modifiedCount !== 1) return res.status(404).json({ error: 'Sessão não encontrada.' });
-      if (req.params.sessionId === req.session?.id?.toString()) clearCookies(res);
-      return res.status(204).end();
-    } catch {
-      return res.status(503).json({ error: 'Não foi possível revogar a sessão.' });
-    }
-  }
-
-  return Object.freeze({ logoutCurrent, logoutAll, listSessions, revokeOne });
+function makeRes() {
+  return {
+    statusCode:200, body:null, headers:{}, cleared:[], ended:false,
+    set(k,v){this.headers[k]=v;return this;},
+    status(v){this.statusCode=v;return this;},
+    json(v){this.body=v;return this;},
+    clearCookie(name,options){this.cleared.push({name,options});return this;},
+    end(){this.ended=true;return this;}
+  };
+}
+function setup() {
+  const calls=[];
+  const docs=[
+    {_id:'s-current',createdAt:new Date('2026-11-01'),lastUsedAt:new Date('2026-11-20'),expiresAt:new Date('2026-12-01')},
+    {_id:'s-other',createdAt:new Date('2026-10-01'),lastUsedAt:new Date('2026-11-19'),expiresAt:new Date('2026-12-01')}
+  ];
+  const Session={
+    find(q){calls.push(['find',q]);return {select(){return this;},sort(){return this;},lean:async()=>docs};},
+    findOne(){return {lean:async()=>null};},
+    async updateOne(q,u){calls.push(['updateOne',q,u]);return {modifiedCount:1};},
+    async updateMany(q,u){calls.push(['updateMany',q,u]);return {modifiedCount:2};}
+  };
+  const mongoose={startSession(){return {async withTransaction(fn){await fn();},async endSession(){}};}};
+  const service=createSessionManagementService({
+    mongoose,Session,RefreshToken:{},
+    allowedOrigins:['https://nexusdev-frontend.vercel.app'],
+    now:()=>new Date('2026-11-20T04:00:00Z')
+  });
+  const req={
+    headers:{origin:'https://nexusdev-frontend.vercel.app'},
+    params:{sessionId:'s-other'},
+    user:{_id:'u1'},
+    session:{id:'s-current',userId:'u1'},
+    get(k){return this.headers[k.toLowerCase()];}
+  };
+  return {service,req,res:makeRes(),calls};
 }
 
-module.exports = { createSessionManagementService };
+test('logout current revokes only the authenticated session and clears cookies',async()=>{
+  const c=setup(); await c.service.logoutCurrent(c.req,c.res);
+  assert.equal(c.res.statusCode,204);
+  assert.deepEqual(c.calls[0][1],{_id:'s-current',userId:'u1',revokedAt:null});
+  assert.equal(c.res.cleared.length,2);
+  assert.ok([SESSION_COOKIE_NAME,CSRF_COOKIE_NAME].every(n=>c.res.cleared.some(x=>x.name===n)));
+});
+test('logout all revokes only sessions belonging to authenticated user',async()=>{
+  const c=setup(); await c.service.logoutAll(c.req,c.res);
+  assert.equal(c.res.statusCode,204);
+  assert.deepEqual(c.calls[0][1],{userId:'u1',revokedAt:null});
+});
+test('session listing exposes safe metadata and marks current session',async()=>{
+  const c=setup(); await c.service.listSessions(c.req,c.res);
+  assert.equal(c.res.body.sessions.length,2);
+  assert.equal(c.res.body.sessions[0].current,true);
+  assert.equal(c.res.body.sessions[1].current,false);
+  assert.equal('tokenHash' in c.res.body.sessions[0],false);
+});
+test('individual revocation scopes query to authenticated user',async()=>{
+  const c=setup(); await c.service.revokeOne(c.req,c.res);
+  assert.equal(c.res.statusCode,204);
+  assert.deepEqual(c.calls[0][1],{_id:'s-other',userId:'u1',revokedAt:null});
+});
+test('rejects untrusted origin before modifying session state',async()=>{
+  const c=setup(); c.req.headers.origin='https://attacker.example';
+  await c.service.logoutAll(c.req,c.res);
+  assert.equal(c.res.statusCode,403);
+  assert.equal(c.calls.length,0);
+});
