@@ -34,13 +34,17 @@ function createSessionAuthService({
     res.cookie(CSRF_COOKIE_NAME, result.csrfToken, getCsrfCookieOptions({ maxAgeMs, sameSite }));
   }
 
-  async function createForUser({ userId, res }) {
+  async function createForUser({ userId, expectedPasswordHash, res }) {
     if (!res || typeof res.cookie !== 'function') throw new TypeError('Resposta HTTP inválida.');
     const currentTime = now();
     const user = await User.findById(userId);
     if (!user) return { status: 'user_not_found' };
-
-    const created = await store.create({ userId: user._id, now: currentTime, ttlMs: sessionTtlMs });
+    if (expectedPasswordHash !== undefined &&
+        (typeof expectedPasswordHash !== 'string' || !expectedPasswordHash || user.passwordHash !== expectedPasswordHash)) {
+      return { status: 'credentials_changed' };
+    }
+    const authVersion = Number.isSafeInteger(user.authVersion) && user.authVersion >= 0 ? user.authVersion : 0;
+    const created = await store.create({ userId: user._id, authVersion, now: currentTime, ttlMs: sessionTtlMs });
     const accessToken = issueSessionAccessToken({
       userId: user._id.toString(),
       sessionId: created.session._id.toString(),

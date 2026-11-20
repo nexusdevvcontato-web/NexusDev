@@ -143,6 +143,7 @@ const userSchema = new mongoose.Schema(
     passwordResetTokenHash: { type: String, default: undefined, select: false },
     passwordResetExpiresAt: { type: Date, default: undefined, select: false },
     passwordChangedAt: { type: Date, default: null, select: false },
+    authVersion: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
     avatar: { type: String, default: '' },
     googleId: { type: String, default: '' },
     reauthProofHash: { type: String, default: '' },
@@ -293,7 +294,7 @@ app.post('/api/auth/session/login', authLimiter, async (req, res) => {
     }
     const activeUser = await recordDailyActivity(User, user._id, new Date().toISOString().slice(0, 10));
     if (!activeUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
-    const result = await sessionAuthService.createForUser({ userId: activeUser._id, res });
+    const result = await sessionAuthService.createForUser({ userId: activeUser._id, expectedPasswordHash: user.passwordHash, res });
     return res.json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
   } catch {
     return res.status(500).json({ error: 'Não foi possível realizar o login.' });

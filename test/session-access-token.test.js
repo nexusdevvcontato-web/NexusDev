@@ -44,8 +44,8 @@ test('session access middleware checks active session and reloads user', async (
   const req = { headers: { authorization: `Bearer ${token}` } };
   const res = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   const middleware = createSessionAccessMiddleware({
-    User: { async findById(id) { assert.equal(id, userId); return { _id: userId, name: 'Teste' }; } },
-    Session: { findOne(query) { assert.equal(query._id, sessionId); return { lean: async () => ({ _id: sessionId, userId, expiresAt: new Date(now.getTime() + 60_000) }) }; } },
+    User: { async findById(id) { assert.equal(id, userId); return { _id: userId, name: 'Teste', authVersion: 2 }; } },
+    Session: { findOne(query) { assert.equal(query._id, sessionId); return { lean: async () => ({ _id: sessionId, userId, authVersion: 2, expiresAt: new Date(now.getTime() + 60_000) }) }; } },
     secret,
     now: () => now
   });
@@ -53,6 +53,21 @@ test('session access middleware checks active session and reloads user', async (
   assert.equal(nextCalled, true);
   assert.equal(req.user.name, 'Teste');
   assert.equal(req.session.id, sessionId);
+  assert.equal(req.session.authVersion, 2);
+});
+
+test('session access middleware rejects sessions issued before a password reset', async () => {
+  const now = new Date('2026-11-20T04:00:00.000Z');
+  const token = issueSessionAccessToken({ userId, sessionId, secret, now: Math.floor(now.getTime() / 1000) });
+  const res = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  const middleware = createSessionAccessMiddleware({
+    User: { async findById() { return { _id: userId, authVersion: 4 }; } },
+    Session: { findOne() { return { lean: async () => ({ _id: sessionId, userId, authVersion: 3, expiresAt: new Date(now.getTime() + 60_000) }) }; } },
+    secret, now: () => now
+  });
+  await middleware({ headers: { authorization: `Bearer ${token}` } }, res, () => assert.fail('stale session must not authenticate'));
+  assert.equal(res.statusCode, 401);
+  assert.match(res.body.error, /alteração de credenciais/);
 });
 
 test('session access middleware denies revoked sessions and database errors fail closed', async () => {

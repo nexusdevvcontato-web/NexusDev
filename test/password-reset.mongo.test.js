@@ -31,7 +31,8 @@ test('MongoDB replica-set password reset is atomic, single-use, and revokes sess
     passwordHash: String,
     passwordResetTokenHash: String,
     passwordResetExpiresAt: Date,
-    passwordChangedAt: Date
+    passwordChangedAt: Date,
+    authVersion: { type: Number, default: 0 }
   }, { versionKey: false });
   const sessionSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
@@ -85,6 +86,7 @@ test('MongoDB replica-set password reset is atomic, single-use, and revokes sess
     assert.equal(changed.passwordResetTokenHash, undefined);
     assert.equal(changed.passwordResetExpiresAt, undefined);
     assert.equal(changed.passwordChangedAt.getTime(), fixedNow.getTime());
+    assert.equal(changed.authVersion, 1, 'password reset increments the account authentication version');
     const revoked = await Session.find({ userId: user._id }).lean();
     assert.equal(revoked.length, 2);
     assert.ok(revoked.every(item => item.revokedAt instanceof Date && item.revokeReason === 'security'));

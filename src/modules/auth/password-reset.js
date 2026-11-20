@@ -95,6 +95,7 @@ function createPasswordResetService({
           },
           {
             $set: { passwordHash, passwordChangedAt: currentTime },
+            $inc: { authVersion: 1 },
             $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 }
           },
           { new: true, session: dbSession, projection: { _id: 1 } }

@@ -83,8 +83,15 @@ function createSessionAccessMiddleware({ User, Session, secret, now = () => new 
       if (!session) return res.status(401).json({ error: 'Sessão revogada ou expirada.' });
       const user = await User.findById(claims.userId);
       if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
+      const sessionAuthVersion = session.authVersion ?? 0;
+      const userAuthVersion = user.authVersion ?? 0;
+      if (!Number.isSafeInteger(sessionAuthVersion) || sessionAuthVersion < 0 ||
+          !Number.isSafeInteger(userAuthVersion) || userAuthVersion < 0 ||
+          sessionAuthVersion !== userAuthVersion) {
+        return res.status(401).json({ error: 'Sessão invalidada por alteração de credenciais.' });
+      }
       req.user = user;
-      req.session = { id: session._id, userId: session.userId };
+      req.session = { id: session._id, userId: session.userId, authVersion: sessionAuthVersion };
       return next();
     } catch {
       return res.status(503).json({ error: 'Não foi possível validar a sessão.' });

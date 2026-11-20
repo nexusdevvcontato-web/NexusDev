@@ -8,8 +8,8 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
   if (!mongoose || !Session || !RefreshToken) throw new TypeError('Dependências de sessão obrigatórias.');
   if (typeof mongoose.startSession !== 'function') throw new TypeError('Mongoose precisa suportar transações.');
 
-  async function create({ userId, now = new Date(), ttlMs = DEFAULT_SESSION_TTL_MS }) {
-    if (!userId || !(now instanceof Date) || !Number.isFinite(ttlMs) || ttlMs <= 0) {
+  async function create({ userId, authVersion = 0, now = new Date(), ttlMs = DEFAULT_SESSION_TTL_MS }) {
+    if (!userId || !Number.isSafeInteger(authVersion) || authVersion < 0 || !(now instanceof Date) || !Number.isFinite(ttlMs) || ttlMs <= 0) {
       throw new TypeError('Parâmetros de sessão inválidos.');
     }
     const rawToken = generateRefreshToken();
@@ -20,7 +20,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
     try {
       await dbSession.withTransaction(async () => {
         const [session] = await Session.create([{
-          userId, familyId: crypto.randomUUID(),
+          userId, authVersion, familyId: crypto.randomUUID(),
           csrfTokenHash: hashSessionCsrfToken(csrfToken),
           createdAt: now, lastUsedAt: now, expiresAt
         }], { session: dbSession });
