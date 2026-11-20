@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('accepts a bounded request shape', () => {
-  const result = validateExecutionRequest({ userId: 'user-123', challengeId: 'html-01-test', files: { 'index.html': '<h1>Oi</h1>' } });
+  const result = validateExecutionRequest({ userId: 'user-123', challengeId: 'html-00-o-que-e-web', files: { 'index.html': '<h1>Oi</h1>' } });
   assert.equal(result.ok, true);
 });
 
