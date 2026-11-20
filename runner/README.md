@@ -12,9 +12,15 @@ This directory contains the trusted request boundary, a server-owned declarative
 - The proof signer creates RS256 JWTs for `nexusdev-runner` / `nexusdev-progress`, purpose `lesson-completion`, bound to one user and challenge, with a maximum 300-second lifetime.
 - The private key must be injected at runtime from a secret manager and must never be committed, sent to the API, or exposed to a job container.
 
+## Container policy prototype (not an active launcher)
+
+`src/docker-policy.js` builds a fixed Docker argument vector for a digest-pinned image and a host-created workspace. It enforces no network, read-only root filesystem, all Linux capabilities dropped, no-new-privileges, non-root UID/GID, PID/memory/CPU/file-descriptor limits, a bounded `noexec` temporary filesystem and a read-only workspace mount. It rejects mutable image tags, unsafe mount paths and out-of-range timeouts. Unit tests assert these invariants.
+
+This is a policy builder only: it does not invoke Docker, create workspaces, enforce a wall-clock kill, inspect daemon configuration, or prove that the host kernel/runtime is hardened. The fixed command points to `/opt/nexusdev/execute.js`, which is not yet implemented. Do not wire this into an API or enable execution until the image, evaluator, host adapter, cleanup, seccomp/AppArmor profile and adversarial tests are independently reviewed.
+
 ## Deliberately not enabled
 
-There is no Docker invocation, queue, network listener, challenge test registry, or API-to-runner authentication in this scaffold. This avoids presenting an unprovisioned or unreviewed executor as secure. The runner must not launch until a dedicated host with disposable containers, seccomp/AppArmor, no-network jobs, quotas and adversarial tests is provisioned.
+There is no Docker invocation, queue, network listener, executable challenge evaluator, workspace manager, or API-to-runner authentication in this scaffold. This avoids presenting an unprovisioned or unreviewed executor as secure. The runner must not launch until a dedicated host with disposable containers, seccomp/AppArmor, no-network jobs, quotas and adversarial tests is provisioned.
 
 ## Next integration gates
 
