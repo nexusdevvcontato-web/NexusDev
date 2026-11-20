@@ -43,6 +43,11 @@ test('does not accept caller-supplied deep-equality or immutability test definit
   }), { ok: false, reason: 'tests-failed' });
 });
 
+test('supports bounded string normalization methods in trusted email cases', () => {
+  const source = 'function normalizarEmail(email) { return email.trim().toLowerCase(); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-2-aula-5', source }), { ok: true });
+});
+
 test('supports typeof for values in trusted role checks without exposing globals', () => {
   const source = 'function podeAcessarPerfil(usuario, perfilRequerido) { if (!usuario || typeof usuario !== "object" || typeof perfilRequerido !== "string" || !perfilRequerido) { return false; } return usuario.role === perfilRequerido; }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-7', source }), { ok: true });
