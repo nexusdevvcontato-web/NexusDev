@@ -16,8 +16,10 @@ Comentários persistidos contêm ID da aula, nome público do autor, badge, text
 ### Exportação de dados
 - Adicionado `GET /api/privacy/export`, protegido por autenticação.
 - A resposta usa allowlist explícita dos dados pertencentes à conta autenticada.
-- Inclui dados de perfil, aprendizagem, código salvo, certificado/portfólio e timestamps.
+- Inclui dados de perfil, aprendizagem, código salvo, certificado/portfólio, timestamps e comentários vinculados à conta.
 - Exclui `passwordHash`, `googleId`, `__v` e qualquer campo não incluído explicitamente na allowlist.
+- A consulta de comentários é filtrada pelo `_id` autenticado no servidor (`authorUserId`), ordenada cronologicamente e seleciona somente os campos necessários.
+- O JSON usa `schemaVersion: 2` e uma lista `comments` com ID, aula, autor público, badge, texto e timestamps; não expõe `authorUserId` nem campos internos.
 - A resposta define `Content-Disposition` para JSON e `Cache-Control: no-store`.
 
 ### Minimização do JWT
@@ -30,7 +32,7 @@ Comentários persistidos contêm ID da aula, nome público do autor, badge, text
 - A rota autenticada de criação grava o `_id` da conta validada pelo middleware; o cliente não pode escolher esse identificador.
 - A leitura pública mantém o mesmo formato de resposta e não expõe o ID interno.
 - Comentários antigos permanecem válidos com `authorUserId: null`/ausente. Nenhuma associação retroativa foi feita.
-- Essa mudança é preparatória: ainda não existe endpoint de exclusão, anonimização ou exportação de comentários.
+- Os comentários associados por `authorUserId` agora entram na exportação da própria conta. Comentários históricos sem vínculo não são atribuídos nem exportados, pois sua autoria não pode ser provada com segurança.
 
 ## Dados divulgados publicamente hoje
 
@@ -53,6 +55,6 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 
 ## Limitações e validação
 
-- A exportação cobre os campos do documento de usuário e não inclui logs de infraestrutura, registros de provedores externos ou comentários. Os comentários novos já têm vínculo de autoria, mas ainda não foram incorporados ao endpoint de exportação.
+- A exportação cobre os campos permitidos do documento de usuário e os comentários que possuem vínculo verificável por `authorUserId`; não inclui logs de infraestrutura, registros de provedores externos ou comentários históricos sem vínculo.
 - Os testes unitários verificam a allowlist e a exclusão de segredos; não substituem teste HTTP integrado nem revisão jurídica.
 - Não foi acessado banco real, não houve exportação de dados de usuários reais, migração, exclusão, deploy ou alteração de produção.
