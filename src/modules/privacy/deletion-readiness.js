@@ -17,12 +17,13 @@ const REQUIRED_GATES = Object.freeze([
 ]);
 
 function evaluateDeletionReadiness(input = {}) {
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   const blockers = REQUIRED_GATES
-    .filter(([field]) => input[field] !== true)
+    .filter(([field]) => source[field] !== true)
     .map(([, blocker]) => blocker);
 
-  if (!CERTIFICATE_DECISIONS.has(input.certificateDecision)) blockers.push('certificate_decision');
-  if (!LEGACY_COMMENT_DECISIONS.has(input.legacyCommentDecision)) blockers.push('legacy_comment_decision');
+  if (!CERTIFICATE_DECISIONS.has(source.certificateDecision)) blockers.push('certificate_decision');
+  if (!LEGACY_COMMENT_DECISIONS.has(source.legacyCommentDecision)) blockers.push('legacy_comment_decision');
 
   return { ready: blockers.length === 0, blockers };
 }
