@@ -27,7 +27,7 @@ function isKnownChallengeId(value) {
   if (typeof value !== 'string' || value.length > 100) return false;
   if (STATIC_CHALLENGE_IDS.has(value)) return true;
 
-  const match = /^mod-([1-5])-aula-(\d{1,3})$/.exec(value);
+  const match = /^mod-([1-5])-aula-([1-9]\d{0,2})$/.exec(value);
   if (!match) return false;
 
   const moduleNumber = Number(match[1]);
