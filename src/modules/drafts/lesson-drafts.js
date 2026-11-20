@@ -2,7 +2,8 @@
 
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50 * 1024;
-const MAX_TOTAL_BYTES = 200 * 1024;
+// Keep the full JSON body comfortably below the API-wide 100 KB parser limit.
+const MAX_TOTAL_BYTES = 80 * 1024;
 const MAX_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
 function validateDraftFiles(files) {
