@@ -209,6 +209,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.comments.linkedCount, 1);
     assert.equal(impactA.payload.completionProofs.count, 0);
     assert.equal(impactA.payload.certificate.present, true);
+    assert.equal(impactA.payload.learning.dataPresent, false);
 
     const impactB = await request('/api/privacy/deletion-impact', { token: b.accessToken });
     assert.equal(impactB.response.status, 200, JSON.stringify(impactB.payload));
@@ -249,6 +250,9 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     });
     assert.equal(completed.response.status, 200, JSON.stringify(completed.payload));
     assert.equal(completed.payload.xp, 50);
+    const impactAfterLearning = await request('/api/privacy/deletion-impact', { token: a.accessToken });
+    assert.equal(impactAfterLearning.response.status, 200);
+    assert.equal(impactAfterLearning.payload.learning.dataPresent, true);
     const savedAfterFirst = await mongoose.model('User').findById(aProfile.payload.id).lean();
     const replayed = await request('/api/progress/complete', {
       method: 'POST', token: a.accessToken,
