@@ -11,18 +11,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      mongo:
-        image: mongo:7.0
-        options: >-
-          --replSet rs0
-          --bind_ip_all
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-        ports:
-          - 27017:27017
     env:
       MONGO_SESSION_TEST_URI: mongodb://127.0.0.1:27017/nexusdev_session_test?replicaSet=rs0
     steps:
@@ -34,7 +22,21 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Start disposable MongoDB replica set
+        run: |
+          docker run --rm -d --name nexusdev-session-mongo -p 27017:27017 mongo:7.0@sha256:884c055bff8b7144ca44830d01826facd3083b33c4dea44b94a1476c62de3c32 --replSet rs0 --bind_ip_all
+          for attempt in $(seq 1 30); do
+            if docker exec nexusdev-session-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs nexusdev-session-mongo
+          exit 1
       - name: Initialize isolated MongoDB replica set
         run: node scripts/init-session-test-replica.js
       - name: Run syntax and security tests
         run: npm test
+      - name: Stop disposable MongoDB
+        if: always()
+        run: docker rm -f nexusdev-session-mongo || true
