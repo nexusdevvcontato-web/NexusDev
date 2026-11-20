@@ -1,4 +1,5 @@
 const { OAuth2Client } = require('google-auth-library');
+const crypto = require('node:crypto');
 
 function encodeHeader(value) {
   return '=?UTF-8?B?' + Buffer.from(String(value), 'utf8').toString('base64') + '?=';
@@ -12,7 +13,7 @@ function createGmailPasswordResetMailer({
   clientId, clientSecret, refreshToken, fromEmail, frontendUrl,
   oauthClient, fetchImpl = globalThis.fetch
 } = {}) {
-  const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (![clientId, clientSecret, refreshToken, fromEmail].every((v) => typeof v === 'string' && v.trim()) ||
       !emailPattern.test(fromEmail) || typeof fetchImpl !== 'function') {
     throw new TypeError('Configuração do Gmail API inválida.');
@@ -23,16 +24,16 @@ function createGmailPasswordResetMailer({
   if (!oauthClient) client.setCredentials({ refresh_token: refreshToken });
 
   return async function sendResetEmail({ to, name, token }) {
-    if (typeof to !== 'string' || !emailPattern.test(to) || /[\\r\\n]/.test(to)) {
+    if (typeof to !== 'string' || !emailPattern.test(to) || /[\r\n]/.test(to)) {
       throw new TypeError('Destinatário inválido.');
     }
     const link = new URL('/', base);
     link.searchParams.set('passwordResetToken', token);
-    const safeName = String(name || 'estudante').replace(/[\\r\\n]/g, ' ').slice(0, 120);
-    const boundary = 'nexusdev_' + require('node:crypto').randomBytes(12).toString('hex');
+    const safeName = String(name || 'estudante').replace(/[\r\n]/g, ' ').slice(0, 120);
+    const boundary = 'nexusdev_' + crypto.randomBytes(12).toString('hex');
     const subject = encodeHeader('Redefinição de senha — NexusDev');
     const textBody = 'Olá, ' + safeName + '. Para redefinir sua senha do NexusDev, acesse: ' + link.toString() +
-      '\\nEste link expira em 20 minutos e só pode ser usado uma vez. Se você não solicitou, ignore este e-mail.';
+      '\nEste link expira em 20 minutos e só pode ser usado uma vez. Se você não solicitou, ignore este e-mail.';
     const htmlBody = '<p>Olá, ' + safeName.replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) +
       '.</p><p>Recebemos uma solicitação para redefinir a senha da sua conta NexusDev.</p><p><a href="' +
       link.toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;') +
@@ -56,7 +57,7 @@ function createGmailPasswordResetMailer({
       encodeMimeBody(htmlBody),
       '--' + boundary + '--',
       ''
-    ].join('\\r\\n');
+    ].join('\r\n');
     const raw = Buffer.from(mime, 'utf8').toString('base64url');
     const credentials = await client.getAccessToken();
     const accessToken = typeof credentials === 'string' ? credentials : credentials?.token;
