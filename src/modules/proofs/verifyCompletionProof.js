@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
+const { HASH_PATTERN } = require('./completion-files-hash');
 
 const MAX_PROOF_TTL_SECONDS = 300;
 const CLOCK_SKEW_SECONDS = 30;
 
-function verifyCompletionProof(token, { publicKey, userId, challengeId, nowSeconds = Math.floor(Date.now() / 1000) }) {
+function verifyCompletionProof(token, { publicKey, userId, challengeId, filesHash, nowSeconds = Math.floor(Date.now() / 1000) }) {
   if (!publicKey) {
     return { ok: false, reason: 'not-configured' };
   }
@@ -32,7 +33,9 @@ function verifyCompletionProof(token, { publicKey, userId, challengeId, nowSecon
       proof.exp - proof.iat > MAX_PROOF_TTL_SECONDS ||
       proof.purpose !== 'lesson-completion' ||
       proof.sub !== userId ||
-      proof.challengeId !== challengeId) {
+      proof.challengeId !== challengeId ||
+      typeof filesHash !== 'string' || !HASH_PATTERN.test(filesHash) ||
+      proof.filesHash !== filesHash) {
     return { ok: false, reason: 'claims-mismatch' };
   }
 
