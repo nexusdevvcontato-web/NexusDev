@@ -547,6 +547,20 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(JSON.stringify(exportB.payload).includes('Comentário de teste de privacidade.'), false);
     assert.equal(JSON.stringify(exportB.payload).includes('<h1>account A</h1>'), false);
 
+    // Export attempts are throttled per authenticated account, without affecting another user.
+    const remainingExportAttempts = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      remainingExportAttempts.push(await request('/api/privacy/export', { token: a.accessToken }));
+    }
+    assert.ok(remainingExportAttempts.every(result => result.response.status === 403));
+    assert.ok(remainingExportAttempts.every(result => /no-store/i.test(result.response.headers.get('cache-control') || '')));
+    const throttledExport = await request('/api/privacy/export', { token: a.accessToken });
+    assert.equal(throttledExport.response.status, 429);
+    assert.match(throttledExport.response.headers.get('cache-control') || '', /no-store/i);
+    const exportBStillWithinItsOwnBudget = await request('/api/privacy/export', { token: b.accessToken });
+    assert.equal(exportBStillWithinItsOwnBudget.response.status, 403);
+    assert.match(exportBStillWithinItsOwnBudget.response.headers.get('cache-control') || '', /no-store/i);
+
     await User.updateOne({ _id: aProfile.payload.id }, {
       $set: { name: 'Leaderboard Optout A', xp: 999999, 'privacyPreferences.showInLeaderboard': false }
     });
