@@ -1,7 +1,7 @@
 # ADR: arquitetura de sessões seguras
 
-**Status:** proposta técnica; implementação integrada pendente.  
-**Branch:** `rebuild/v2-security`.  
+**Status:** proposta técnica; implementação integrada pendente.
+**Branch:** `rebuild/v2-security`.
 **Produção:** não acessada nem modificada.
 
 ## Contexto
@@ -28,13 +28,17 @@ Adotar sessões persistidas por dispositivo, access tokens curtos e refresh toke
 Campos mínimos: identificador aleatório, `userId`, hash do refresh token, `createdAt`, `lastUsedAt`, `expiresAt`, `revokedAt`, motivo categorizado e identificador de família. Índice TTL é apenas limpeza; toda operação valida explicitamente expiração e revogação.
 
 ### Transporte
-Preferência: refresh em cookie `HttpOnly; Secure`, com `SameSite` definido após confirmar a topologia dos domínios. Para cookies cross-site, exigir CORS com origem exata, credenciais e proteção CSRF/Origin. Access token somente em memória no frontend. Nunca persistir tokens em localStorage, sessionStorage, IndexedDB, URLs ou logs.
-
-Não escolher configuração de cookie antes de confirmar os domínios reais de frontend/API e staging.
+- Refresh em cookie `HttpOnly; Secure`, preferencialmente host-only com prefixo `__Host-`.
+- Access token somente em memória no frontend.
+- Para CSRF em frontend/API separados, usar token sincronizador aleatório vinculado à sessão: resposta JSON `no-store`, armazenamento em memória no frontend e hash SHA-256 no registro da sessão.
+- Operações mutáveis autenticadas por cookie exigem Origin exato allowlisted e header CSRF validado contra a sessão.
+- Não depender de CSRF cookie host-only legível pelo frontend.
+- SameSite e CORS final dependem da topologia real; não configurar antes de confirmar os domínios.
+- Nunca persistir tokens em localStorage, sessionStorage, IndexedDB, URLs ou logs.
 
 ## Endpoints previstos
-- `POST /api/auth/refresh`: rotaciona refresh e retorna access token curto.
-- `POST /api/auth/logout`: revoga sessão atual e limpa cookie.
+- `POST /api/auth/refresh`: rotaciona refresh e retorna access token curto e token CSRF.
+- `POST /api/auth/logout`: revoga sessão atual, invalida access token e limpa cookie.
 - `POST /api/auth/logout-all`: revoga todas as sessões após autenticação recente.
 - `GET /api/auth/sessions`: lista sessões próprias sem segredos.
 - `DELETE /api/auth/sessions/:id`: revoga sessão pertencente ao usuário.
