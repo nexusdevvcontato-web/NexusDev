@@ -77,6 +77,21 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     assert.equal(await store.revokeAll({ userId }), 1);
     assert.equal((await store.rotate({ refreshToken: fourth.refreshToken })).status, 'invalid');
 
+    // A global logout racing with refresh must leave the session revoked regardless
+    // of which transaction commits first; a rotated successor must never survive it.
+    const logoutRace = await store.create({ userId, ttlMs: 60_000 });
+    const [raceRotation] = await Promise.all([
+      store.rotate({ refreshToken: logoutRace.refreshToken }),
+      store.revokeAll({ userId })
+    ]);
+    const logoutRaceSession = await Session.findById(logoutRace.session._id).lean();
+    assert.ok(logoutRaceSession.revokedAt, 'logout-all must win over or follow a concurrent refresh');
+    assert.ok(['invalid', 'rotated'].includes(raceRotation.status));
+    if (raceRotation.status === 'rotated') {
+      assert.equal((await store.rotate({ refreshToken: raceRotation.refreshToken })).status, 'invalid',
+        'a successor token created during logout-all must not remain usable');
+    }
+
     const fifth = await store.create({ userId, ttlMs: 60_000 });
     const originalCreate = RefreshToken.create;
     try {
