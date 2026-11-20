@@ -61,5 +61,5 @@ test('only one concurrent request can consume the same proof', async () => {
 test('rejects malformed proof records and propagates database failures', async () => {
   await assert.rejects(consumeCompletionProof(fakeModel(), { jti: 'bad', exp: 1800000120, challengeId: 'html-00-o-que-e-web', filesHash }, 'user-1'));
   await assert.rejects(consumeCompletionProof({ create: async () => { throw new Error('database unavailable'); } },
-    { jti: '123e4567-e89b-42d3-a456-426614174002', exp: 1800000120, challengeId: 'x' }, 'user-1'), /database unavailable/);
+    { jti: '123e4567-e89b-42d3-a456-426614174002', exp: 1800000120, challengeId: 'html-00-o-que-e-web', filesHash }, 'user-1'), /database unavailable/);
 });
