@@ -25,7 +25,7 @@ async function lookupPublicCertificate(UserModel, code) {
       certificateIssuedAt: { $ne: null },
       'privacyPreferences.showCertificateDetails': { $ne: false }
     },
-    'certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl'
+    'certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl certificateStudentName certificateCompletedCount certificateXp certificateGithubUrl certificateLiveUrl'
   );
   if (!user) {
     const latest = await buildQuery(
@@ -45,12 +45,12 @@ async function lookupPublicCertificate(UserModel, code) {
       valid: true,
       publicDetails: true,
       code: user.certificateCode,
-      studentName: user.name,
-      completedCount: new Set((Array.isArray(user.completedIds) ? user.completedIds : []).filter(isKnownChallengeId)).size,
-      xp: user.xp,
+      studentName: user.certificateStudentName || user.name,
+      completedCount: user.certificateCompletedCount ?? new Set((Array.isArray(user.completedIds) ? user.completedIds : []).filter(isKnownChallengeId)).size,
+      xp: user.certificateXp ?? user.xp,
       issuedAt: user.certificateIssuedAt,
-      githubUrl: user.githubUrl,
-      liveUrl: user.liveUrl
+      githubUrl: user.certificateGithubUrl ?? user.githubUrl,
+      liveUrl: user.certificateLiveUrl ?? user.liveUrl
     }
   };
 }
