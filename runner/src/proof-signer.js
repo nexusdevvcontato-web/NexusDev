@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { isRunnerSupportedChallenge } = require('./challenge-registry');
+const { isRunnerSupportedChallenge, getChallengeSpec } = require('./challenge-registry');
 const { hashCompletionFiles } = require('../../src/modules/proofs/completion-files-hash');
 
 const ISSUER = 'nexusdev-runner';
@@ -35,6 +35,12 @@ function signCompletionProof({ userId, challengeId, files, privateKey, now = Mat
       !Number.isInteger(signingKey.asymmetricKeyDetails?.modulusLength) ||
       signingKey.asymmetricKeyDetails.modulusLength < 2048) {
     throw new Error('RUNNER_PRIVATE_KEY must be an RSA key with at least 2048 bits.');
+  }
+
+  const challengeSpec = getChallengeSpec(challengeId);
+  const fileNames = files && typeof files === 'object' && !Array.isArray(files) ? Object.keys(files) : [];
+  if (fileNames.length !== 1 || fileNames[0] !== challengeSpec.entrypoint) {
+    throw new Error('Only the registered lesson entrypoint can be signed.');
   }
 
   let filesHash;
