@@ -1,0 +1,73 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const mongoose = require('mongoose');
+const { createSessionModels } = require('../src/modules/auth/session-models');
+const { createSessionStore } = require('../src/modules/auth/session-store');
+
+const uri = process.env.MONGO_SESSION_TEST_URI;
+const enabled = Boolean(uri);
+
+function validateIsolatedReplicaSetUri(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch { throw new Error('MONGO_SESSION_TEST_URI precisa ser uma URI MongoDB válida.'); }
+  const dbName = parsed.pathname.replace(/^\//, '');
+  if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) ||
+      !dbName.endsWith('_nexusdev_session_test') ||
+      !parsed.searchParams.has('replicaSet')) {
+    throw new Error('Testes exigem MongoDB replica set local e banco *_nexusdev_session_test.');
+  }
+}
+
+test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, async t => {
+  validateIsolatedReplicaSetUri(uri);
+  const connection = await mongoose.createConnection(uri, {
+    serverSelectionTimeoutMS: 5000,
+    autoIndex: true
+  }).asPromise();
+  const { Session, RefreshToken } = createSessionModels(mongoose, connection);
+  const store = createSessionStore({
+    mongoose: { startSession: () => connection.startSession() },
+    Session,
+    RefreshToken
+  });
+
+  try {
+    await connection.dropDatabase();
+    await Promise.all([Session.init(), RefreshToken.init()]);
+    const userId = new mongoose.Types.ObjectId();
+    const created = await store.create({ userId, ttlMs: 60_000 });
+    assert.ok(created.refreshToken);
+    assert.equal(await RefreshToken.countDocuments({ sessionId: created.session._id, usedAt: null }), 1);
+
+    const rotated = await store.rotate({ refreshToken: created.refreshToken });
+    assert.equal(rotated.status, 'rotated');
+    assert.equal(await RefreshToken.countDocuments({ sessionId: created.session._id, usedAt: { $ne: null } }), 1);
+
+    const replay = await store.rotate({ refreshToken: created.refreshToken });
+    assert.equal(replay.status, 'replay');
+    const revoked = await Session.findById(created.session._id).lean();
+    assert.equal(revoked.revokeReason, 'refresh_replay');
+    assert.ok(revoked.revokedAt);
+
+    const second = await store.create({ userId, ttlMs: 60_000 });
+    const concurrent = await Promise.all([
+      store.rotate({ refreshToken: second.refreshToken }),
+      store.rotate({ refreshToken: second.refreshToken })
+    ]);
+    assert.equal(concurrent.filter(result => result.status === 'rotated').length, 1);
+    const concurrentSession = await Session.findById(second.session._id).lean();
+    assert.ok(concurrentSession.revokedAt);
+    assert.equal(concurrentSession.revokeReason, 'refresh_replay');
+
+    const third = await store.create({ userId, ttlMs: 60_000 });
+    assert.equal(await store.revoke({ sessionId: third.session._id, userId }), true);
+    assert.equal((await store.rotate({ refreshToken: third.refreshToken })).status, 'invalid');
+
+    const fourth = await store.create({ userId, ttlMs: 60_000 });
+    assert.equal(await store.revokeAll({ userId }), 1);
+    assert.equal((await store.rotate({ refreshToken: fourth.refreshToken })).status, 'invalid');
+  } finally {
+    await connection.dropDatabase();
+    await connection.close();
+  }
+});
