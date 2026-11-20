@@ -66,7 +66,6 @@ function createSessionManagementService({
 
   async function listSessions(req, res) {
     res.set('Cache-Control', 'no-store');
-    if (!assertOrigin(req)) return res.status(403).json({ error: 'Origem não permitida.' });
     if (!req.user?._id || !req.session?.id) return res.status(401).json({ error: 'Autenticação obrigatória.' });
     try {
       const sessions = await Session.find({
