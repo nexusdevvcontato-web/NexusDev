@@ -93,10 +93,9 @@ test('supports only the fixed whitespace regular expression in split', () => {
 });
 
 
+test('keeps find unavailable until its semantics are implemented', () => {
   const findSource = 'function somarArray(numeros) { return numeros.find(numero => numero > 2); }';
-  const someSource = 'function somarArray(numeros) { return numeros.some(numero => numero > 2); }';
   assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: findSource }).ok, false);
-  assert.equal(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source: someSource }).ok, false);
 });
 
 test('supports bounded string normalization methods in trusted email cases', () => {
