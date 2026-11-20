@@ -1,4 +1,4 @@
-function createSessionModels(mongoose) {
+function createSessionModels(mongoose, connection = mongoose && mongoose.connection) {
   if (!mongoose || !mongoose.Schema || typeof mongoose.model !== 'function') {
     throw new TypeError('Instância Mongoose inválida.');
   }
@@ -24,8 +24,9 @@ function createSessionModels(mongoose) {
   refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   refreshTokenSchema.index({ sessionId: 1, usedAt: 1 });
 
-  const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
-  const RefreshToken = mongoose.models.RefreshToken || mongoose.model('RefreshToken', refreshTokenSchema);
+  if (!connection || typeof connection.model !== 'function') throw new TypeError('Conexão Mongoose inválida.');
+  const Session = connection.models.Session || connection.model('Session', sessionSchema);
+  const RefreshToken = connection.models.RefreshToken || connection.model('RefreshToken', refreshTokenSchema);
   return { Session, RefreshToken };
 }
 
