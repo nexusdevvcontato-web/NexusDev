@@ -17,6 +17,7 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
+const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 
 const app = express();
 
@@ -48,6 +49,13 @@ const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de autenticação. Aguarde antes de tentar novamente.' }
+});
+const tutorLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Limite do Tutor IA atingido. Aguarde 15 minutos antes de tentar novamente.' }
 });
 const commentLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -442,54 +450,28 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // Tutor IA Contextual (Analisa código e enunciado da aula sem entregar a resposta pronta)
-app.post('/api/tutor/analyze', (req, res) => {
-  const { challengeTitle, language, targetFunction, instructions, filesMap, failedTests } = req.body || {};
+app.post('/api/tutor/analyze', tutorLimiter, (req, res) => {
+  const validation = validateTutorRequest(req.body);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+  const { challengeTitle, language, targetFunction, instructions, filesMap, failedTests } = validation.value;
   const tips = [];
-  const allCode = Object.values(filesMap || {}).join('\n');
-
-  if (!allCode.trim()) {
-    return res.json({
-      tips: ['O editor está vazio. Comece escrevendo a estrutura pedida nas instruções à esquerda.']
-    });
-  }
-
+  const allCode = Object.values(filesMap).join('\n');
+  if (!allCode.trim()) return res.json({ tips: ['O editor está vazio. Comece escrevendo a estrutura pedida nas instruções à esquerda.'] });
   const openBraces = (allCode.match(/\{/g) || []).length;
   const closeBraces = (allCode.match(/\}/g) || []).length;
-  if (openBraces !== closeBraces) {
-    tips.push(`Chaves desbalanceadas: você abriu ${openBraces} "{" e fechou ${closeBraces} "}".`);
-  }
-
+  if (openBraces !== closeBraces) tips.push('Chaves desbalanceadas: você abriu ' + openBraces + ' "{" e fechou ' + closeBraces + ' "}".');
   if (language === 'html') {
     const html = filesMap['index.html'] || '';
     const css = filesMap['style.css'] || '';
-    if (instructions?.includes('<h1>') && !/<h1\b/i.test(html)) {
-      tips.push('Inclua uma tag de título principal <h1>...</h1> dentro do index.html.');
-    }
-    if (instructions?.includes('display: flex') && !/display\s*:\s*flex/i.test(css)) {
-      tips.push('Abra a aba "style.css" e adicione "display: flex;" no seletor solicitado.');
-    }
-    if (instructions?.includes('display: grid') && !/display\s*:\s*grid/i.test(css)) {
-      tips.push('Abra a aba "style.css" e ative "display: grid;" no contêiner.');
-    }
+    if (instructions.includes('<h1>') && !/<h1\b/i.test(html)) tips.push('Inclua uma tag de título principal <h1>...</h1> dentro do index.html.');
+    if (instructions.includes('display: flex') && !/display\s*:\s*flex/i.test(css)) tips.push('Abra a aba "style.css" e adicione "display: flex;" no seletor solicitado.');
+    if (instructions.includes('display: grid') && !/display\s*:\s*grid/i.test(css)) tips.push('Abra a aba "style.css" e ative "display: grid;" no contêiner.');
   } else {
-    if (targetFunction && !allCode.includes(targetFunction)) {
-      tips.push(`Mantenha o nome exato da função "${targetFunction}" definida no desafio.`);
-    }
-    if (!/\breturn\b/.test(allCode) && !allCode.includes('res.status')) {
-      tips.push('Sua função precisa retornar um resultado usando a palavra-chave "return".');
-    }
+    if (targetFunction && !allCode.includes(targetFunction)) tips.push('Mantenha o nome exato da função "' + targetFunction + '" definida no desafio.');
+    if (!/\breturn\b/.test(allCode) && !allCode.includes('res.status')) tips.push('Sua função precisa retornar um resultado usando a palavra-chave "return".');
   }
-
-  if (Array.isArray(failedTests) && failedTests.length > 0 && tips.length === 0) {
-    tips.push(`Foco no critério "${failedTests[0].description}": ${failedTests[0].error}`);
-  }
-
-  if (tips.length === 0) {
-    tips.push(
-      `Excelente progresso na aula "${challengeTitle}"! Clique em "Verificar Código" para validar todos os testes.`
-    );
-  }
-
+  if (failedTests.length > 0 && tips.length === 0) tips.push('Foco no critério "' + failedTests[0].description + '": ' + failedTests[0].error);
+  if (tips.length === 0) tips.push('Excelente progresso na aula "' + challengeTitle + '"! Clique em "Verificar Código" para validar todos os testes.');
   return res.json({ tips });
 });
 
