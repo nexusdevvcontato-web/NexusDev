@@ -86,7 +86,7 @@ test('supports bounded some callbacks with lexical parameters for immutable cart
 });
 
 test('supports only the fixed whitespace regular expression in split', () => {
-  const source = 'function contarPalavras(texto) { const limpo = texto.trim(); if (!limpo) return 0; return limpo.split(/\\s+/).length; }';
+  const source = 'function contarPalavras(texto) { const limpo = texto.trim(); if (!limpo) return 0; return limpo.split(/\s+/).length; }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-2-aula-6', source }), { ok: true });
   const unsafe = 'function contarPalavras(texto) { return texto.split(/(a+)+$/).length; }';
   assert.equal(evaluateChallenge({ challengeId: 'mod-2-aula-6', source: unsafe }).ok, false);
@@ -126,7 +126,7 @@ test('supports safe product validation with trim and Number.isFinite', () => {
 test('supports allowlisted email validation and strict signup boundaries', () => {
   const source = String.raw`function validarCadastroUsuario(dados) {
     if (!dados || typeof dados !== "object" || typeof dados.nome !== "string" || !dados.nome.trim()) return false;
-    if (typeof dados.email !== "string" || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(dados.email)) return false;
+    if (typeof dados.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email)) return false;
     if (typeof dados.senha !== "string" || dados.senha.length < 8 || dados.senha.length > 128) return false;
     return true;
   }`;
