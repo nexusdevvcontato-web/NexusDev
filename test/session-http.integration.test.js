@@ -176,6 +176,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(privateCertificate.payload.publicDetails, false);
     assert.equal('studentName' in privateCertificate.payload, false);
     assert.equal('xp' in privateCertificate.payload, false);
+    const certificateIssueDenied = await request('/api/certificates/issue', {
+      method: 'POST', token: a.accessToken, body: {}
+    });
+    assert.equal(certificateIssueDenied.response.status, 403);
+    assert.match(certificateIssueDenied.response.headers.get('cache-control') || '', /no-store/i);
+
+    const leaderboard = await request('/api/leaderboard');
+    assert.equal(leaderboard.response.status, 200);
+    assert.match(leaderboard.response.headers.get('cache-control') || '', /no-store/i);
 
     const createdComment = await request('/api/lessons/' + challengeId + '/comments', {
       method: 'POST', token: a.accessToken, body: { text: 'Comentário de teste de privacidade.' }
