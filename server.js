@@ -13,6 +13,7 @@ const crypto = require('node:crypto');
 const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { recordDailyActivity } = require('./src/modules/users/daily-activity');
 const { issueCertificateOnce } = require('./src/modules/certificates/issue-once');
+const { createUserWithCertificateCode } = require('./src/modules/certificates/create-user');
 const { issueReauthProof, consumeReauthProof } = require('./src/modules/auth/reauthentication');
 const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthentication-credentials');
 const bcrypt = require('bcryptjs');
@@ -247,11 +248,10 @@ app.post('/api/auth/session/register', authLimiter, async (req, res) => {
     if (await User.findOne({ email: normalizedEmail })) {
       return res.status(409).json({ error: 'Este e-mail já está cadastrado. Faça login.' });
     }
-    const user = await User.create({
+    const user = await createUserWithCertificateCode(User, {
       name: name.trim(), email: normalizedEmail,
-      passwordHash: await bcrypt.hash(password, 10),
-      certificateCode: generateCertificateCode(name, 0)
-    });
+      passwordHash: await bcrypt.hash(password, 10)
+    }, generateCertificateCode);
     const result = await sessionAuthService.createForUser({ userId: user._id, res });
     return res.status(201).json({ accessToken: result.accessToken, expiresIn: result.expiresIn, user: formatUserResponse(result.user) });
   } catch {
@@ -298,11 +298,10 @@ app.post('/api/auth/session/google', authLimiter, async (req, res) => {
     }
     let user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      user = await User.create({
+      user = await createUserWithCertificateCode(User, {
         name: name || 'Estudante NexusDev', email: email.toLowerCase(),
-        avatar: picture || '', googleId,
-        certificateCode: generateCertificateCode(name, 0)
-      });
+        avatar: picture || '', googleId
+      }, generateCertificateCode);
     } else {
       if (user.googleId !== googleId) return res.status(409).json({ error: 'Entre pelo método de autenticação original.' });
       if (picture && picture !== user.avatar) await User.updateOne({ _id: user._id }, { $set: { avatar: picture } });
