@@ -217,7 +217,7 @@ function executeFunction(fn, args, budget, options = {}) {
             } else if (separatorNode.type === 'Literal' && separatorNode.regex &&
                 separatorNode.regex.pattern === '\\s+' && separatorNode.regex.flags === '') {
               // Deliberately allow only this fixed, linear whitespace pattern.
-              separator = /\\s+/;
+              separator = /\s+/;
             } else {
               throw new EvaluationError('invalid-split-argument');
             }
