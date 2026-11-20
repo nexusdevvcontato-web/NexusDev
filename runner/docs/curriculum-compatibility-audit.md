@@ -166,3 +166,14 @@ Static inspection of `server.js` found:
 - Remaining data-integrity concerns: login/Google streak updates use read-modify-save and may lose increments under concurrent requests; streak semantics currently increment once per calendar date rather than verifying consecutive days. This should be corrected separately with an atomic update and explicit product rule.
 
 Validation scope: code inspection and unit tests only. No real MongoDB instance, production data, index catalog, backups, migrations, or deployment were accessed.
+
+
+## Concorrência e idempotência das operações de conta (2026-11-20)
+
+- Login por senha e login Google existentes agora usam `recordDailyActivity` para incrementar `streak` e atualizar `lastActiveDate` em uma única operação condicional atômica (`lastActiveDate: { $ne: today }` + `$inc`/`$set`). Requisições simultâneas no mesmo dia não incrementam mais de uma vez. Se outra requisição já atualizou o dia, o helper recarrega o usuário.
+- A rota de conclusão já incrementava a sequência por uma atualização condicional semelhante; o login agora segue o mesmo padrão.
+- A emissão do certificado foi separada em `issueCertificateOnce`: a primeira chamada que encontra `certificateIssuedAt: null` define código e data em uma única atualização; chamadas concorrentes perdedoras recarregam e retornam o certificado já emitido, em vez de sobrescrever o identificador/data.
+- O endpoint de emissão não salva mais o snapshot Mongoose inteiro de `req.user`. Campos opcionais de perfil são escritos explicitamente com `$set`, evitando sobrescrever progresso ou alterações concorrentes carregadas depois do middleware.
+- A regra de produto existente permanece: `streak` conta dias distintos com atividade, mas não verifica continuidade entre dias consecutivos nem zera após ausência. Isso não foi alterado sem uma definição funcional explícita.
+
+Testes unitários mockados verificam os filtros e updates atômicos, o caminho de concorrência em que a atualização já foi realizada e o caso de conta ausente. Eles não substituem testes de integração com MongoDB nem validam o estado dos índices no banco real.
