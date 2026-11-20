@@ -226,3 +226,20 @@ test('rejects unknown challenges and lesson specs without function-case tests', 
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-1-aula-7', source: '' }), { ok: false, reason: 'unsupported-challenge' });
   assert.deepEqual(evaluateChallenge({ challengeId: 'html-00-o-que-e-web', source: '' }), { ok: false, reason: 'unsupported-challenge' });
 });
+
+test('validates MongoDB $set updates with an explicit field allowlist', () => {
+  const source = String.raw`function criarAtualizacaoProduto(dados) {
+    const atualizacao = {
+      ...(typeof dados.titulo === "string" && dados.titulo.trim() ? { titulo: dados.titulo.trim() } : {}),
+      ...(typeof dados.preco === "number" && Number.isFinite(dados.preco) && dados.preco > 0 ? { preco: dados.preco } : {}),
+      ...(typeof dados.ativo === "boolean" ? { ativo: dados.ativo } : {})
+    };
+    return { $set: atualizacao };
+  }`;
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-3', source }), { ok: true });
+});
+
+test('rejects pass-through MongoDB updates and untrusted operator fields', () => {
+  const unsafe = 'function criarAtualizacaoProduto(dados) { return { $set: dados }; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-3', source: unsafe }), { ok: false, reason: 'tests-failed' });
+});
