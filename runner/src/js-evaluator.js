@@ -140,7 +140,8 @@ function executeFunction(fn, args, budget, options = {}) {
         const object = evalExpr(node.object, depth + 1);
         if (node.property.name === 'length' && (Array.isArray(object) || typeof object === 'string')) return object.length;
         if (object && typeof object === 'object' && !Array.isArray(object) &&
-            Object.getPrototypeOf(object) === null &&
+            [null, Object.prototype].includes(Object.getPrototypeOf(object)) &&
+            typeof node.property.name === 'string' &&
             !['__proto__', 'prototype', 'constructor'].includes(node.property.name) &&
             Object.prototype.hasOwnProperty.call(object, node.property.name)) {
           return object[node.property.name];
