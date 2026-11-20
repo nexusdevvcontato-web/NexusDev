@@ -147,6 +147,11 @@ const userSchema = new mongoose.Schema(
     certificateIssuedAt: { type: Date, default: null },
     githubUrl: { type: String, default: '' },
     liveUrl: { type: String, default: '' },
+    certificateStudentName: { type: String, default: undefined },
+    certificateCompletedCount: { type: Number, min: 0, default: undefined },
+    certificateXp: { type: Number, min: 0, default: undefined },
+    certificateGithubUrl: { type: String, default: undefined },
+    certificateLiveUrl: { type: String, default: undefined },
     privacyPreferences: {
       showInLeaderboard: { type: Boolean, default: true },
       showCertificateDetails: { type: Boolean, default: true }
@@ -639,26 +644,23 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Os links do portfólio devem ser URLs HTTPS válidas.' });
     }
 
-    // Apply only explicitly validated profile fields; never save the stale auth snapshot.
-    const profileUpdate = {};
-    if (studentName) profileUpdate.name = studentName.trim();
-    if (githubUrl !== undefined) profileUpdate.githubUrl = githubUrl;
-    if (liveUrl !== undefined) profileUpdate.liveUrl = liveUrl;
-    if (Object.keys(profileUpdate).length) {
-      await User.updateOne({ _id: user._id }, { $set: profileUpdate });
-    }
-
-    // Only one concurrent request can set the first issuance timestamp/code.
-    const candidateCode = user.certificateCode || generateCertificateCode(
-      studentName ? studentName.trim() : user.name,
-      completedCount
-    );
+    // Freeze the certificate's public facts atomically with its first issuance.
+    // Subsequent requests return the original certificate and cannot rewrite its snapshot.
+    const candidateCode = user.certificateCode || generateCertificateCode();
+    const certificateSnapshot = {
+      certificateStudentName: studentName ? studentName.trim() : user.name,
+      certificateCompletedCount: completedCount,
+      certificateXp: user.xp,
+      certificateGithubUrl: githubUrl !== undefined ? githubUrl : user.githubUrl,
+      certificateLiveUrl: liveUrl !== undefined ? liveUrl : user.liveUrl
+    };
     const issuedUser = await issueCertificateOnce(
       User,
       user._id,
       candidateCode,
       new Date(),
-      () => generateCertificateCode()
+      () => generateCertificateCode(),
+      certificateSnapshot
     );
     if (!issuedUser || !issuedUser.certificateIssuedAt) {
       return res.status(409).json({ error: 'Não foi possível confirmar a emissão do certificado. Tente novamente.' });
@@ -667,12 +669,12 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
     return res.json({
       verified: true,
       code: issuedUser.certificateCode,
-      studentName: issuedUser.name,
-      completedCount: new Set(issuedUser.completedIds.filter(isKnownChallengeId)).size,
-      xp: issuedUser.xp,
+      studentName: issuedUser.certificateStudentName || issuedUser.name,
+      completedCount: issuedUser.certificateCompletedCount ?? new Set(issuedUser.completedIds.filter(isKnownChallengeId)).size,
+      xp: issuedUser.certificateXp ?? issuedUser.xp,
       issuedAt: issuedUser.certificateIssuedAt,
-      githubUrl: issuedUser.githubUrl,
-      liveUrl: issuedUser.liveUrl
+      githubUrl: issuedUser.certificateGithubUrl ?? issuedUser.githubUrl,
+      liveUrl: issuedUser.certificateLiveUrl ?? issuedUser.liveUrl
     });
   } catch {
     return res.status(500).json({ error: 'Erro ao emitir certificado.' });
