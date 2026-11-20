@@ -150,3 +150,6 @@ Cada controle precisa ser explicitamente `true`; valores truthy, ausência de ca
 - Comentários legados sem vínculo são apresentados como não atribuíveis, sem tentativa de correspondência por nome. Logs, backups e provedores externos são explicitamente marcados como não inspecionados.
 - A prévia declara `readOnly: true` e `deletionEnabled: false`; os bloqueios de política permanecem. Nenhum endpoint, job ou botão de exclusão foi habilitado e nenhuma informação persistida é modificada.
 - A rota e o modelo devem ser validados por CI e testes integrados antes de serem considerados prontos para uso. Esta implementação não altera contas, comentários, certificados ou sessões existentes.
+
+
+- Na prévia de impacto, a existência de um `certificateCode` reservado não é tratada como certificado emitido; somente `certificateIssuedAt` indica emissão efetiva. Isso evita contabilizar como certificado um código preliminar criado no cadastro.
