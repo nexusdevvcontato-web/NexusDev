@@ -1,6 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { readFile } = require('node:fs/promises');
 const { validateDraftFiles, normalizeRevision, createLessonDraftService } = require('../src/modules/drafts/lesson-drafts');
 
 test('draft validator accepts bounded plain-text files and rejects unsafe shapes', () => {
@@ -91,4 +92,10 @@ test('stored drafts use the same per-file and total byte limits as incoming draf
   });
   assert.equal(oversized.ok, false);
   assert.equal(oversized.error, 'O rascunho excede 40 KB.');
+});
+
+test('both authenticated draft reads and writes share the dedicated draft rate limiter', async () => {
+  const server = await readFile(require.resolve('../server'), 'utf8');
+  assert.match(server, /app\.get\('\/api\/lessons\/:lessonId\/draft'[\s\S]*?requireAuth, lessonDraftLimiter/);
+  assert.match(server, /app\.put\('\/api\/lessons\/:lessonId\/draft'[\s\S]*?requireAuth, lessonDraftLimiter/);
 });
