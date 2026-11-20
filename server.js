@@ -9,6 +9,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
@@ -17,7 +18,7 @@ const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletion
 const app = express();
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
+const { PORT, MONGO_URI, JWT_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -102,7 +103,7 @@ function signUserToken(user) {
   return jwt.sign(
     { id: user._id.toString(), email: user.email, role: user.role },
     JWT_SECRET,
-    { expiresIn: '30d' }
+    { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN }
   );
 }
 
@@ -127,12 +128,11 @@ function formatUserResponse(user) {
 
 async function requireAuth(req, res, next) {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Token de autenticação ausente.' });
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+      return res.status(401).json({ error: 'Token de autenticação ausente ou malformado.' });
     }
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = verifyAccessToken(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
     req.user = user;
