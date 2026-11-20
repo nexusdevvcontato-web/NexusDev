@@ -95,6 +95,17 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     }).lean();
     assert.equal(unconsumed.usedAt, null, 'transaction rollback must restore the consumed token');
     assert.equal((await store.rotate({ refreshToken: fifth.refreshToken })).status, 'rotated');
+
+    const unrelatedUserId = new mongoose.Types.ObjectId();
+    const unrelatedSession = await store.create({ userId: unrelatedUserId, ttlMs: 60_000 });
+    const purged = await store.purgeUserRecords({ userId });
+    assert.ok(purged.sessionsDeleted >= 5);
+    assert.ok(purged.refreshTokensDeleted >= 5);
+    assert.equal(await Session.countDocuments({ userId }), 0);
+    assert.equal(await RefreshToken.countDocuments({ userId }), 0);
+    assert.equal(await Session.countDocuments({ userId: unrelatedUserId }), 1);
+    assert.equal(await RefreshToken.countDocuments({ userId: unrelatedUserId }), 1);
+    assert.equal((await store.rotate({ refreshToken: unrelatedSession.refreshToken })).status, 'rotated');
   } finally {
     await connection.dropDatabase();
     await connection.close();
