@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 20);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 23);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -88,6 +88,35 @@ test('request boundary accepts the new authored Node and Express lessons', () =>
     ['mod-4-aula-2', 'produtoController.js'],
     ['mod-4-aula-3', 'validacao.js'],
     ['mod-4-aula-4', 'errorHandler.js']
+  ]) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { [filename]: 'function solution() { return true; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
+
+
+test('registers three authored MongoDB and secure signup lessons', () => {
+  const document = getChallengeSpec('mod-5-aula-2');
+  assert.equal(document.exportName, 'criarDocumentoProduto');
+  assert.ok(document.tests.some((check) => check.type === 'does-not-mutate-input'));
+  const update = getChallengeSpec('mod-5-aula-3');
+  assert.equal(update.exportName, 'criarAtualizacaoProduto');
+  assert.ok(update.tests.some((check) => check.type === 'function-deep-equals'));
+  const signup = getChallengeSpec('mod-5-aula-4');
+  assert.equal(signup.exportName, 'validarCadastroUsuario');
+  assert.ok(signup.tests.some((check) => check.type === 'function-cases'));
+  assert.equal(getChallengeSpec('mod-5-aula-5'), null);
+});
+
+test('request boundary accepts the new MongoDB and signup lessons', () => {
+  for (const [challengeId, filename] of [
+    ['mod-5-aula-2', 'documento.js'],
+    ['mod-5-aula-3', 'atualizacao.js'],
+    ['mod-5-aula-4', 'cadastro.js']
   ]) {
     const result = validateExecutionRequest({
       userId: 'student-1',
