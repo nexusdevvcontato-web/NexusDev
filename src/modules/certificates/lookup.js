@@ -1,3 +1,5 @@
+const { isKnownChallengeId } = require('../curriculum/catalog');
+
 function buildQuery(UserModel, filter, projection) {
   return UserModel.findOne(filter).select(projection).lean();
 }
@@ -44,7 +46,7 @@ async function lookupPublicCertificate(UserModel, code) {
       publicDetails: true,
       code: user.certificateCode,
       studentName: user.name,
-      completedCount: Array.isArray(user.completedIds) ? user.completedIds.length : 0,
+      completedCount: new Set((Array.isArray(user.completedIds) ? user.completedIds : []).filter(isKnownChallengeId)).size,
       xp: user.xp,
       issuedAt: user.certificateIssuedAt,
       githubUrl: user.githubUrl,
