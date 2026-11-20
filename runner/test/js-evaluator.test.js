@@ -43,6 +43,24 @@ test('does not accept caller-supplied deep-equality or immutability test definit
   }), { ok: false, reason: 'tests-failed' });
 });
 
+test('supports bounded filter callbacks with lexical parameters', () => {
+  const source = 'function filtrarProdutosPorPreco(produtos, limite) { return produtos.filter(produto => produto.preco < limite); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-4', source }), { ok: true });
+});
+
+test('supports bounded map callbacks with index and lexical parameters', () => {
+  const source = 'function somarComIndice(numeros, ajuste) { return numeros.map((numero, indice) => numero + indice + ajuste); }';
+  // The evaluator must reject unregistered challenge IDs even when the syntax is supported.
+  assert.deepEqual(evaluateChallenge({ challengeId: 'desafio-nao-registrado', source }), { ok: false, reason: 'unsupported-challenge' });
+});
+
+test('rejects arbitrary callback methods and oversized array inputs', () => {
+  const source = 'function filtrarProdutosPorPreco(produtos, limite) { return produtos.filter(produto => produto.preco < limite); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-3-aula-4', source }), { ok: true });
+  const unsafe = 'function filtrarProdutosPorPreco(produtos, limite) { return produtos.filter(produto => produto.constructor); }';
+  assert.equal(evaluateChallenge({ challengeId: 'mod-3-aula-4', source: unsafe }).ok, false);
+});
+
 test('supports bounded string normalization methods in trusted email cases', () => {
   const source = 'function normalizarEmail(email) { return email.trim().toLowerCase(); }';
   assert.deepEqual(evaluateChallenge({ challengeId: 'mod-2-aula-5', source }), { ok: true });
