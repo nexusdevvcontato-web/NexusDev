@@ -425,7 +425,8 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(exportB.response.status, 200);
     assert.equal(exportB.payload.comments.length, 0);
     assert.equal(exportB.payload.sessions.length, 1);
-    assert.equal(exportB.payload.data.savedDraftMap['html-00-o-que-e-web'], undefined);
+    assert.equal(exportB.payload.data.savedDraftMap['html-00-o-que-e-web'].revision, 1);
+    assert.equal(exportB.payload.data.savedDraftMap['html-00-o-que-e-web'].files['index.html'], '<h1>account B</h1>');
     assert.equal(JSON.stringify(exportB.payload).includes('Comentário de teste de privacidade.'), false);
     assert.equal(JSON.stringify(exportB.payload).includes('<h1>account A</h1>'), false);
 
