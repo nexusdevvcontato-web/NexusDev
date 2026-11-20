@@ -45,7 +45,7 @@ function buildDockerArgs({ image, workspace, timeoutMs = 5000 } = {}) {
     '--mount=type=bind,src=' + workspace + ',dst=/workspace,readonly',
     '--workdir=/workspace',
     '--env=HOME=/tmp',
-    '--env=NODE_OPTIONS=--max-old-space-size=64',
+    '--env=NODE_OPTIONS=--disable-proto=throw --max-old-space-size=64',
     image,
     'node', '/opt/nexusdev/execute.js',
     '--timeout-ms=' + timeoutMs
