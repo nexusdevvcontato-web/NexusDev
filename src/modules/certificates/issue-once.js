@@ -1,10 +1,20 @@
-async function issueCertificateOnce(UserModel, userId, candidateCode, issuedAt) {
-  const issued = await UserModel.findOneAndUpdate(
-    { _id: userId, certificateIssuedAt: null },
-    { $set: { certificateCode: candidateCode, certificateIssuedAt: issuedAt } },
-    { new: true }
-  );
-  return issued || UserModel.findById(userId);
+async function issueCertificateOnce(UserModel, userId, candidateCode, issuedAt, createReplacementCode) {
+  let code = candidateCode;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const issued = await UserModel.findOneAndUpdate(
+        { _id: userId, certificateIssuedAt: null },
+        { $set: { certificateCode: code, certificateIssuedAt: issuedAt } },
+        { new: true }
+      );
+      return issued || UserModel.findById(userId);
+    } catch (error) {
+      // Only retry an actual unique-index collision on the certificate code.
+      if (error?.code !== 11000 || !createReplacementCode || attempt === 2) throw error;
+      code = createReplacementCode();
+    }
+  }
+  return null;
 }
 
 module.exports = { issueCertificateOnce };
