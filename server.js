@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
+const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
 
 const app = express();
 
@@ -277,31 +278,16 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
     }
 
     // Never trust a client-side "tests passed" flag. Only a separate runner can sign this proof.
-    if (!LESSON_PROOF_PUBLIC_KEY) {
-      return res.status(503).json({ error: 'Validação segura de exercícios ainda não está configurada.' });
-    }
-    if (typeof completionProof !== 'string' || completionProof.length > 8192) {
+    const proofResult = verifyCompletionProof(completionProof, {
+      publicKey: LESSON_PROOF_PUBLIC_KEY,
+      userId: req.user._id.toString(),
+      challengeId
+    });
+    if (!proofResult.ok) {
+      if (proofResult.reason === 'not-configured') {
+        return res.status(503).json({ error: 'Validação segura de exercícios ainda não está configurada.' });
+      }
       return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
-    }
-    let proof;
-    try {
-      proof = jwt.verify(completionProof, LESSON_PROOF_PUBLIC_KEY, {
-        algorithms: ['RS256'],
-        issuer: 'nexusdev-runner',
-        audience: 'nexusdev-progress'
-      });
-    } catch {
-      return res.status(403).json({ error: 'Comprovante de conclusão inválido.' });
-    }
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    if (!Number.isInteger(proof.iat) || !Number.isInteger(proof.exp) ||
-        proof.iat > nowSeconds + 30 ||
-        proof.exp <= nowSeconds ||
-        proof.exp - proof.iat > 300 ||
-        proof.purpose !== 'lesson-completion' ||
-        proof.sub !== req.user._id.toString() ||
-        proof.challengeId !== challengeId) {
-      return res.status(403).json({ error: 'O comprovante não corresponde a esta conta e aula.' });
     }
 
     if (files !== undefined) {
