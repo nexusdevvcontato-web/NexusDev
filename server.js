@@ -28,7 +28,7 @@ const { createSessionAuthService } = require('./src/modules/auth/session-auth-se
 const { createSessionRefreshService } = require('./src/modules/auth/session-refresh-service');
 const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
 const { createSessionCsrfMiddleware } = require('./src/modules/auth/session-csrf-middleware');
-const { createSessionAccessMiddleware } = require('./src/modules/auth/session-access-token');
+const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
 
 const app = express();
 
@@ -203,11 +203,34 @@ async function requireAuth(req, res, next) {
     if (!token) {
       return res.status(401).json({ error: 'Token de autenticação ausente ou malformado.' });
     }
+
+    if (sessionAuthEnabled) {
+      const claims = verifySessionAccessToken(token, {
+        secret: SESSION_ACCESS_TOKEN_SECRET,
+        now: Math.floor(Date.now() / 1000)
+      });
+      if (claims) {
+        const currentTime = new Date();
+        const session = await Session.findOne({
+          _id: claims.sessionId,
+          userId: claims.userId,
+          revokedAt: null,
+          expiresAt: { $gt: currentTime }
+        }).lean();
+        if (!session) return res.status(401).json({ error: 'Sessão revogada ou expirada.' });
+        const sessionUser = await User.findById(claims.userId);
+        if (!sessionUser) return res.status(401).json({ error: 'Usuário não encontrado.' });
+        req.user = sessionUser;
+        req.session = { id: session._id, userId: session.userId };
+        return next();
+      }
+    }
+
     const decoded = verifyAccessToken(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
     req.user = user;
-    next();
+    return next();
   } catch {
     return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
   }
