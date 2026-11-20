@@ -14,38 +14,36 @@ const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI;
-const JWT_SECRET = process.env.JWT_SECRET || 'nexusdev-super-secret-key-2026';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const FRONTEND_URL = process.env.FRONTEND_URL || '*';
+const config = require('./src/config');
+const { PORT, MONGO_URI, JWT_SECRET, GOOGLE_CLIENT_ID, ALLOWED_ORIGINS } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 app.use(helmet());
-app.use(
-  cors({
-    origin: FRONTEND_URL === '*' ? '*' : [FRONTEND_URL, 'http://localhost:5173'],
-    credentials: true
-  })
-);
-app.use(express.json({ limit: '2mb' }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error('Origem não permitida pela política CORS.'));
+  },
+  credentials: true
+}));
+app.use(express.json({ limit: '100kb', strict: true }));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 400,
+  limit: 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
   message: { error: 'Muitas requisições. Tente novamente mais tarde.' }
 });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de autenticação. Aguarde antes de tentar novamente.' }
+});
 app.use('/api/', apiLimiter);
-
-if (!MONGO_URI) {
-  console.warn('⚠️ AVISO: MONGO_URI não definida nas variáveis de ambiente.');
-} else {
-  mongoose
-    .connect(MONGO_URI)
-    .then(() => console.log('✅ Conectado com sucesso ao MongoDB Atlas'))
-    .catch((err) => console.error('❌ Erro ao conectar ao MongoDB:', err.message));
-}
 
 // ============================================================================
 // SCHEMA DE USUÁRIOS, PROGRESSO, RANKING E CERTIFICADOS
@@ -142,14 +140,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
     }
-    if (password.length < 4) {
-      return res.status(400).json({ error: 'A senha deve ter pelo menos 4 caracteres.' });
+    if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 80 ||
+        typeof email !== 'string' || email.length > 254 ||
+        typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ error: 'Informe nome válido, e-mail válido e senha entre 8 e 128 caracteres.' });
+    }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: 'Informe um endereço de e-mail válido.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -173,11 +176,13 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Informe e-mail e senha.' });
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || email.length > 254 ||
+        typeof password !== 'string' || password.length < 1 || password.length > 128 ||
+        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -205,7 +210,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/auth/google', async (req, res) => {
+app.post('/api/auth/google', authLimiter, async (req, res) => {
   try {
     const { credential } = req.body;
     if (!credential || !googleClient) {
@@ -214,7 +219,10 @@ app.post('/api/auth/google', async (req, res) => {
 
     const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
-    const { sub: googleId, email, name, picture } = payload;
+    const { sub: googleId, email, email_verified: emailVerified, name, picture } = payload;
+    if (!email || emailVerified !== true || !googleId) {
+      return res.status(401).json({ error: 'A conta Google precisa ter e-mail verificado.' });
+    }
 
     let user = await User.findOne({ email: email.toLowerCase() });
 
@@ -227,8 +235,13 @@ app.post('/api/auth/google', async (req, res) => {
         certificateCode: generateCertificateCode(name, 0)
       });
     } else {
+      if (user.googleId && user.googleId !== googleId) {
+        return res.status(409).json({ error: 'Esta conta já está vinculada a outra identidade Google.' });
+      }
+      if (!user.googleId && user.passwordHash) {
+        return res.status(409).json({ error: 'Esta conta já possui senha. Entre com e-mail e senha antes de vincular outro provedor.' });
+      }
       const today = new Date().toISOString().slice(0, 10);
-      if (user.lastActiveDate !== today) {
         user.streak += 1;
         user.lastActiveDate = today;
       }
@@ -472,6 +485,22 @@ app.post('/api/lessons/:lessonId/comments', requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor NexusDev v2.0 rodando na porta ${PORT}`);
-});
+async function startServer() {
+  try {
+    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+    console.log('✅ Conectado ao MongoDB');
+    return app.listen(PORT, () => {
+      console.log(`🚀 Servidor NexusDev v2.0 rodando na porta ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Inicialização cancelada: não foi possível conectar ao MongoDB.', error.message);
+    process.exitCode = 1;
+    throw error;
+  }
+}
+
+if (require.main === module) {
+  startServer().catch(() => process.exit(1));
+}
+
+module.exports = { app, startServer };
