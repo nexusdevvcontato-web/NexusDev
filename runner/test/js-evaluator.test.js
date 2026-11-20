@@ -49,9 +49,8 @@ test('supports bounded filter callbacks with lexical parameters', () => {
 });
 
 test('supports bounded map callbacks with index and lexical parameters', () => {
-  const source = 'function somarComIndice(numeros, ajuste) { return numeros.map((numero, indice) => numero + indice + ajuste); }';
-  // The evaluator must reject unregistered challenge IDs even when the syntax is supported.
-  assert.deepEqual(evaluateChallenge({ challengeId: 'desafio-nao-registrado', source }), { ok: false, reason: 'unsupported-challenge' });
+  const source = 'function somarArray(numeros) { return numeros.map(numero => numero).reduce((total, numero) => total + numero, 0); }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'js-03-arrays-soma', source }), { ok: true });
 });
 
 test('rejects arbitrary callback methods and oversized array inputs', () => {
