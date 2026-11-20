@@ -620,6 +620,7 @@ app.post('/api/certificates/issue', requireAuth, async (req, res) => {
 
 // Rota pública para recrutadores validarem certificados via link ou QR Code
 app.get('/api/certificates/:code', certificateLookupLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const code = normalizeCertificateLookupCode(req.params.code);
     if (!code) return res.status(400).json({ valid: false, error: 'Código de certificado inválido.' });
@@ -700,6 +701,7 @@ app.post('/api/tutor/analyze', tutorLimiter, (req, res) => {
 // FÓRUM DA COMUNIDADE POR AULA (PERSISTIDO NO MONGODB)
 // ============================================================================
 app.get('/api/lessons/:lessonId/comments', publicReadLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const lessonId = typeof req.params.lessonId === 'string' ? req.params.lessonId.trim() : '';
     if (!isPublicLessonLookupAllowed(lessonId)) {
