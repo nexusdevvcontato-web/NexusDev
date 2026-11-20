@@ -143,3 +143,10 @@ test('both authenticated draft reads and writes share the dedicated draft rate l
   assert.match(server, /app\.get\('\/api\/lessons\/:lessonId\/draft'[\s\S]*?requireAuth, lessonDraftLimiter/);
   assert.match(server, /app\.put\('\/api\/lessons\/:lessonId\/draft'[\s\S]*?requireAuth, lessonDraftLimiter/);
 });
+
+
+test('draft validator rejects prototype-sensitive file names', () => {
+  for (const name of ['__proto__', 'prototype', 'constructor']) {
+    assert.equal(validateDraftFiles({ [name]: 'x' }).ok, false, `${name} must not be accepted as a file name`);
+  }
+});
