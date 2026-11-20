@@ -315,6 +315,36 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.comments.legacy.count, null);
     assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
 
+    // Generated curriculum lessons without trusted runner specifications must never earn XP,
+    // even if a syntactically valid runner signature is presented.
+    const unsupportedChallengeId = 'mod-1-aula-7';
+    const unsupportedProofNow = Math.floor(Date.now() / 1000);
+    const unsupportedProof = jwt.sign({
+      jti: crypto.randomUUID(),
+      purpose: 'lesson-completion',
+      challengeId: unsupportedChallengeId,
+      sub: aProfile.payload.id,
+      iss: 'nexusdev-runner',
+      aud: 'nexusdev-progress',
+      iat: unsupportedProofNow,
+      exp: unsupportedProofNow + 120
+    }, completionKeys.privateKey, { algorithm: 'RS256' });
+    const unsupportedCompletion = await request('/api/progress/complete', {
+      method: 'POST',
+      token: a.accessToken,
+      body: {
+        challengeId: unsupportedChallengeId,
+        files: { 'script.js': 'function resposta() { return true; }' },
+        completionProof: unsupportedProof
+      }
+    });
+    assert.equal(unsupportedCompletion.response.status, 400);
+    assert.match(unsupportedCompletion.payload.error, /validador seguro/i);
+    const userAfterUnsupported = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    assert.equal(userAfterUnsupported.xp, 0);
+    assert.deepEqual(userAfterUnsupported.completedIds, []);
+    assert.equal(await mongoose.model('CompletionProof').countDocuments({ userId: aProfile.payload.id }), 0);
+
     const proofNow = Math.floor(Date.now() / 1000);
     const completionProof = jwt.sign({
       jti: crypto.randomUUID(),
