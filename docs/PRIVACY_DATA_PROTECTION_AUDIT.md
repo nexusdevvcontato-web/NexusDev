@@ -69,3 +69,11 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 - A validação pública de um certificado continua confirmando sua autenticidade quando `showCertificateDetails: false`; nesse caso, retorna somente o código e `publicDetails: false`, sem nome, XP, progresso, data ou links.
 - As preferências entram na exportação de dados pessoais. Não há migração em massa nem alteração de produção.
 - A escolha padrão `true` é uma medida de compatibilidade para contas existentes, não uma comprovação de consentimento jurídico; a política e os textos de consentimento devem ser revisados antes de produção.
+
+
+## Política de retenção e encerramento de conta
+
+- A proposta técnica está em `docs/PRIVACY_RETENTION_AND_DELETION_POLICY.md` e documenta categorias de dados, tratamento proposto, certificados, comentários legados, backups e decisões ainda pendentes.
+- `src/modules/privacy/deletion-readiness.js` fornece uma barreira fail-closed reutilizável: só considera o fluxo pronto quando reautenticação, janela de cancelamento, política de retenção, ciclo de backups, trilha de auditoria, execução transacional e decisões de certificados/comentários estiverem explicitamente configurados.
+- Essa função não apaga nem altera dados e ainda não está ligada a uma rota. Nenhum endpoint de exclusão foi criado.
+- Não foram definidos prazos numéricos de retenção sem base operacional/jurídica, e nenhum job automático de limpeza foi criado.
