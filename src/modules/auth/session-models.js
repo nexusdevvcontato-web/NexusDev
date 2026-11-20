@@ -18,7 +18,7 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
     sessionId: { type: Schema.Types.ObjectId, ref: 'Session', required: true, index: true },
     tokenHash: { type: String, required: true, unique: true },
     createdAt: { type: Date, required: true, default: Date.now },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
     usedAt: { type: Date, default: null, index: true }
   }, { versionKey: false });
   refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
