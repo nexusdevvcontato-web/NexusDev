@@ -1,110 +1,72 @@
-const {
-  SESSION_COOKIE_NAME,
-  CSRF_COOKIE_NAME,
-  CSRF_HEADER_NAME,
-  getRefreshCookieOptions,
-  getCsrfCookieOptions,
-  getClearCookieOptions,
-  validateCsrfRequest
-} = require('./session-http-policy');
-const { readCookie } = require('./session-csrf-middleware');
-const { createSessionStore } = require('./session-store');
-const { issueSessionAccessToken, DEFAULT_ACCESS_TTL_SECONDS } = require('./session-access-token');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createSessionRefreshService } = require('../src/modules/auth/session-refresh-service');
+const { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, createCsrfToken } = require('../src/modules/auth/session-http-policy');
 
-function createSessionRefreshService({
-  mongoose,
-  Session,
-  RefreshToken,
-  User,
-  accessTokenSecret,
-  allowedOrigins,
-  sameSite = 'lax',
-  accessTokenTtlSeconds = DEFAULT_ACCESS_TTL_SECONDS,
-  now = () => new Date()
-} = {}) {
-  if (!User || typeof User.findById !== 'function' ||
-      typeof accessTokenSecret !== 'string' || accessTokenSecret.length < 32 ||
-      !Array.isArray(allowedOrigins) ||
-      allowedOrigins.some(origin => typeof origin !== 'string' || !/^https:\/\//.test(origin))) {
-    throw new TypeError('Dependências do serviço de renovação inválidas.');
-  }
-  const store = createSessionStore({ mongoose, Session, RefreshToken });
-
-  function clearCookies(res) {
-    const options = getClearCookieOptions({ sameSite });
-    res.clearCookie(SESSION_COOKIE_NAME, options);
-    res.clearCookie(CSRF_COOKIE_NAME, options);
-  }
-
-  async function refresh(req, res) {
-    res.set('Cache-Control', 'no-store');
-    const origin = req.get ? req.get('origin') : req.headers?.origin;
-    const rawRefreshToken = readCookie(req.headers?.cookie, SESSION_COOKIE_NAME);
-    const csrfCookie = readCookie(req.headers?.cookie, CSRF_COOKIE_NAME);
-    const csrfHeader = req.get ? req.get(CSRF_HEADER_NAME) : req.headers?.[CSRF_HEADER_NAME];
-
-    if (!validateCsrfRequest({
-      origin,
-      allowedOrigins,
-      cookieToken: csrfCookie,
-      headerToken: csrfHeader
-    })) {
-      return res.status(403).json({ error: 'Origem ou validação CSRF inválida.' });
-    }
-    if (!rawRefreshToken) {
-      clearCookies(res);
-      return res.status(401).json({ error: 'Sessão ausente ou expirada.' });
-    }
-
-    try {
-      const currentTime = now();
-      const outcome = await store.rotate({ refreshToken: rawRefreshToken, now: currentTime });
-      if (outcome.status === 'replay') {
-        clearCookies(res);
-        return res.status(401).json({ error: 'Reutilização de refresh token detectada. Entre novamente.' });
-      }
-      if (outcome.status !== 'rotated') {
-        clearCookies(res);
-        return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
-      }
-
-      const user = await User.findById(outcome.session.userId);
-      if (!user) {
-        await store.revoke({
-          sessionId: outcome.session._id,
-          userId: outcome.session.userId,
-          reason: 'security',
-          now: currentTime
-        });
-        clearCookies(res);
-        return res.status(401).json({ error: 'Conta não encontrada.' });
-      }
-
-      const maxAgeMs = outcome.expiresAt.getTime() - currentTime.getTime();
-      if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs <= 0) {
-        clearCookies(res);
-        return res.status(401).json({ error: 'Sessão expirada.' });
-      }
-      res.cookie(SESSION_COOKIE_NAME, outcome.refreshToken, getRefreshCookieOptions({ maxAgeMs, sameSite }));
-      res.cookie(CSRF_COOKIE_NAME, outcome.csrfToken, getCsrfCookieOptions({ maxAgeMs, sameSite }));
-      const accessToken = issueSessionAccessToken({
-        userId: user._id.toString(),
-        sessionId: outcome.session._id.toString(),
-        secret: accessTokenSecret,
-        now: Math.floor(currentTime.getTime() / 1000),
-        ttlSeconds: accessTokenTtlSeconds
-      });
-      return res.json({
-        accessToken,
-        expiresIn: accessTokenTtlSeconds,
-        user
-      });
-    } catch {
-      return res.status(503).json({ error: 'Não foi possível renovar a sessão com segurança.' });
-    }
-  }
-
-  return Object.freeze({ refresh });
+function makeRes() {
+  return {
+    statusCode: 200, body: null, headers: {}, cookies: [], cleared: [],
+    set(k,v) { this.headers[k]=v; return this; },
+    status(v) { this.statusCode=v; return this; },
+    json(v) { this.body=v; return this; },
+    cookie(name,value,options) { this.cookies.push({name,value,options}); return this; },
+    clearCookie(name,options) { this.cleared.push({name,options}); return this; }
+  };
+}
+function setup() {
+  const csrf = createCsrfToken();
+  const now = new Date('2026-11-20T04:00:00.000Z');
+  const mongoose = { startSession() { return {
+    async withTransaction(fn) { await fn(); },
+    async endSession() {}
+  }; } };
+  const Session = {
+    async updateOne() { return {modifiedCount:1}; },
+    async findOneAndUpdate() { return null; }
+  };
+  const RefreshToken = {
+    async findOneAndUpdate() { return null; },
+    findOne() { return { session: async () => null }; }
+  };
+  const service = createSessionRefreshService({
+    mongoose, Session, RefreshToken,
+    User: { async findById() { return {_id:'507f1f77bcf86cd799439011'}; } },
+    accessTokenSecret: 's'.repeat(48),
+    allowedOrigins: ['https://nexusdev-frontend.vercel.app'],
+    now: () => now
+  });
+  const token = 'A'.repeat(43);
+  const req = {
+    headers: {
+      origin: 'https://nexusdev-frontend.vercel.app',
+      cookie: `${SESSION_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${csrf}`,
+      'x-csrf-token': csrf
+    },
+    get(name) { return this.headers[name.toLowerCase()]; }
+  };
+  return {service,req,res:makeRes()};
 }
 
-module.exports = { createSessionRefreshService };
+test('refresh rejects an untrusted Origin before session storage access', async () => {
+  const c=setup();
+  c.req.headers.origin='https://attacker.example';
+  await c.service.refresh(c.req,c.res);
+  assert.equal(c.res.statusCode,403);
+  assert.equal(c.res.headers['Cache-Control'],'no-store');
+});
+
+test('refresh rejects an invalid or already consumed token and clears cookies', async () => {
+  const c=setup();
+  await c.service.refresh(c.req,c.res);
+  assert.equal(c.res.statusCode,401);
+  assert.equal(c.res.cleared.length,2);
+  assert.ok(c.res.cleared.some(x=>x.name===SESSION_COOKIE_NAME));
+  assert.ok(c.res.cleared.some(x=>x.name===CSRF_COOKIE_NAME));
+});
+
+test('refresh rejects mismatched CSRF tokens', async () => {
+  const c=setup();
+  c.req.headers['x-csrf-token']=createCsrfToken();
+  await c.service.refresh(c.req,c.res);
+  assert.equal(c.res.statusCode,403);
+});
