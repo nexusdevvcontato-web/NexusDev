@@ -27,7 +27,7 @@ function validateExecutionRequest(input) {
   let totalBytes = 0;
   for (const [name, content] of entries) {
     if (!MAX_SOURCE_NAME.test(name) || name === '.' || name === '..' ||
-        typeof content !== 'string' || content.includes('\\0')) {
+        typeof content !== 'string' || content.includes(String.fromCharCode(0))) {
       return { ok: false, reason: 'invalid-file' };
     }
     const bytes = Buffer.byteLength(content, 'utf8');
