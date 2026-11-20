@@ -490,8 +490,10 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
   }
 });
 
-app.get('/api/privacy/export', requireAuth, async (req, res) => {
+app.get('/api/privacy/export', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  next();
+}, requireAuth, async (req, res) => {
   try {
     // Scope every query to the authenticated database identity; never accept an owner ID from the client.
     const [comments, sessions] = await Promise.all([
