@@ -32,9 +32,9 @@ function isKnownChallengeId(value) {
 
   const moduleNumber = Number(match[1]);
   const lessonNumber = Number(match[2]);
-  return GENERATED_MODULES.has(moduleNumber) &&
-    Number.isInteger(lessonNumber) &&
-    lessonNumber >= 1 &&
+  const firstGeneratedLesson = GENERATED_MODULE_STARTS[moduleNumber];
+  return Number.isInteger(lessonNumber) &&
+    lessonNumber >= firstGeneratedLesson &&
     lessonNumber <= LESSONS_PER_GENERATED_MODULE;
 }
 
