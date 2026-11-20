@@ -111,6 +111,8 @@ const User = mongoose.model('User', userSchema);
 const commentSchema = new mongoose.Schema(
   {
     lessonId: { type: String, required: true, index: true },
+    // Stable ownership link for future privacy requests; legacy comments remain valid without it.
+    authorUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, default: null },
     author: { type: String, required: true, trim: true },
     badge: { type: String, default: 'Aluno NexusDev' },
     text: { type: String, required: true, trim: true, maxlength: 1000 }
@@ -533,6 +535,7 @@ app.post('/api/lessons/:lessonId/comments', requireAuth, commentLimiter, async (
 
     const created = await Comment.create({
       lessonId,
+      authorUserId: req.user._id,
       author: req.user.name,
       badge: req.user.role === 'admin' ? 'Mentor NexusDev' : 'Aluno NexusDev',
       text
