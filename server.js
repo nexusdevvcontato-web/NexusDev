@@ -756,7 +756,8 @@ app.post('/api/lessons/:lessonId/comments', requireAuth, commentLimiter, async (
 async function startServer() {
   try {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 });
-    await CompletionProof.init();
+    // Ensure TTL and ownership indexes exist before accepting authenticated traffic.
+    await Promise.all([Session.init(), RefreshToken.init(), CompletionProof.init()]);
     console.log('✅ Conectado ao MongoDB');
     return app.listen(PORT, () => {
       console.log(`🚀 Servidor NexusDev v2.0 rodando na porta ${PORT}`);
