@@ -65,3 +65,21 @@ test('rejects malformed comment export input', () => {
   assert.throws(() => buildUserDataExport({ _id: 'user-1' }, {}), /Comments must be an array/);
   assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [null]), /Invalid comment/);
 });
+
+
+test('exports only safe session metadata and never exports token hashes or CSRF secrets', () => {
+  const result = buildUserDataExport({ _id: 'user-1' }, [], [{
+    _id: 'session-1', createdAt: '2026-11-01', lastUsedAt: '2026-11-20',
+    expiresAt: '2026-12-01', revokedAt: null, revokeReason: null,
+    csrfTokenHash: 'secret-hash', tokenHash: 'refresh-secret', internalSecret: 'no'
+  }]);
+  assert.deepEqual(result.sessions, [{
+    id: 'session-1', createdAt: '2026-11-01', lastUsedAt: '2026-11-20',
+    expiresAt: '2026-12-01', revokedAt: null, revokeReason: null
+  }]);
+});
+
+test('rejects malformed session export input', () => {
+  assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [], {}), /Sessions must be an array/);
+  assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [], [null]), /Invalid session/);
+});
