@@ -58,3 +58,14 @@ Implementar exclusão sem resolver essas regras poderia deixar dados pessoais ó
 - A exportação cobre os campos permitidos do documento de usuário e os comentários que possuem vínculo verificável por `authorUserId`; não inclui logs de infraestrutura, registros de provedores externos ou comentários históricos sem vínculo.
 - Os testes unitários verificam a allowlist e a exclusão de segredos; não substituem teste HTTP integrado nem revisão jurídica.
 - Não foi acessado banco real, não houve exportação de dados de usuários reais, migração, exclusão, deploy ou alteração de produção.
+
+
+## Preferências de visibilidade e consentimento
+
+- Adicionado `privacyPreferences` ao documento de usuário, com `showInLeaderboard` e `showCertificateDetails`.
+- Contas legadas e contas sem valor explícito mantêm temporariamente o comportamento público anterior (`true`) para evitar remoção inesperada de perfis do ranking ou invalidação de validações de certificados já compartilhados. A pessoa pode optar por ocultar cada categoria individualmente.
+- `GET/PUT /api/privacy/preferences` são autenticados. O PUT aceita somente as duas propriedades booleanas permitidas e atualiza apenas os campos enviados.
+- O ranking exclui contas com `showInLeaderboard: false` e preserva registros legados sem a propriedade.
+- A validação pública de um certificado continua confirmando sua autenticidade quando `showCertificateDetails: false`; nesse caso, retorna somente o código e `publicDetails: false`, sem nome, XP, progresso, data ou links.
+- As preferências entram na exportação de dados pessoais. Não há migração em massa nem alteração de produção.
+- A escolha padrão `true` é uma medida de compatibilidade para contas existentes, não uma comprovação de consentimento jurídico; a política e os textos de consentimento devem ser revisados antes de produção.
