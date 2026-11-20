@@ -13,6 +13,7 @@ const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { recordDailyActivity } = require('./src/modules/users/daily-activity');
 const { issueCertificateOnce } = require('./src/modules/certificates/issue-once');
 const { extractBearerToken, verifyAccessToken } = require('./src/modules/auth/access-token');
+const { issueReauthProof, consumeReauthProof } = require('./src/modules/auth/reauthentication');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
@@ -25,7 +26,7 @@ const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require
 const app = express();
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -52,6 +53,13 @@ const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de autenticação. Aguarde antes de tentar novamente.' }
+});
+const reauthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de reautenticação. Aguarde antes de tentar novamente.' }
 });
 const tutorLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -93,6 +101,8 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, default: '' },
     avatar: { type: String, default: '' },
     googleId: { type: String, default: '' },
+    reauthProofHash: { type: String, default: '' },
+    reauthProofExpiresAt: { type: Date, default: null },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     xp: { type: Number, default: 0 },
     streak: { type: Number, default: 1 },
@@ -290,6 +300,68 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
 
 app.get('/api/me', requireAuth, async (req, res) => {
   res.json(formatUserResponse(req.user));
+});
+
+// Reauthenticate the account owner before a future sensitive action.
+// The returned proof is short-lived, bound to this user, and single-use.
+app.post('/api/auth/reauthenticate', requireAuth, reauthLimiter, async (req, res) => {
+  if (!REAUTH_TOKEN_SECRET) {
+    return res.status(503).json({ error: 'Reautenticação segura ainda não está configurada neste ambiente.' });
+  }
+
+  try {
+    const body = req.body || {};
+    const keys = Object.keys(body);
+    const hasPassword = typeof body.password === 'string';
+    const hasGoogleCredential = typeof body.credential === 'string';
+    if (keys.length !== 1 || hasPassword === hasGoogleCredential) {
+      return res.status(400).json({ error: 'Informe somente a credencial do método de autenticação original.' });
+    }
+
+    if (req.user.googleId) {
+      if (!hasGoogleCredential || !googleClient || body.credential.length < 20 || body.credential.length > 10000) {
+        return res.status(401).json({ error: 'Use a verificação Google da conta vinculada.' });
+      }
+      const ticket = await googleClient.verifyIdToken({
+        idToken: body.credential,
+        audience: GOOGLE_CLIENT_ID
+      });
+      const payload = ticket.getPayload();
+      if (!payload || payload.sub !== req.user.googleId ||
+          payload.email?.toLowerCase() !== req.user.email ||
+          payload.email_verified !== true) {
+        return res.status(401).json({ error: 'A identidade Google não corresponde à conta autenticada.' });
+      }
+    } else {
+      if (!hasPassword || !req.user.passwordHash ||
+          body.password.length < 1 || body.password.length > 128) {
+        return res.status(401).json({ error: 'Informe a senha da conta para reautenticar.' });
+      }
+      const validPassword = await bcrypt.compare(body.password, req.user.passwordHash);
+      if (!validPassword) return res.status(401).json({ error: 'Credencial inválida.' });
+    }
+
+    const proof = issueReauthProof({
+      userId: req.user._id.toString(),
+      secret: REAUTH_TOKEN_SECRET
+    });
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          reauthProofHash: proof.proofHash,
+          reauthProofExpiresAt: proof.expiresAt
+        }
+      },
+      { new: true, projection: { _id: 1 } }
+    );
+    if (!updated) return res.status(401).json({ error: 'Conta não encontrada.' });
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({ reauthToken: proof.token, expiresIn: proof.expiresIn });
+  } catch {
+    return res.status(401).json({ error: 'Não foi possível confirmar a identidade.' });
+  }
 });
 
 // Authenticated portability endpoint: exports only an explicit allowlist of the user's own data.
