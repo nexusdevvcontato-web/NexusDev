@@ -4,7 +4,7 @@
 // The host adapter must call Docker with this exact argument vector and a trusted
 // workspace created by the host; never append request-controlled flags or commands.
 
-const REQUIRED_IMAGE = /^.+@sha256:[a-f0-9]{64}$/;
+const REQUIRED_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/;
 const DEFAULT_LIMITS = Object.freeze({
   memory: '128m',
   memorySwap: '128m',
@@ -28,7 +28,7 @@ function buildDockerArgs({ image, workspace, timeoutMs = 5000 } = {}) {
   }
 
   return Object.freeze([
-    'run', '--rm', '--init',
+    'run', '--rm', '--init', '--pull=never', '--ipc=private', '--shm-size=16m',
     '--network=none',
     '--read-only',
     '--cap-drop=ALL',
