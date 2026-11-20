@@ -10,23 +10,23 @@ class EvaluationError extends Error {
   constructor(code) { super(code); this.code = code; }
 }
 
-function safeValue(value, depth = 0) {
+function safeValue(value, depth = 0, allowNonFiniteInput = false) {
   if (value && typeof value === 'object' && RESPONSE_MOCKS.has(value)) return value;
   if (depth > LIMITS.depth) throw new EvaluationError('value-depth-limit');
   if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
-    if (typeof value === 'number' && !Number.isFinite(value)) throw new EvaluationError('invalid-number');
+    if (typeof value === 'number' && !Number.isFinite(value) && !allowNonFiniteInput) throw new EvaluationError('invalid-number');
     if (typeof value === 'string' && value.length > LIMITS.stringLength) throw new EvaluationError('string-limit');
     return value;
   }
   if (Array.isArray(value)) {
     if (value.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
-    return value.map((item) => safeValue(item, depth + 1));
+    return value.map((item) => safeValue(item, depth + 1, allowNonFiniteInput));
   }
   if (typeof value === 'object' && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
     const out = Object.create(null);
     for (const key of Object.keys(value)) {
       if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new EvaluationError('unsafe-property');
-      out[key] = safeValue(value[key], depth + 1);
+      out[key] = safeValue(value[key], depth + 1, allowNonFiniteInput);
     }
     return out;
   }
@@ -88,7 +88,7 @@ function executeFunction(fn, args, budget, options = {}) {
   const parentScope = options.parentScope || null;
   const params = fn.params;
   if (params.some((p) => p.type !== 'Identifier') || args.length > params.length) throw new EvaluationError('unsupported-parameters');
-  params.forEach((p, i) => scope.set(p.name, safeValue(args[i] === undefined ? null : args[i])));
+  params.forEach((p, i) => scope.set(p.name, safeValue(args[i] === undefined ? null : args[i], 0, true)));
   const tick = () => { budget.steps += 1; if (budget.steps > LIMITS.steps) throw new EvaluationError('step-limit'); };
   const lookup = (name) => { if (scope.has(name)) return scope.get(name); if (parentScope?.has(name)) return parentScope.get(name); throw new EvaluationError('unknown-identifier'); };
   const assign = (name, value) => { if (!scope.has(name)) throw new EvaluationError('unknown-assignment'); scope.set(name, value); return value; };
