@@ -8,6 +8,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
+const crypto = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const { generateCertificateCode } = require('./src/modules/certificates/code');
 const { recordDailyActivity } = require('./src/modules/users/daily-activity');
@@ -29,7 +31,7 @@ const { createSessionRefreshService } = require('./src/modules/auth/session-refr
 const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
 const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/modules/auth/session-csrf-middleware');
 const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
-const { createPasswordResetService } = require('./src/modules/auth/password-reset');
+const { createPasswordResetService, normalizeEmail } = require('./src/modules/auth/password-reset');
 const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
 
 const app = express();
@@ -53,6 +55,17 @@ app.use(cors({
 app.use(express.json({ limit: '100kb', strict: true }));
 
 const passwordResetRequestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas solicitações. Tente novamente mais tarde.' } });
+const passwordResetEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator(req) {
+    const email = normalizeEmail(req.body?.email);
+    return email ? crypto.createHash('sha256').update(email).digest('hex') : ipKeyGenerator(req.ip);
+  },
+  message: { error: 'Muitas solicitações. Tente novamente mais tarde.' }
+});
 const passwordResetConfirmLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas tentativas. Aguarde antes de tentar novamente.' } });
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -246,7 +259,7 @@ async function requireAuth(req, res, next) {
     }
 
     const decoded = verifyAccessToken(token, JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('+passwordChangedAt');
     if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
     if (user.passwordChangedAt && (!decoded.iat || decoded.iat * 1000 < user.passwordChangedAt.getTime())) {
       return res.status(401).json({ error: 'Senha alterada. Entre novamente.' });
@@ -367,7 +380,7 @@ app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
   return requireSessionCsrf(req, res, next);
 }, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
 
-app.post('/api/auth/password-reset/request', passwordResetRequestLimiter, async (req, res) => {
+app.post('/api/auth/password-reset/request', passwordResetRequestLimiter, passwordResetEmailLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const { email } = req.body || {};
   if (typeof email !== 'string' || email.length > 254) {
