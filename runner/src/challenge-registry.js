@@ -167,6 +167,9 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [{ nome: ' ', email: 'ana@exemplo.com', senha: '12345678' }], expected: false },
       { args: [{ nome: 'Ana', email: 'email-invalido', senha: '12345678' }], expected: false },
       { args: [{ nome: 'Ana', email: 'ana@exemplo.com', senha: '1234567' }], expected: false },
+      { args: [{ nome: 'Ana', email: 'ana@exemplo.com', senha: 'x'.repeat(129) }], expected: false },
+      { args: [{ nome: 123, email: 'ana@exemplo.com', senha: 'senha-forte-123' }], expected: false },
+      { args: [{ nome: 'Ana', email: 'ana@exemplo.com', senha: 12345678 }], expected: false },
       { args: [null], expected: false }
     ]}]
   },
@@ -178,6 +181,7 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: ['NEXUSDEV2026'], expected: false },
       { args: ['NexusDevSenha'], expected: false },
       { args: ['Ab1'], expected: false },
+      { args: ['A'.repeat(129) + 'b1'], expected: false },
       { args: [12345678], expected: false }
     ]}]
   },
@@ -190,6 +194,9 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: ['Bearer '], expected: null },
       { args: ['Bearer abc extra'], expected: null },
       { args: [' Bearer abc'], expected: null },
+      { args: ['Bearer  abc'], expected: null },
+      { args: ['Bearer abc\\tdef'], expected: null },
+      { args: ['Bearer abc\\r\\ndef'], expected: null },
       { args: [null], expected: null }
     ]}]
   },
