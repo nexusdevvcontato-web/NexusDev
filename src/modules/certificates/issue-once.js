@@ -14,7 +14,7 @@ async function issueCertificateOnce(UserModel, userId, candidateCode, issuedAt, 
       return issued || UserModel.findById(userId);
     } catch (error) {
       // Only retry an actual unique-index collision on the certificate code.
-      if (error?.code !== 11000 || !createReplacementCode || attempt === 2) throw error;
+      if (error?.code !== 11000 || error?.keyPattern?.certificateCode !== 1 || !createReplacementCode || attempt === 2) throw error;
       code = createReplacementCode();
     }
   }
