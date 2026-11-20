@@ -31,3 +31,22 @@
 
 - Testes de integração MongoDB verificam token inicial, hash persistido, substituição no refresh e rejeição do token CSRF anterior.
 - Testes end-to-end de CORS, cookies, rotação e CSRF em navegador continuam obrigatórios em staging.
+
+
+## Middleware CSRF isolado
+
+`session-csrf-middleware.js` adiciona uma camada de validação reutilizável, ainda não montada no Express:
+
+1. Exige `Origin` presente e correspondência exata na allowlist.
+2. Lê o cookie HttpOnly de refresh sem depender de `cookie-parser`.
+3. Calcula o hash do refresh e procura somente token não consumido e não expirado.
+4. Carrega a sessão ativa e expirada? não: consulta exige `revokedAt: null` e `expiresAt > now`.
+5. Seleciona explicitamente `+csrfTokenHash` e compara o token sincronizador em tempo constante.
+6. Anexa apenas `{ id, userId }` em `req.session`; não expõe hash nem refresh token.
+7. Rejeita por padrão: 403 para origem/token/sessão inválidos e 503 se a persistência falhar.
+
+O middleware recebe modelos e origens por injeção, permitindo testes isolados. Ainda falta decidir e implementar a estratégia de autenticação por cookie nos endpoints: o middleware CSRF não substitui autenticação nem autorização do usuário. Não o montar em rotas existentes até a migração coordenada de login, refresh, logout, CORS, cookies e frontend.
+
+## Cobertura adicionada
+
+`test/session-csrf-middleware.test.js` cobre origem exata, cookie/header, associação com refresh e sessão ativa, rejeição de token consumido/ausente, sessão ausente, e falha de banco em modo fail-closed.
