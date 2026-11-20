@@ -81,3 +81,12 @@ O módulo `src/modules/privacy/deletion-request-state.js` descreve estados permi
 - Cancelamento só é permitido nos estados definidos; depois de iniciado o processamento, não há cancelamento presumido.
 
 Este módulo é uma política de transição pura: não persiste pedidos, não cria endpoint, não agenda prazos e não executa exclusões. A janela de cancelamento real ainda depende de uma duração aprovada e de implementação com relógio confiável.
+
+
+## Reautenticação recente — base técnica
+
+- A rota autenticada `POST /api/auth/reauthenticate` confirma novamente a credencial do método original: senha com bcrypt para contas locais ou ID token Google verificado no servidor, com `sub`, e-mail e `email_verified` correspondentes à conta já autenticada.
+- O endpoint tem limite próprio de tentativas e não registra nem devolve credenciais. Contas Google não podem usar o caminho de senha; contas locais não podem usar uma identidade Google não vinculada.
+- A prova resultante usa segredo `REAUTH_TOKEN_SECRET` distinto do segredo de sessão, expira em cinco minutos, é vinculada ao usuário e é armazenada apenas como hash para consumo único por `consumeReauthProof`.
+- Sem `REAUTH_TOKEN_SECRET`, o endpoint responde 503 e não emite prova. O segredo é opcional na configuração para não quebrar ambientes existentes, mas deve ser provisionado via secret manager antes de habilitar qualquer fluxo sensível.
+- A prova ainda não está conectada a exclusão de conta ou outra ação destrutiva. A futura rota de ação deverá consumir a prova atomicamente e exigir todos os bloqueios de prontidão já definidos. Nenhum pedido ou exclusão é criado por esta implementação.
