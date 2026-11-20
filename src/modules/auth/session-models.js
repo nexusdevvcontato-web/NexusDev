@@ -8,7 +8,7 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
     familyId: { type: String, required: true, unique: true, index: true },
     createdAt: { type: Date, required: true, default: Date.now },
     lastUsedAt: { type: Date, required: true, default: Date.now },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
     revokedAt: { type: Date, default: null, index: true },
     revokeReason: { type: String, enum: ['logout', 'logout_all', 'refresh_replay', 'expired', 'security'], default: null }
   }, { versionKey: false });
