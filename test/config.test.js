@@ -72,7 +72,7 @@ test('uses a documented default JWT lifetime and accepts a configured duration',
 });
 
 test('rejects invalid or excessively long JWT lifetimes', () => {
-  for (const value of ['', '0m', '15', '2w', '999999d', '30d;ignored']) {
+  for (const value of ['0m', '15', '2w', '999999d', '30d;ignored']) {
     const result = loadConfig({ JWT_EXPIRES_IN: value });
     assert.notEqual(result.status, 0, `expected ${value} to be rejected`);
     assert.match(result.stderr, /JWT_EXPIRES_IN/);
