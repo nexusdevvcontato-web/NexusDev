@@ -450,15 +450,21 @@ app.put('/api/privacy/preferences', requireAuth, async (req, res) => {
 });
 
 app.get('/api/privacy/export', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
-    // Scope the query to the authenticated database identity; never accept an owner ID from the client.
-    const comments = await Comment.find({ authorUserId: req.user._id })
-      .sort({ createdAt: 1, _id: 1 })
-      .select('_id lessonId author badge text createdAt updatedAt')
-      .lean();
+    // Scope every query to the authenticated database identity; never accept an owner ID from the client.
+    const [comments, sessions] = await Promise.all([
+      Comment.find({ authorUserId: req.user._id })
+        .sort({ createdAt: 1, _id: 1 })
+        .select('_id lessonId author badge text createdAt updatedAt')
+        .lean(),
+      Session.find({ userId: req.user._id })
+        .sort({ createdAt: 1, _id: 1 })
+        .select('_id createdAt lastUsedAt expiresAt revokedAt revokeReason')
+        .lean()
+    ]);
     res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
-    res.set('Cache-Control', 'no-store');
-    return res.json(buildUserDataExport(req.user, comments));
+    return res.json(buildUserDataExport(req.user, comments, sessions));
   } catch {
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
   }
