@@ -28,11 +28,11 @@ Esta auditoria é estática; não substitui testes de execução para cada solu�
 | `js-03-arrays-soma` | Somar array, inclusive vazio | function-cases | Compatível com ressalva | O avaliador suporta reduce com acumulador inicial; laços tradicionais não são suportados. O enunciado/hint deve ensinar uma forma suportada ou o avaliador deve evoluir. |
 | `mod-2-aula-4` | Média segura, array vazio | function-cases | Compatível com ressalva | Pode ser implementado com reduce e inicializador; solução com loop sugerida pelo hint não é suportada. |
 | `mod-2-aula-5` | trim e toLowerCase | function-cases | Compatível | `trim()` e `toLowerCase()` estão na allowlist restrita. |
-| `mod-2-aula-6` | split com espaços/regex | function-cases | Parcial | `split()` com separador literal é suportado; regex continua indisponível. |
+| `mod-2-aula-6` | split com espaços/regex | function-cases | Compatível com ressalva | `split()` aceita separador literal e apenas a regex fixa `/\\s+/`; outros padrões regex são rejeitados. |
 | `mod-3-aula-2` | Retornar objeto de props | function-deep-equals | Compatível | Construção de objetos, leitura de propriedades e comparação profunda são suportadas. |
 | `mod-3-aula-3` | Atualizar preço sem mutar | deep-equals e does-not-mutate-input | Compatível com ressalva | `map()` e spread de objeto suportam o padrão de atualização imutável registrado; sem mutadores arbitrários. |
 | `mod-3-aula-4` | Filtrar produtos | function-deep-equals | Compatível | `filter()` com callback restrito e comparação profunda estão implementados. |
-| `react-01-carrinho-imutavel` | Adicionar/incrementar item sem mutação | deep-equals e does-not-mutate-input | Bloqueado | Tipos de teste não suportados; some/map/spread também não são avaliados pelo subconjunto atual. |
+| `react-01-carrinho-imutavel` | Adicionar/incrementar item sem mutação | deep-equals e does-not-mutate-input | Compatível com ressalva | `some()`, `map()`, spread e comparação de objetos cobrem o padrão de carrinho da solução de referência; React/DOM não são executados. |
 | `mod-4-aula-2` | Controller GET com resposta Express | http-controller-case | Bloqueado | Tipo de teste HTTP não implementado. |
 | `mod-4-aula-3` | Validar produto | function-cases | Parcial | O formato de teste é reconhecido, mas trim e Number.isFinite não são suportados. |
 | `mod-4-aula-4` | Sanitizar formato de erro | function-deep-equals | Compatível com ressalva | Construção condicional de objetos e comparação profunda estão cobertas; não implica suporte a sanitização geral ou bibliotecas externas. |
@@ -104,3 +104,12 @@ A suíte completa e o CI ainda precisam ser confirmados antes de considerar esta
 A matriz acima foi originalmente escrita antes da implementação dos testes de comparação profunda, imutabilidade, normalização de strings, `map()`, `filter()` e spread restrito. As linhas indicadas foram atualizadas para refletir os recursos presentes no branch nesta revisão. A classificação continua sendo uma análise de compatibilidade estática; não equivale a execução da suíte nem a autorização para colocar o executor em produção.
 
 `find()` e `some()` permanecem explicitamente fora da allowlist e agora possuem testes de rejeição. Regex, execução de DOM/React, APIs externas e execução de código arbitrário também permanecem indisponíveis.
+
+
+## Atualização de compatibilidade por solução de referência (2026-11-20)
+
+A solução de referência do currículo React para `react-01-carrinho-imutavel` usa `some()` para detectar item existente, `map()` para incrementar quantidade e spread para produzir cópias. O avaliador agora suporta esse padrão limitado e a suíte testa os dois caminhos (item novo e item existente), além de verificar não mutação.
+
+A aula `mod-2-aula-6` usa `trim()` e divisão por whitespace. O avaliador permite somente a expressão regular literal `/\\s+/` em `split()`, sem flags e sem padrões controlados pelo aluno. Padrões arbitrários continuam rejeitados para evitar superfície de regex não limitada.
+
+O frontend continua executando o código de aula no navegador durante a experiência de aprendizagem; este avaliador isolado é um caminho separado e ainda não substitui nem altera esse comportamento. Os testes de referência cobrem o subconjunto explicitamente registrado, não os 700 IDs do currículo.
