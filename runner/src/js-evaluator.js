@@ -158,23 +158,51 @@ function executeFunction(fn, args, budget, options = {}) {
         throw new EvaluationError('unsupported-member');
       }
       case 'CallExpression': {
-        if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement') || node.callee.type !== 'MemberExpression' ||
-            node.callee.computed || node.callee.property.name !== 'reduce' || node.arguments.length < 1 || node.arguments.length > 2) {
+        if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement') ||
+            node.callee.type !== 'MemberExpression' || node.callee.computed) {
           throw new EvaluationError('unsupported-call');
         }
-        const array = evalExpr(node.callee.object, depth + 1);
-        if (!Array.isArray(array)) throw new EvaluationError('unsupported-call-target');
+        const method = node.callee.property.name;
+        const target = evalExpr(node.callee.object, depth + 1);
+        const callArgs = node.arguments.map((arg) => evalExpr(arg, depth + 1));
+        if (typeof target === 'string') {
+          if (['trim', 'toLowerCase', 'toUpperCase'].includes(method) && callArgs.length === 0) {
+            const result = method === 'trim' ? target.trim() :
+              method === 'toLowerCase' ? target.toLowerCase() : target.toUpperCase();
+            return bounded(result);
+          }
+          if (['includes', 'startsWith', 'endsWith'].includes(method) && callArgs.length >= 1 && callArgs.length <= 2) {
+            if (typeof callArgs[0] !== 'string' || (callArgs.length === 2 && !Number.isInteger(callArgs[1]))) {
+              throw new EvaluationError('invalid-string-argument');
+            }
+            return method === 'includes' ? target.includes(callArgs[0], callArgs[1]) :
+              method === 'startsWith' ? target.startsWith(callArgs[0], callArgs[1]) :
+              target.endsWith(callArgs[0], callArgs[1]);
+          }
+          if (method === 'split' && callArgs.length <= 2) {
+            if (callArgs.length === 0) return Array.from(target).slice(0, LIMITS.arrayLength);
+            if (typeof callArgs[0] !== 'string' || (callArgs.length === 2 && (!Number.isInteger(callArgs[1]) || callArgs[1] < 0))) {
+              throw new EvaluationError('invalid-split-argument');
+            }
+            const parts = target.split(callArgs[0], callArgs[1]);
+            if (parts.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
+            return parts.map((part) => bounded(part));
+          }
+          throw new EvaluationError('unsupported-string-method');
+        }
+        if (method !== 'reduce' || !Array.isArray(target) || callArgs.length < 1 || callArgs.length > 2) {
+          throw new EvaluationError('unsupported-call-target');
+        }
         const callback = node.arguments[0];
         if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type) || callback.async || callback.generator ||
             callback.params.length !== 2 || callback.params.some((p) => p.type !== 'Identifier')) throw new EvaluationError('unsupported-reducer');
         let accumulator;
         let index;
-        if (node.arguments.length === 2) { accumulator = evalExpr(node.arguments[1], depth + 1); index = 0; }
-        else { if (!array.length) throw new EvaluationError('reduce-empty-without-initial'); accumulator = array[0]; index = 1; }
-        for (; index < array.length; index += 1) {
+        if (node.arguments.length === 2) { accumulator = callArgs[1]; index = 0; }
+        else { if (!target.length) throw new EvaluationError('reduce-empty-without-initial'); accumulator = target[0]; index = 1; }
+        for (; index < target.length; index += 1) {
           tick();
-          const child = executeFunction(callback, [accumulator, array[index]], budget);
-          accumulator = child;
+          accumulator = executeFunction(callback, [accumulator, target[index]], budget);
         }
         return accumulator;
       }
