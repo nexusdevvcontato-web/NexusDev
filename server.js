@@ -470,7 +470,7 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
     const refreshTokens = await RefreshToken.countDocuments({
       $or: [{ userId }, { sessionId: { $in: sessionIds } }]
     });
-    const hasCertificate = Boolean(req.user.certificateCode || req.user.certificateIssuedAt);
+    const hasCertificate = Boolean(req.user.certificateIssuedAt);
     const hasLearningData = Boolean(
       (Array.isArray(req.user.completedIds) && req.user.completedIds.length) ||
       (req.user.savedCodeMap && Object.keys(req.user.savedCodeMap).length) ||
