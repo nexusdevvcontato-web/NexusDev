@@ -97,7 +97,7 @@ const CHALLENGE_SPECS = Object.freeze({
     language: 'javascript', entrypoint: 'script.js', exportName: 'contarPalavras',
     tests: [{ type: 'function-cases', cases: [
       { args: ['Aprender JavaScript é prático'], expected: 4 },
-      { args: ['  um   dois\\t três  '], expected: 3 },
+      { args: ['  um   dois\t três  '], expected: 3 },
       { args: [''], expected: 0 },
       { args: ['   '], expected: 0 }
     ]}]
