@@ -541,7 +541,7 @@ app.get('/api/privacy/export', (req, res, next) => {
 app.get('/api/lessons/:lessonId/draft', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
-}, requireAuth, async (req, res) => {
+}, requireAuth, lessonDraftLimiter, async (req, res) => {
   const lessonId = String(req.params.lessonId || '');
   if (!isKnownChallengeId(lessonId)) return res.status(400).json({ error: 'Aula inválida.' });
   try {
