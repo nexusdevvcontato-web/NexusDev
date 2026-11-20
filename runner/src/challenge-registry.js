@@ -76,6 +76,32 @@ const CHALLENGE_SPECS = Object.freeze({
       ]}
     ]
   },
+  'mod-2-aula-4': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'calcularMediaSegura',
+    tests: [{ type: 'function-cases', cases: [
+      { args: [[8, 10]], expected: 9 },
+      { args: [[]], expected: 0 },
+      { args: [[7]], expected: 7 },
+      { args: [[-2, 4, 6]], expected: 8 / 3 }
+    ]}]
+  },
+  'mod-2-aula-5': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'normalizarEmail',
+    tests: [{ type: 'function-cases', cases: [
+      { args: ['  Dev@Exemplo.COM  '], expected: 'dev@exemplo.com' },
+      { args: ['A B@EXEMPLO.COM'], expected: 'a b@exemplo.com' },
+      { args: ['ana@site.com'], expected: 'ana@site.com' }
+    ]}]
+  },
+  'mod-2-aula-6': {
+    language: 'javascript', entrypoint: 'script.js', exportName: 'contarPalavras',
+    tests: [{ type: 'function-cases', cases: [
+      { args: ['Aprender JavaScript é prático'], expected: 4 },
+      { args: ['  um   dois\\t três  '], expected: 3 },
+      { args: [''], expected: 0 },
+      { args: ['   '], expected: 0 }
+    ]}]
+  },
   'react-01-carrinho-imutavel': {
     language: 'javascript', entrypoint: 'script.js', exportName: 'adicionarAoCarrinho',
     tests: [
