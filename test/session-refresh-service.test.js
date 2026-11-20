@@ -26,9 +26,22 @@ function setup() {
     async updateOne() { return {modifiedCount:1}; },
     async findOneAndUpdate() { return null; }
   };
+  const rawToken = 'A'.repeat(43);
+  const record = {
+    sessionId: 'session-1',
+    tokenHash: hashRefreshToken(rawToken),
+    csrfTokenHash: hashSessionCsrfToken(csrf),
+    usedAt: null
+  };
   const RefreshToken = {
     async findOneAndUpdate() { return null; },
-    findOne() { return { session: async () => null }; }
+    findOne() {
+      return {
+        select() { return this; },
+        lean: async () => record,
+        session: async () => record
+      };
+    }
   };
   const service = createSessionRefreshService({
     mongoose, Session, RefreshToken,
@@ -37,7 +50,7 @@ function setup() {
     allowedOrigins: ['https://nexusdev-frontend.vercel.app'],
     now: () => now
   });
-  const token = 'A'.repeat(43);
+  const token = rawToken;
   const req = {
     headers: {
       origin: 'https://nexusdev-frontend.vercel.app',
