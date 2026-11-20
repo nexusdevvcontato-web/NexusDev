@@ -1,6 +1,6 @@
 # Runbook de staging — reautenticação recente
 
-**Status:** `REAUTH_TOKEN_SECRET` foi provisionado exclusivamente no serviço Render `nexusdev-staging-v2`; deploy `dep-dc087qptn18s73etgs1g` está live no commit `e2e2bfef`. O smoke test com contas descartáveis ainda não foi executado. Não usar produção.
+**Status:** o serviço Render `nexusdev-staging-v2` está live no commit de runtime `b7eb3825784134b9cacf0aad11a0cb622f7bd2d6`; alterações posteriores em testes/documentação não exigiram novo deploy. `REAUTH_TOKEN_SECRET` foi provisionado exclusivamente no staging. O smoke test com contas descartáveis ainda **não foi executado**; não considerar reautenticação validada end-to-end até concluir as etapas deste roteiro.
 
 ## 1. Pré-requisitos
 
@@ -95,6 +95,12 @@ A etapa só pode ser considerada validada quando:
 - rate limit, CORS, audience Google e consumo concorrente forem verificados;
 - logs forem inspecionados sem expor credenciais;
 - resultados, versões e evidências sem segredos forem registrados.
+
+## 7A. Evidência automatizada atual
+
+- CI do backend no commit `778f42d6ca19c26d9607b813591b599f541905ee`: aprovada, incluindo auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
+- Execução: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44834698409
+- Essa CI não substitui os testes manuais de staging com contas descartáveis nem comprova o fluxo Google OAuth.
 
 ## 8. Limites
 
