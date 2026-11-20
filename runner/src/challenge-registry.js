@@ -195,8 +195,8 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: ['Bearer abc extra'], expected: null },
       { args: [' Bearer abc'], expected: null },
       { args: ['Bearer  abc'], expected: null },
-      { args: ['Bearer abc\\tdef'], expected: null },
-      { args: ['Bearer abc\\r\\ndef'], expected: null },
+      { args: ['Bearer abc\tdef'], expected: null },
+      { args: ['Bearer abc\r\ndef'], expected: null },
       { args: [null], expected: null }
     ]}]
   },
