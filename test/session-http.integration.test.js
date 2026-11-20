@@ -355,6 +355,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     })));
     assert.ok(repeatedCertificateIssues.slice(0, 4).every(result => result.response.status === 403));
     assert.equal(repeatedCertificateIssues[4].response.status, 429);
+    assert.match(repeatedCertificateIssues[4].response.headers.get('cache-control') || '', /no-store/i);
 
     const leaderboard = await request('/api/leaderboard');
     assert.equal(leaderboard.response.status, 200);

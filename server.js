@@ -661,10 +661,10 @@ app.post('/api/progress/complete', (req, res, next) => {
   }
 });
 
-app.post('/api/certificates/issue', requireAuth, certificateIssueLimiter, (req, res, next) => {
+app.post('/api/certificates/issue', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
-}, async (req, res) => {
+}, requireAuth, certificateIssueLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     const { studentName, githubUrl, liveUrl } = req.body || {};
