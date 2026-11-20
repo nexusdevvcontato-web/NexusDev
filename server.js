@@ -27,7 +27,7 @@ const { createSessionModels } = require('./src/modules/auth/session-models');
 const { createSessionAuthService } = require('./src/modules/auth/session-auth-service');
 const { createSessionRefreshService } = require('./src/modules/auth/session-refresh-service');
 const { createSessionManagementService } = require('./src/modules/auth/session-management-service');
-const { createSessionCsrfMiddleware } = require('./src/modules/auth/session-csrf-middleware');
+const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/modules/auth/session-csrf-middleware');
 const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
 
 const app = express();
@@ -331,11 +331,11 @@ app.post('/api/auth/session/refresh', (req, res) => {
 app.post('/api/auth/session/logout', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionCsrf(req, res, next);
-}, requireSessionAccess, (req, res) => sessionManagementService.logoutCurrent(req, res));
+}, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.logoutCurrent(req, res));
 app.post('/api/auth/session/logout-all', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionCsrf(req, res, next);
-}, requireSessionAccess, (req, res) => sessionManagementService.logoutAll(req, res));
+}, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.logoutAll(req, res));
 app.get('/api/auth/session/sessions', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionAccess(req, res, next);
@@ -343,7 +343,7 @@ app.get('/api/auth/session/sessions', (req, res, next) => {
 app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionCsrf(req, res, next);
-}, requireSessionAccess, (req, res) => sessionManagementService.revokeOne(req, res));
+}, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
