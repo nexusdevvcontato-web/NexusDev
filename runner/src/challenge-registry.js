@@ -105,7 +105,8 @@ const CHALLENGE_SPECS = Object.freeze({
   'mod-3-aula-2': {
     language: 'javascript', entrypoint: 'script.js', exportName: 'criarModeloCartaoProduto',
     tests: [{ type: 'function-deep-equals', args: [{ nome: 'Teclado', preco: 199.9 }], expected: { tipo: 'article', titulo: 'Teclado', preco: 199.9 } },
-      { type: 'function-deep-equals', args: [{ nome: 'Mouse', preco: 59 }], expected: { tipo: 'article', titulo: 'Mouse', preco: 59 } }]
+      { type: 'function-deep-equals', args: [{ nome: 'Mouse', preco: 59 }], expected: { tipo: 'article', titulo: 'Mouse', preco: 59 } },
+      { type: 'does-not-mutate-input', args: [{ nome: 'Teclado', preco: 199.9 }] }]
   },
   'mod-3-aula-3': {
     language: 'javascript', entrypoint: 'script.js', exportName: 'atualizarPrecoProduto',
