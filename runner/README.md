@@ -31,10 +31,11 @@ There is no Docker invocation, queue, network listener, workspace manager, or AP
 5. Deploy only to a dedicated runner host after a separate explicit production authorization.
 
 
-### API access-token hardening
+### API session authentication and password recovery
 
-The API uses a configurable `JWT_EXPIRES_IN` (default `30d`, maximum `365d`) and signs access tokens with HS256 explicitly. Authorization headers must contain exactly one `Bearer <JWT>` value; verification pins HS256 and requires a non-empty user ID claim. Authenticated requests reload the user from MongoDB, so authorization decisions use the persisted account record rather than the role copied into a token. These controls do not provide password reset or account recovery; those flows are not implemented in the current API.
+The active API authentication flow is session-based. Refresh tokens are random opaque values stored only as SHA-256 hashes, rotated transactionally, and delivered through an HttpOnly, Secure, SameSite=Lax `__Host-` cookie. A separate CSRF cookie/header pair and exact Origin allowlist protect refresh and cookie-authenticated mutations. Short-lived HS256 access tokens are bound to both user and session; each authenticated request reloads the active session and user from MongoDB. Global logout revokes all sessions, and refresh-token replay revokes the affected session family. The legacy register/login/Google token endpoints return HTTP 410.
 
+Password recovery is implemented as a separate optional flow. Reset tokens are random, short-lived, single-use values; only their SHA-256 hashes are stored. Password change and revocation of all active sessions occur in one MongoDB transaction. Request responses avoid account enumeration, with IP- and normalized-email rate limits. The Gmail API mail adapter is implemented and tested, but it requires valid OAuth client credentials, a refresh token, and a sender identity configured in the target environment. If no mail provider is configured, recovery is intentionally unavailable and the API returns HTTP 503; do not claim that email delivery works until an end-to-end staging test confirms receipt and token consumption.
 
 ### MongoDB data-integrity review
 
