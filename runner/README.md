@@ -39,3 +39,11 @@ The API uses a configurable `JWT_EXPIRES_IN` (default `30d`, maximum `365d`) and
 ### MongoDB data-integrity review
 
 Certificate identifiers are generated with 80 bits from Node.js `crypto.randomBytes`, not `Math.random`. Public certificate verification and leaderboard completion counts use unique IDs from the trusted curriculum allowlist, avoiding inflated counts from duplicate or unknown legacy values. User progress updates use an atomic `$addToSet` + conditional `$inc` predicate, so concurrent completion requests cannot award XP twice for the same lesson. User writes are currently field-specific; no route applies the request body as a wholesale MongoDB update. The API still depends on the database having the declared unique indexes (email and sparse certificate code) built; this branch has not connected to or migrated a real database, and index state must be verified before deployment.
+
+## Trusted completion allowlist and proof-key requirements
+
+The API now requires both conditions before accepting a completion proof: the lesson ID must exist in the published curriculum **and** it must have an explicit trusted specification in `runner/src/challenge-registry.js`. This intentionally means only the 26 authored runner lessons are eligible; generated curriculum placeholders cannot receive XP, even if a correctly signed token is presented for them. The API integration suite signs a synthetic proof for a generated lesson and verifies HTTP 400, unchanged XP/progress, and no consumed-proof record.
+
+The proof signer independently rejects challenge IDs absent from the trusted runner registry. It parses the private key with Node's crypto API and requires an unencrypted RSA private key with a modulus of at least 2048 bits. The signer tests cover malformed, weak, non-RSA and unsupported-challenge inputs.
+
+These controls are authorization hardening, not runner deployment. The signing key is still not provisioned, no runner endpoint or Docker launcher exists, and no completion proof can be produced in the staging environment. The JavaScript editor remains disabled until the dedicated execution host, API-to-runner authentication, queue/timeout/cleanup controls, and adversarial isolation validation are complete.
