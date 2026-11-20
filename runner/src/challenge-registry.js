@@ -138,6 +138,7 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [{ titulo: 'Mouse', preco: 0 }], expected: false },
       { args: [{ titulo: 'Mouse', preco: -1 }], expected: false },
       { args: [{ titulo: 'Mouse', preco: '50' }], expected: false },
+      { args: [{ titulo: 'Mouse', preco: Infinity }], expected: false },
       { args: [null], expected: false }
     ]}]
   },
