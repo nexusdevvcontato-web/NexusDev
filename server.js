@@ -30,7 +30,7 @@ const { createSessionManagementService } = require('./src/modules/auth/session-m
 const { createSessionCsrfMiddleware, requireMatchingSession } = require('./src/modules/auth/session-csrf-middleware');
 const { createSessionAccessMiddleware, verifySessionAccessToken } = require('./src/modules/auth/session-access-token');
 const { createPasswordResetService } = require('./src/modules/auth/password-reset');
-const { createResendPasswordResetMailer } = require('./src/modules/auth/resend-mailer');
+const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
 
 const app = express();
 // Render terminates the public connection at one trusted proxy hop.
@@ -38,7 +38,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, RESEND_API_KEY, PASSWORD_RESET_FROM_EMAIL, FRONTEND_URL } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -157,10 +157,13 @@ const Comment = mongoose.model('Comment', commentSchema);
 // Session authentication v2 is opt-in until its dedicated secret is provisioned.
 // Legacy auth endpoints remain available during the parallel migration.
 const { Session, RefreshToken } = createSessionModels(mongoose);
-const passwordResetService = RESEND_API_KEY && PASSWORD_RESET_FROM_EMAIL && FRONTEND_URL
+const passwordResetService = GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN && GMAIL_FROM_EMAIL && FRONTEND_URL
   ? createPasswordResetService({
       mongoose, User, Session, bcrypt,
-      sendResetEmail: createResendPasswordResetMailer({ apiKey: RESEND_API_KEY, from: PASSWORD_RESET_FROM_EMAIL, frontendUrl: FRONTEND_URL })
+      sendResetEmail: createGmailPasswordResetMailer({
+        clientId: GMAIL_CLIENT_ID, clientSecret: GMAIL_CLIENT_SECRET,
+        refreshToken: GMAIL_REFRESH_TOKEN, fromEmail: GMAIL_FROM_EMAIL, frontendUrl: FRONTEND_URL
+      })
     })
   : null;
 const sessionAuthEnabled = Boolean(SESSION_ACCESS_TOKEN_SECRET);
