@@ -14,7 +14,7 @@ test('interprets variable declarations and arithmetic without evaluating JavaScr
 });
 
 test('interprets if/else and logical conditions for shipping', () => {
-  const source = 'function calcularFrete(valor, freteGratis) { if (freteGratis || valor >= 100) { return 0; } else { return 25; } }';
+  const source = 'function calcularFrete(valor, freteGratis) { if (freteGratis || valor >= 200) { return 0; } else { return 25; } }';
   const result = evaluateChallenge({ challengeId: 'js-02-condicionais-frete', source, argsList: [[200, false], [80, true], [150, false], [0, false]] });
   assert.deepEqual(result, { ok: true, results: [0, 0, 0, 25] });
 });
