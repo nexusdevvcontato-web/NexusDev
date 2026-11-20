@@ -293,7 +293,12 @@ app.post('/api/progress/complete', requireAuth, async (req, res) => {
     } catch {
       return res.status(403).json({ error: 'Comprovante de conclusão inválido.' });
     }
-    if (proof.purpose !== 'lesson-completion' ||
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (!Number.isInteger(proof.iat) || !Number.isInteger(proof.exp) ||
+        proof.iat > nowSeconds + 30 ||
+        proof.exp <= nowSeconds ||
+        proof.exp - proof.iat > 300 ||
+        proof.purpose !== 'lesson-completion' ||
         proof.sub !== req.user._id.toString() ||
         proof.challengeId !== challengeId) {
       return res.status(403).json({ error: 'O comprovante não corresponde a esta conta e aula.' });
