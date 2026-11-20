@@ -43,6 +43,18 @@ test('does not accept caller-supplied deep-equality or immutability test definit
   }), { ok: false, reason: 'tests-failed' });
 });
 
+test('supports typeof for values in trusted role checks without exposing globals', () => {
+  const source = 'function podeAcessarPerfil(usuario, perfilRequerido) { if (!usuario || typeof usuario !== "object" || typeof perfilRequerido !== "string" || !perfilRequerido) { return false; } return usuario.role === perfilRequerido; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-5-aula-7', source }), { ok: true });
+});
+
+test('typeof does not make unresolved identifiers readable outside typeof', () => {
+  const source = 'function calcularPrecoComDesconto(preco, desconto) { if (typeof preco !== "number") { return 0; } return preco - desconto; }';
+  assert.deepEqual(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source }), { ok: true });
+  const unsafe = 'function calcularPrecoComDesconto(preco, desconto) { return process; }';
+  assert.equal(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source: unsafe }).ok, false);
+});
+
 test('accepts a function assigned to a const', () => {
   const source = 'const calcularPrecoComDesconto = (preco, desconto) => preco - (preco * desconto / 100);';
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source }), { ok: true });
