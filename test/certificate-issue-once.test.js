@@ -55,3 +55,23 @@ test('does not retry non-duplicate database errors', async () => {
   await assert.rejects(() => issueCertificateOnce(User, 'u1', 'NXD-X', new Date(), () => 'NXD-Y'), /database unavailable/);
   assert.equal(calls, 1);
 });
+
+
+test('first issuance freezes a supplied certificate snapshot atomically', async () => {
+  const snapshot = {
+    certificateStudentName: 'Student',
+    certificateCompletedCount: 700,
+    certificateXp: 850,
+    certificateGithubUrl: 'https://github.com/student',
+    certificateLiveUrl: 'https://student.example'
+  };
+  let update;
+  const issued = { _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: new Date(), ...snapshot };
+  const User = {
+    async findOneAndUpdate(_query, value) { update = value; return issued; },
+    async findById() { assert.fail('first issuance should return updated record'); }
+  };
+  const result = await issueCertificateOnce(User, 'u1', 'NXD-X', issued.certificateIssuedAt, undefined, snapshot);
+  assert.equal(result, issued);
+  assert.deepEqual(update.$set, { ...snapshot, certificateCode: 'NXD-X', certificateIssuedAt: issued.certificateIssuedAt });
+});
