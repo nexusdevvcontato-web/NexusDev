@@ -26,6 +26,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
         }], { session: dbSession });
         await RefreshToken.create([{
           sessionId: session._id, tokenHash: hashRefreshToken(rawToken),
+          csrfTokenHash: hashSessionCsrfToken(csrfToken),
           createdAt: now, expiresAt
         }], { session: dbSession });
         created = { session, refreshToken: rawToken, csrfToken, expiresAt };
@@ -81,6 +82,7 @@ function createSessionStore({ mongoose, Session, RefreshToken }) {
         const nextExpiresAt = active.expiresAt;
         await RefreshToken.create([{
           sessionId: active._id, tokenHash: hashRefreshToken(nextRawToken),
+          csrfTokenHash: hashSessionCsrfToken(nextCsrfToken),
           createdAt: now, expiresAt: nextExpiresAt
         }], { session: dbSession });
         outcome = {
