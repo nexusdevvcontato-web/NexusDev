@@ -235,18 +235,15 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         certificateCode: generateCertificateCode(name, 0)
       });
     } else {
-      if (user.googleId && user.googleId !== googleId) {
-        return res.status(409).json({ error: 'Esta conta já está vinculada a outra identidade Google.' });
-      }
-      if (!user.googleId && user.passwordHash) {
-        return res.status(409).json({ error: 'Esta conta já possui senha. Entre com e-mail e senha antes de vincular outro provedor.' });
+      if (user.googleId !== googleId) {
+        return res.status(409).json({ error: 'Esta conta já está vinculada a outra identidade. Entre pelo método original.' });
       }
       const today = new Date().toISOString().slice(0, 10);
+      if (user.lastActiveDate !== today) {
         user.streak += 1;
         user.lastActiveDate = today;
       }
       if (picture) user.avatar = picture;
-      if (!user.googleId) user.googleId = googleId;
       await user.save();
     }
 
