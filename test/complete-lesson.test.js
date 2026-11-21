@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { completeLessonAtomically, REPLAY_CODE } = require('../src/modules/proofs/complete-lesson');
-function setup({ replay = false, failAt = null } = {}) {
+function setup({ replay = false, replayAlreadyCompleted = false, failAt = null } = {}) {
   const calls = [];
   const session = {
     async withTransaction(callback) { calls.push('transaction:start'); await callback(); calls.push('transaction:commit'); },
@@ -17,7 +17,7 @@ function setup({ replay = false, failAt = null } = {}) {
   const User = {
     async updateOne(filter, update, options) { calls.push(['updateOne', filter, update, options.session]); if (failAt === 'saved-code') throw new Error('saved code write failed'); return { matchedCount: 1 }; },
     async findOneAndUpdate(filter, update, options) { calls.push(['xp', filter, update, options]); if (failAt === 'xp') throw new Error('xp write failed'); return {}; },
-    findById(id) { return { session: async s => { calls.push(['read-user', id, s]); return { _id: id, xp: 50 }; } }; }
+    findById(id) {\n      const query = { session: async s => { calls.push(['read-user', id, s]); return { _id: id, xp: 50 }; } };\n      query.then = (resolve, reject) => Promise.resolve(replayAlreadyCompleted\n        ? { _id: id, xp: 50, completedIds: ['html-00-o-que-e-web'] }\n        : { _id: id, xp: 0, completedIds: [] }).then(resolve, reject);\n      return query;\n    }
   };
   return { calls, mongoose, User, CompletionProof };
 }
@@ -71,3 +71,4 @@ test('daily streak increment is guarded by the stored activity date', async () =
     }
   }]);
 });
+\n\ntest('returns the existing completion when a committed proof is retried after a lost response', async () => {\n  const deps = setup({ replay: true, replayAlreadyCompleted: true });\n  const user = await completeLessonAtomically(input(deps));\n  assert.equal(user.xp, 50);\n  assert.deepEqual(user.completedIds, ['html-00-o-que-e-web']);\n  assert.equal(deps.calls.includes('transaction:commit'), false);\n  assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);\n  assert.equal(deps.calls.at(-1), 'session:end');\n});\n
