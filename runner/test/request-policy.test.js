@@ -24,6 +24,28 @@ test('enforces per-file, aggregate and count limits', () => {
   assert.equal(validateExecutionRequest({ userId: 'u', challengeId: 'html-00-o-que-e-web', files: Object.fromEntries(Array.from({length: 11}, (_, i) => [i + '.js', 'x'])) }).reason, 'file-count-limit');
 });
 
+test('requires the exact trusted file set for each lesson', () => {
+  const valid = validateExecutionRequest({
+    userId: 'student-1',
+    challengeId: 'mod-4-aula-2',
+    files: {
+      'produtoController.js': 'function listarProdutosController(req, res) { return res.status(200).json([]); }',
+      'server.js': '// registered route example'
+    }
+  });
+  assert.equal(valid.ok, true);
+  assert.equal(validateExecutionRequest({
+    userId: 'student-1',
+    challengeId: 'html-00-o-que-e-web',
+    files: { 'unexpected.js': 'x' }
+  }).reason, 'entrypoint-mismatch');
+  assert.equal(validateExecutionRequest({
+    userId: 'student-1',
+    challengeId: 'mod-4-aula-2',
+    files: { 'produtoController.js': 'x', 'server.js': 'x', 'extra.js': 'x' }
+  }).reason, 'entrypoint-mismatch');
+});
+
 test('rejects null bytes and oversized identities', () => {
   assert.equal(validateExecutionRequest({ userId: 'u', challengeId: 'html-00-o-que-e-web', files: { 'a.js': 'x' + String.fromCharCode(0) + 'y' } }).ok, false);
   assert.equal(validateExecutionRequest({ userId: 'x'.repeat(129), challengeId: 'html-00-o-que-e-web', files: { 'a.js': 'x' } }).ok, false);
