@@ -193,18 +193,34 @@ function buildGeneratedModuleThreeJavaScriptSpecs() {
 function buildGeneratedModuleFourJavaScriptSpecs() {
   const specs = {};
   for (let lesson = 5; lesson <= 140; lesson += 1) {
-    if (lesson % 4 !== 0) continue;
-    const exportName = `handlerExpress_${lesson}`;
-    specs[`mod-4-aula-${lesson}`] = {
-      language: 'javascript',
-      entrypoint: 'controller.js',
-      exportName,
-      tests: [
-        { type: 'http-controller-case', body: { nome: 'ab' }, expectedStatus: 400, expectedBodyIncludes: 'erro' },
-        { type: 'http-controller-case', body: { nome: 'Notebook Pro' }, expectedStatus: 200,
-          expectedBody: { ok: true, nome: 'Notebook Pro' } }
-      ]
-    };
+    const scenario = lesson % 4;
+    if (scenario === 0) {
+      const exportName = `handlerExpress_${lesson}`;
+      specs[`mod-4-aula-${lesson}`] = {
+        language: 'javascript',
+        entrypoint: 'controller.js',
+        exportName,
+        tests: [
+          { type: 'http-controller-case', body: { nome: 'ab' }, expectedStatus: 400, expectedBodyIncludes: 'erro' },
+          { type: 'http-controller-case', body: { nome: 'Notebook Pro' }, expectedStatus: 200,
+            expectedBody: { ok: true, nome: 'Notebook Pro' } }
+        ]
+      };
+    } else if (scenario === 1) {
+      const exportName = `buscarPorIdController_${lesson}`;
+      const lista = [{ id: '1', nome: 'Item 1' }, { id: '2', nome: 'Item 2' }];
+      specs[`mod-4-aula-${lesson}`] = {
+        language: 'javascript',
+        entrypoint: 'controller.js',
+        exportName,
+        tests: [
+          { type: 'http-controller-case', params: { id: '99' }, extraArgs: [lista],
+            expectedStatus: 404, expectedBody: { erro: 'Não encontrado' } },
+          { type: 'http-controller-case', params: { id: '1' }, extraArgs: [lista],
+            expectedStatus: 200, expectedBody: lista[0] }
+        ]
+      };
+    }
   }
   return specs;
 }
