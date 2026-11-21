@@ -55,7 +55,7 @@ test('creates proofs for registered multi-file Express lessons while evaluating 
 test('does not create proof for failed, unknown or unsupported lessons', () => {
   for (const input of [
     { userId: 'u', challengeId: 'html-00-o-que-e-web', files: { 'index.html': '<h1>não confere</h1>' } },
-    { userId: 'u', challengeId: 'mod-1-aula-7', files: { 'index.html': '<h1>Olá, Mundo!</h1>' } },
+    { userId: 'u', challengeId: 'mod-1-aula-141', files: { 'index.html': '<h1>Olá, Mundo!</h1>' } },
     { userId: 'u', challengeId: 'js-01-variaveis-calculo', files: { 'script.js': 'function calcularPrecoComDesconto(a,b) { return process; }' } },
     { userId: 'u', challengeId: 'html-00-o-que-e-web', files: { 'index.html': '<h1>Olá, Mundo!</h1>', 'extra.js': 'x' } }
   ]) assert.equal(evaluateAndCreateCompletionProof(input).ok, false);
