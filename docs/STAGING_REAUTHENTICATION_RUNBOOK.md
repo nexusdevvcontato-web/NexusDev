@@ -1,6 +1,6 @@
 # Runbook de staging — reautenticação recente
 
-**Status:** o serviço Render `nexusdev-staging-v2` está live no commit de runtime `b7eb3825784134b9cacf0aad11a0cb622f7bd2d6`; alterações posteriores em testes/documentação não exigiram novo deploy. `REAUTH_TOKEN_SECRET` foi provisionado exclusivamente no staging. O smoke test com contas descartáveis ainda **não foi executado**; não considerar reautenticação validada end-to-end até concluir as etapas deste roteiro.
+**Status (rechecado em 2026-11-20):** o serviço Render `nexusdev-staging-v2` está live no commit de runtime `ed28e216d6bf83f2360f8fa795dda230c6bc2213`; commits posteriores neste ciclo alteraram apenas testes/documentação e não exigiram novo deploy. `REAUTH_TOKEN_SECRET` está provisionado exclusivamente no staging. O smoke test com contas descartáveis e a jornada autenticada completa ainda **não foram executados**; não considerar reautenticação validada end-to-end até concluir as etapas deste roteiro.
 
 ## 1. Pré-requisitos
 
