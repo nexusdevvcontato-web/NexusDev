@@ -1,11 +1,11 @@
 # NexusDev trusted runner service (scaffold)
 
-This directory contains the trusted request boundary, a server-owned declarative challenge registry and RS256 proof signer for the future runner. It is **not an arbitrary-code execution service** and intentionally exposes no HTTP endpoint or Docker control. The registry currently contains 564 server-owned lesson specifications across the 700-lesson curriculum; unregistered patterns remain ineligible for official XP.
+This directory contains the trusted request boundary, a server-owned declarative challenge registry and RS256 proof signer for the future runner. It is **not an arbitrary-code execution service** and intentionally exposes no HTTP endpoint or Docker control. The registry currently contains 632 server-owned lesson specifications across the 700-lesson curriculum; unregistered patterns remain ineligible for official XP.
 
 ## Security boundary
 
 - Only the authenticated API may supply the user identity; the browser must never choose the proof subject.
-- Challenge IDs are resolved by `src/challenge-registry.js`; the registry currently contains 564 authored/generated specifications with declarative checks. Unknown IDs and generated patterns without a trusted specification are rejected.
+- Challenge IDs are resolved by `src/challenge-registry.js`; the registry currently contains 632 authored/generated specifications with declarative checks. Unknown IDs and generated patterns without a trusted specification are rejected.
 - The registry includes introductory HTML checks, 134 generated module-one lessons (semantic HTML, forms, Box Model, Flexbox, Grid and debugging), generated JavaScript lessons for modules 2, 3 and 5, and supported Express controller patterns for module 4. The HTML evaluator parses inert fragments with parse5 and checks fixed server-owned selectors/assertions. Its restricted CSS parser checks only bounded, static declarations against trusted expected values; it does not render styles, calculate layout, process media queries or execute CSS. The JavaScript evaluator interprets only a small Acorn AST subset, including function cases, deep equality, non-mutation checks and bounded array/string operations; it is not a general runtime.
 - Never accept tests, expected output, commands, image names, or container options from the request.
 - Input is bounded to 10 files, 50 KB per file and 200 KB total.
@@ -45,7 +45,7 @@ Certificate identifiers are generated with 80 bits from Node.js `crypto.randomBy
 
 ## Zero-cost trusted evaluation path
 
-The API evaluates registered lesson submissions inside its own process using `runner/src/evaluator.js`, then creates a short-lived, deterministic one-time completion record only after every server-owned test passes. The registry currently covers 564 of 700 published lesson IDs (75.7%), including 66 CSS-focused module-one lessons. The browser cannot provide tests, expected outputs, user identity, proof IDs or signatures. The authenticated session supplies the user ID; the registry supplies the entrypoint and trusted tests; the evaluator supplies the pass/fail result; the database unique index prevents duplicate submissions of the same user, lesson and source from being consumed twice.
+The API evaluates registered lesson submissions inside its own process using `runner/src/evaluator.js`, then creates a short-lived, deterministic one-time completion record only after every server-owned test passes. The registry currently covers 632 of 700 published lesson IDs (75.7%), including 66 CSS-focused module-one lessons. The browser cannot provide tests, expected outputs, user identity, proof IDs or signatures. The authenticated session supplies the user ID; the registry supplies the entrypoint and trusted tests; the evaluator supplies the pass/fail result; the database unique index prevents duplicate submissions of the same user, lesson and source from being consumed twice.
 
 This removes the unprovisioned external runner key as a blocker for the currently supported lessons and uses the existing free Render API service. It does **not** run arbitrary JavaScript: the HTML path parses inert markup, the CSS path checks a restricted set of static declarations, and the JavaScript path interprets a narrow Acorn AST allowlist with bounded source, AST, depth, array, string and step limits. Loops, recursion, globals, filesystem, network, process access and arbitrary function calls are rejected.
 
