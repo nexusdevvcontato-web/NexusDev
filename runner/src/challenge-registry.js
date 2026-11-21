@@ -38,9 +38,8 @@ function buildGeneratedModuleOneHtmlSpecs() {
   return specs;
 }
 
-// Generated lessons are deterministic curriculum templates. Only the four
-// HTML-only patterns with complete server-side checks are registered here;
-// CSS/debugging patterns remain study-only until a dedicated CSS evaluator exists.
+// Generated lessons are deterministic templates. HTML and the restricted CSS
+// declaration checks are registered separately; unsupported browser behavior stays study-only.
 
 function buildGeneratedModuleOneCssSpecs() {
   const specs = {};
