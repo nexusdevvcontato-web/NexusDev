@@ -263,6 +263,16 @@ function executeFunction(fn, args, budget, options = {}) {
           }
           throw new EvaluationError('unsupported-string-method');
         }
+        if (Array.isArray(target) && method === 'slice') {
+          if (node.arguments.length > 2) throw new EvaluationError('invalid-slice-arguments');
+          const start = node.arguments.length === 0 ? 0 : evalExpr(node.arguments[0], depth + 1);
+          const end = node.arguments.length < 2 ? target.length : evalExpr(node.arguments[1], depth + 1);
+          if (!Number.isInteger(start) || start < 0 || !Number.isInteger(end) || end < 0) {
+            throw new EvaluationError('invalid-slice-arguments');
+          }
+          return target.slice(Math.min(start, target.length), Math.min(end, target.length))
+            .map((item) => safeValue(item));
+        }
         if (!Array.isArray(target) || node.arguments.length < 1 ||
             !['reduce', 'map', 'filter', 'some'].includes(method) ||
             node.arguments.length > (method === 'reduce' ? 2 : 1)) {
