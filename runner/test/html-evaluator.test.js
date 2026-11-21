@@ -54,7 +54,7 @@ test('does not accept user-provided selectors or test definitions', () => {
 });
 
 test('rejects unknown lessons and mismatched language specs', () => {
-  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-1-aula-7', source: '<h1>x</h1>' }), { ok: false, reason: 'unsupported-challenge' });
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-1-aula-141', source: '<h1>x</h1>' }), { ok: false, reason: 'unsupported-challenge' });
   assert.deepEqual(evaluateChallenge({ challengeId: 'js-01-variaveis-calculo', source: '<h1>x</h1>' }), { ok: false, reason: 'unsupported-challenge' });
 });
 
