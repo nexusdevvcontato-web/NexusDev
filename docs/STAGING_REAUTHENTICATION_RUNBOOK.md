@@ -98,8 +98,9 @@ A etapa só pode ser considerada validada quando:
 
 ## 7A. Evidência automatizada atual
 
-- CI do backend no commit `2d3da91508a827ab5a458f6d03b2a1746af3641d`: aprovada em 2026-11-21, incluindo auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
-- Execução: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44846462219
+- CI do backend no commit `d43df0ad75ed41155fcdf51727c893af890e7a0e`: aprovada em 2026-11-21, incluindo auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
+- Execução mais recente: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890638522
+- Commit imediatamente anterior `43ff149ca72bbf641b84a3c1c55c259d1e4cbd27` também aprovado: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890609835
 - A integração HTTP com MongoDB descartável cobre reautenticação por senha, prova de cinco minutos, vínculo ao usuário, consumo único, replay negado, concorrência, exportação sem prova rejeitada e isolamento entre duas contas sintéticas. Isso comprova o comportamento no ambiente automatizado, não no serviço Render live.
 - O smoke test manual do Render ainda não foi executado porque requer access token e senha de uma conta descartável já criada no staging.
 - Essa CI não substitui os testes manuais de staging com contas descartáveis nem comprova o fluxo Google OAuth.
