@@ -201,7 +201,9 @@ function executeFunction(fn, args, budget, options = {}) {
           return undefined;
         }
         if (node.callee.type === 'Identifier' && node.callee.name === 'Number' && node.arguments.length === 1) {
-          return Number(evalExpr(node.arguments[0], depth + 1));
+          const converted = Number(evalExpr(node.arguments[0], depth + 1));
+          // Represent NaN as null so the documented numeric fallback stays bounded.
+          return Number.isNaN(converted) ? null : converted;
         }
         if (node.callee.type === 'MemberExpression' && !node.callee.computed &&
             node.callee.object.type === 'Identifier' && node.callee.object.name === 'Math') {
