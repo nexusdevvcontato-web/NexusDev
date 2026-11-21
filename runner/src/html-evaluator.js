@@ -18,10 +18,10 @@ const SELECTORS = Object.freeze({
   'form button': (node, ancestors) => node.tagName === 'button' && ancestors.some((parent) => parent.tagName === 'form'),
   'article.perfil h2': (node, ancestors) => node.tagName === 'h2' && ancestors.some((parent) =>
     parent.tagName === 'article' && parent.attrs?.some((attr) =>
-      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil'))),
+      attr.name === 'class' && attr.value.split(/\s+/).includes('perfil'))),
   'article.perfil p': (node, ancestors) => node.tagName === 'p' && ancestors.some((parent) =>
     parent.tagName === 'article' && parent.attrs?.some((attr) =>
-      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil')))
+      attr.name === 'class' && attr.value.split(/\s+/).includes('perfil')))
 });
 
 class HtmlEvaluationError extends Error {
