@@ -33,7 +33,7 @@ test('routes registered Express controller lessons to the isolated controller ev
   const source = 'function listarProdutosController(req, res) { return res.status(200).json([{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]); }';
   assert.deepEqual(evaluateRegisteredChallenge({
     challengeId: 'mod-4-aula-2',
-    files: { 'produtoController.js': source }
+    files: { 'produtoController.js': source, 'server.js': "// app.get('/api/produtos', listarProdutosController);" }
   }), { ok: true });
 });
 
