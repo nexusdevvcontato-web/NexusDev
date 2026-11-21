@@ -782,9 +782,22 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(headerCompletion.payload.xp, 100);
     assert.ok(headerCompletion.payload.completedIds.includes('mod-4-aula-2'));
     assert.ok(headerCompletion.payload.completedIds.includes('mod-1-aula-9'));
+    const generatedJavaScriptCompletion = await request('/api/progress/complete', {
+      method: 'POST',
+      token: b.accessToken,
+      body: {
+        challengeId: 'mod-2-aula-8',
+        files: {
+          'script.js': "function contarVogais_8(texto) { return texto.toLowerCase().split('').filter(letra => 'aeiou'.includes(letra)).length; }"
+        }
+      }
+    });
+    assert.equal(generatedJavaScriptCompletion.response.status, 200, JSON.stringify(generatedJavaScriptCompletion.payload));
+    assert.equal(generatedJavaScriptCompletion.payload.xp, 150);
+    assert.ok(generatedJavaScriptCompletion.payload.completedIds.includes('mod-2-aula-8'));
     const multiFileFinalUser = await mongoose.model('User').findById(bProfileIdForReauth).lean();
-    assert.equal(multiFileFinalUser.xp, 100);
-    assert.deepEqual(new Set(multiFileFinalUser.completedIds), new Set(['mod-4-aula-2', 'mod-1-aula-9']));
+    assert.equal(multiFileFinalUser.xp, 150);
+    assert.deepEqual(new Set(multiFileFinalUser.completedIds), new Set(['mod-4-aula-2', 'mod-1-aula-9', 'mod-2-aula-8']));
 
     for (const token of [a.accessToken, b.accessToken]) {
       const me = await request('/api/me', { token });
