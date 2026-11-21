@@ -58,7 +58,7 @@ function parseSolution(source, exportName) {
   const visit = (node, depth = 0) => {
     if (!node || typeof node !== 'object') return;
     if (typeof node.type === 'string') {
-      const allowed = new Set(['Program','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','SpreadElement','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
+      const allowed = new Set(['Program','ChainExpression','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','SpreadElement','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
       if (!allowed.has(node.type)) throw new EvaluationError('unsupported-syntax');
       count += 1;
       if (count > LIMITS.astNodes) throw new EvaluationError('ast-node-limit');
@@ -96,6 +96,7 @@ function executeFunction(fn, args, budget, options = {}) {
     tick(); if (depth > LIMITS.depth) throw new EvaluationError('evaluation-depth-limit');
     switch (node.type) {
       case 'Literal': return node.value;
+      case 'ChainExpression': return evalExpr(node.expression, depth + 1);
       case 'Identifier': return lookup(node.name);
       case 'ArrayExpression': {
         if (node.elements.length > LIMITS.arrayLength || node.elements.some((x) => !x)) throw new EvaluationError('unsupported-array');
@@ -164,6 +165,7 @@ function executeFunction(fn, args, budget, options = {}) {
         const a = evalExpr(node.left, depth + 1);
         if (node.operator === '&&') return a && evalExpr(node.right, depth + 1);
         if (node.operator === '||') return a || evalExpr(node.right, depth + 1);
+        if (node.operator === '??') return a === null || a === undefined ? evalExpr(node.right, depth + 1) : a;
         throw new EvaluationError('unsupported-logical');
       }
       case 'ConditionalExpression': return evalExpr(node.test, depth + 1) ? evalExpr(node.consequent, depth + 1) : evalExpr(node.alternate, depth + 1);
@@ -174,6 +176,8 @@ function executeFunction(fn, args, budget, options = {}) {
           return object[key];
         }
         const object = evalExpr(node.object, depth + 1);
+        if ((object === null || object === undefined) && node.optional) return undefined;
+        if (object === null || object === undefined) throw new EvaluationError('unsupported-member');
         if (node.property.name === 'length' && (Array.isArray(object) || typeof object === 'string')) return object.length;
         if (object && typeof object === 'object' && !Array.isArray(object) &&
             [null, Object.prototype].includes(Object.getPrototypeOf(object)) &&
@@ -188,8 +192,26 @@ function executeFunction(fn, args, budget, options = {}) {
         throw new EvaluationError('unsupported-member');
       }
       case 'CallExpression': {
-        if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement') ||
-            node.callee.type !== 'MemberExpression' || node.callee.computed) {
+        if (node.arguments.some((a) => a.type === 'SpreadElement')) throw new EvaluationError('unsupported-call');
+        if (node.callee.type === 'Identifier' && node.callee.name === 'next' &&
+            node.arguments.length === 0 && options.allowNext === true &&
+            fn.params.some((param) => param.name === 'next')) {
+          options.nextCalls.count += 1;
+          if (options.nextCalls.count > 1) throw new EvaluationError('duplicate-next-call');
+          return undefined;
+        }
+        if (node.callee.type !== 'MemberExpression' || node.callee.computed) {
+          if (node.callee.type === 'Identifier' && node.callee.name === 'Number' && node.arguments.length === 1) {
+            const value = evalExpr(node.arguments[0], depth + 1);
+            return Number(value);
+          }
+          if (node.callee.type === 'MemberExpression' && !node.callee.computed &&
+              node.callee.object.type === 'Identifier' && node.callee.object.name === 'Math' &&
+              ['min', 'max'].includes(node.callee.property.name) && node.arguments.length >= 1) {
+            const values = node.arguments.map((arg) => evalExpr(arg, depth + 1));
+            if (values.some((value) => typeof value !== 'number')) throw new EvaluationError('invalid-math-argument');
+            return node.callee.property.name === 'min' ? Math.min(...values) : Math.max(...values);
+          }
           throw new EvaluationError('unsupported-call');
         }
         const method = node.callee.property.name;
@@ -198,6 +220,7 @@ function executeFunction(fn, args, budget, options = {}) {
           return Number.isFinite(evalExpr(node.arguments[0], depth + 1));
         }
         const target = evalExpr(node.callee.object, depth + 1);
+        if ((target === null || target === undefined) && node.callee.optional) return undefined;
         if (target instanceof RegExp && method === 'test' && node.arguments.length === 1) {
           const allowedPatterns = new Set([
             '[A-Z]', '[a-z]', '[0-9]',
@@ -350,13 +373,34 @@ function evaluateChallenge({ challengeId, source }) {
   const spec = getChallengeSpec(challengeId);
   const tests = spec?.tests;
   if (!spec || spec.language !== 'javascript' || !spec.exportName || !Array.isArray(tests) || tests.length === 0 ||
-      tests.some((test) => !['function-cases', 'function-deep-equals', 'does-not-mutate-input', 'http-controller-case'].includes(test.type))) {
+      tests.some((test) => !['function-cases', 'function-deep-equals', 'does-not-mutate-input', 'http-controller-case', 'middleware-case'].includes(test.type))) {
     return { ok: false, reason: 'unsupported-challenge' };
   }
   try {
     const fn = parseSolution(source, spec.exportName);
     for (const test of tests) {
-      if (test.type === 'http-controller-case') {
+      if (test.type === 'middleware-case') {
+        if (!test.request || typeof test.request !== 'object' || Array.isArray(test.request) ||
+            typeof test.expectedNext !== 'boolean' ||
+            (!test.expectedNext && (!Number.isInteger(test.expectedStatus) ||
+              test.expectedStatus < 100 || test.expectedStatus > 599 ||
+              !test.expectedBody || typeof test.expectedBody !== 'object' || Array.isArray(test.expectedBody)))) {
+          return { ok: false, reason: 'invalid-test-spec' };
+        }
+        const responseState = { status: 200, body: null, sent: false };
+        const responseMock = Object.create(null);
+        RESPONSE_MOCKS.set(responseMock, responseState);
+        const nextCalls = { count: 0 };
+        executeFunction(fn, [safeValue(test.request), responseMock, null], { steps: 0 },
+          { controllerResponse: responseState, allowNext: true, nextCalls });
+        if (nextCalls.count !== (test.expectedNext ? 1 : 0)) return { ok: false, reason: 'tests-failed' };
+        if (test.expectedNext) {
+          if (responseState.sent) return { ok: false, reason: 'tests-failed' };
+        } else if (!responseState.sent || responseState.status !== test.expectedStatus ||
+            !equal(responseState.body, test.expectedBody)) {
+          return { ok: false, reason: 'tests-failed' };
+        }
+      } else if (test.type === 'http-controller-case') {
         if (!Number.isInteger(test.expectedStatus) || test.expectedStatus < 100 || test.expectedStatus > 599 ||
             (Object.prototype.hasOwnProperty.call(test, 'body') && (!test.body || typeof test.body !== 'object' || Array.isArray(test.body)))) {
           return { ok: false, reason: 'invalid-test-spec' };
