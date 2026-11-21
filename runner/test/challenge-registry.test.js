@@ -170,7 +170,7 @@ test('request boundary accepts the new authentication and RBAC lessons', () => {
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
-    challengeId: 'mod-1-aula-7',
+    challengeId: 'mod-1-aula-141',
     files: { 'index.html': '<h1>Oi</h1>' }
   });
   assert.deepEqual(result, { ok: false, reason: 'challenge-not-authored' });
@@ -196,7 +196,7 @@ test('registers all 134 generated module-one HTML and CSS lessons with server-su
     assert.deepEqual(spec.supportingFiles, ['style.css'], id);
     assert.ok(spec.tests.length > 0, id);
   }
-  for (const id of ['mod-1-aula-7']) assert.equal(getChallengeSpec(id), null, id);
+  for (const id of ['mod-1-aula-141']) assert.equal(getChallengeSpec(id), null, id);
   for (const id of ['mod-1-aula-12', 'mod-1-aula-15', 'mod-1-aula-140']) {
     assert.equal(getChallengeSpec(id).language, 'html', id);
   }
