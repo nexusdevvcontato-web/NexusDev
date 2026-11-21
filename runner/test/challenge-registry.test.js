@@ -170,7 +170,7 @@ test('request boundary accepts the new authentication and RBAC lessons', () => {
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
-    challengeId: 'mod-4-aula-6',
+    challengeId: 'mod-4-aula-141',
     files: { 'index.html': '<h1>Oi</h1>' }
   });
   assert.deepEqual(result, { ok: false, reason: 'challenge-not-authored' });
@@ -240,8 +240,19 @@ test('registers 136 generated Express controller, find, middleware and paginatio
   assert.equal(ids.length, 136);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
-    assert.equal(spec.entrypoint, 'controller.js', id);
-    assert.ok(spec.tests.every((check) => check.type === 'http-controller-case'), id);
+    const lesson = Number(id.slice('mod-4-aula-'.length));
+    assert.equal(spec.language, 'javascript', id);
+    assert.ok(spec.exportName, id);
+    if (lesson % 4 === 0 || lesson % 4 === 1) {
+      assert.equal(spec.entrypoint, 'controller.js', id);
+      assert.ok(spec.tests.every((check) => check.type === 'http-controller-case'), id);
+    } else if (lesson % 4 === 2) {
+      assert.equal(spec.entrypoint, 'validateMiddleware.js', id);
+      assert.ok(spec.tests.every((check) => check.type === 'middleware-case'), id);
+    } else {
+      assert.equal(spec.entrypoint, 'queryHelper.js', id);
+      assert.ok(spec.tests.every((check) => check.type === 'function-cases'), id);
+    }
   }
 });
 
