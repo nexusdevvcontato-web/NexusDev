@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 530);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 564);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -80,7 +80,7 @@ test('registers three authored Node and Express lessons', () => {
   const errors = getChallengeSpec('mod-4-aula-4');
   assert.equal(errors.exportName, 'formatarErroApi');
   assert.ok(errors.tests.some((check) => check.type === 'function-deep-equals'));
-  assert.equal(getChallengeSpec('mod-4-aula-5'), null);
+  assert.equal(getChallengeSpec('mod-4-aula-5').exportName, 'buscarPorIdController_5');
 });
 
 test('request boundary accepts the authored Node and Express lesson file sets', () => {
@@ -170,7 +170,7 @@ test('request boundary accepts the new authentication and RBAC lessons', () => {
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
-    challengeId: 'mod-4-aula-5',
+    challengeId: 'mod-4-aula-6',
     files: { 'index.html': '<h1>Oi</h1>' }
   });
   assert.deepEqual(result, { ok: false, reason: 'challenge-not-authored' });
@@ -234,10 +234,10 @@ test('registers all 136 generated module-three React state lessons', () => {
   }
 });
 
-test('registers 34 generated Express controller lessons with trusted HTTP response tests', () => {
+test('registers 68 generated Express controller and find-by-id lessons with trusted HTTP response tests', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
     /^mod-4-aula-\d+$/.test(id) && Number(id.slice('mod-4-aula-'.length)) >= 5);
-  assert.equal(ids.length, 34);
+  assert.equal(ids.length, 68);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
     assert.equal(spec.entrypoint, 'controller.js', id);
