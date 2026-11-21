@@ -7,7 +7,7 @@ Executor: `NexusDev/runner/src/challenge-registry.js`, `evaluator.js`, `html-eva
 
 ## Escopo e regra de decisão
 
-Foram comparados os 26 desafios explicitamente registrados no `CHALLENGE_SPECS` com os exercícios correspondentes no currículo do frontend e com o comportamento efetivamente implementado pelos avaliadores.
+Foram comparados os 27 desafios explicitamente registrados no `CHALLENGE_SPECS` com os exercícios correspondentes no currículo do frontend e com o comportamento efetivamente implementado pelos avaliadores.
 
 **Compatível** significa que o tipo de teste e a linguagem necessária estão implementados. **Parcial** significa que há critérios incompletos ou divergência entre o enunciado e o teste. **Bloqueado** significa que a facade/avaliador atual rejeita a especificação ou não consegue avaliar o formato pedido.
 
@@ -330,3 +330,12 @@ The module-four registry now covers all four generated scenario families (136 le
 ### Module-two formatting, maximum and average lessons
 
 The final three generated module-two families are now registered: BRL formatting using bounded template literals and `toFixed(2)`, maximum lookup using the single approved `Math.max(...array)` spread form, and average calculation with an empty-array guard plus `reduce`. Spread syntax remains forbidden for every other call target; numeric formatting is restricted to two decimal places. Module-two generated coverage is now 134/134.
+
+
+## Atualização — aula de middleware administrativo do módulo 5 (2026-11-21)
+
+A comparação do catálogo oficial com os IDs reais do frontend encontrou a única aula ausente: `auth-01-middleware-admin`. O catálogo aceitava incorretamente o ID inexistente `mod-5-aula-1`, enquanto o currículo publicado usa o identificador autoral acima. O catálogo foi corrigido para reconhecer o ID real e iniciar as aulas geradas do módulo 5 em `mod-5-aula-2`.
+
+A registry agora inclui uma especificação server-side para `verificarAdmin`, com quatro cenários: cabeçalho ausente, esquema de autorização incorreto, usuário sem perfil admin e acesso autorizado chamando `next()`. O teste usa o middleware simulado do avaliador restrito; não inicia Express nem valida JWT real. A validação real do token permanece responsabilidade do middleware de produção, fora deste exercício didático.
+
+Com essa inclusão, a cobertura do registro sobe de 699 para 700 especificações. Isso significa cobertura de IDs do currículo no registro, não equivalência a testes de navegador ou isolamento de sistema operacional.
