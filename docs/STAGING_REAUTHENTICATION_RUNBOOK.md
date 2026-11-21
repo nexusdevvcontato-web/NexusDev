@@ -1,6 +1,6 @@
 # Runbook de staging — reautenticação recente
 
-**Status (rechecado em 2026-11-20):** o serviço Render `nexusdev-staging-v2` está live no commit de runtime `ed28e216d6bf83f2360f8fa795dda230c6bc2213`; commits posteriores neste ciclo alteraram apenas testes/documentação e não exigiram novo deploy. `REAUTH_TOKEN_SECRET` está provisionado exclusivamente no staging. O smoke test com contas descartáveis e a jornada autenticada completa ainda **não foram executados**; não considerar reautenticação validada end-to-end até concluir as etapas deste roteiro.
+**Status (rechecado em 2026-11-21):** o serviço Render `nexusdev-staging-v2` está live no commit de runtime `ed28e216d6bf83f2360f8fa795dda230c6bc2213`; commits posteriores neste ciclo alteraram apenas testes/documentação e não exigiram novo deploy. `REAUTH_TOKEN_SECRET` está provisionado exclusivamente no staging. O smoke test com contas descartáveis e a jornada autenticada completa ainda **não foram executados**; não considerar reautenticação validada end-to-end até concluir as etapas deste roteiro.
 
 ## 1. Pré-requisitos
 
@@ -38,7 +38,7 @@ STAGING_TEST_PASSWORD="<SENHA_DA_CONTA_DESCARTAVEL>" \
 yarn test:staging:reauth
 ```
 
-O comando testa ausência de autenticação (401), senha incorreta (401), senha correta (200), `Cache-Control: no-store` e validade estrutural/TTL de cinco minutos da prova. A prova é mantida somente em memória e descartada pelo processo; não é consumida, pois ainda não existe rota de ação sensível. Não executar com contas reais.
+O comando testa ausência de autenticação (401), senha incorreta (401), senha correta (200), `Cache-Control: no-store` e validade estrutural/TTL de cinco minutos da prova. A prova é mantida somente em memória e descartada pelo processo. Este smoke test não consome a prova; a rota `GET /api/privacy/export` já consome a prova de forma vinculada à conta, e seu uso/replay/isolamento é coberto separadamente pela suíte HTTP de integração com MongoDB descartável. A validação end-to-end desse caminho no serviço Render staging ainda depende da execução com conta descartável. Não executar com contas reais.
 
 ## 4. Testes positivos
 
@@ -98,8 +98,10 @@ A etapa só pode ser considerada validada quando:
 
 ## 7A. Evidência automatizada atual
 
-- CI do backend no commit `778f42d6ca19c26d9607b813591b599f541905ee`: aprovada, incluindo auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
-- Execução: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44834698409
+- CI do backend no commit `2d3da91508a827ab5a458f6d03b2a1746af3641d`: aprovada em 2026-11-21, incluindo auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
+- Execução: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44846462219
+- A integração HTTP com MongoDB descartável cobre reautenticação por senha, prova de cinco minutos, vínculo ao usuário, consumo único, replay negado, concorrência, exportação sem prova rejeitada e isolamento entre duas contas sintéticas. Isso comprova o comportamento no ambiente automatizado, não no serviço Render live.
+- O smoke test manual do Render ainda não foi executado porque requer access token e senha de uma conta descartável já criada no staging.
 - Essa CI não substitui os testes manuais de staging com contas descartáveis nem comprova o fluxo Google OAuth.
 
 ## 8. Limites
