@@ -767,9 +767,24 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       }
     });
     assert.equal(extraFileCompletion.response.status, 400);
-    const multiFileFinalUser = await mongoose.model('User').findById(bProfileIdForReauth).lean();
-    assert.equal(multiFileFinalUser.xp, 50);
-    assert.deepEqual(multiFileFinalUser.completedIds, ['mod-4-aula-2']);
+    const headerCompletion = await request('/api/progress/complete', {
+      method: 'POST',
+      token: b.accessToken,
+      body: {
+        challengeId: 'mod-1-aula-9',
+        files: {
+          'index.html': '<header><h1>Portfólio Dev #9</h1></header>',
+          'style.css': 'header { padding: 16px; }'
+        }
+      }
+    });
+    assert.equal(headerCompletion.response.status, 200, JSON.stringify(headerCompletion.payload));
+    assert.equal(headerCompletion.payload.xp, 100);
+    assert.ok(headerCompletion.payload.completedIds.includes('mod-4-aula-2'));
+    assert.ok(headerCompletion.payload.completedIds.includes('mod-1-aula-9'));
+    const multiFileFinalUser = await mongoose.model('User').findById(bProfile.payload.id).lean();
+    assert.equal(multiFileFinalUser.xp, 100);
+    assert.deepEqual(new Set(multiFileFinalUser.completedIds), new Set(['mod-4-aula-2', 'mod-1-aula-9']));
 
     for (const token of [a.accessToken, b.accessToken]) {
       const me = await request('/api/me', { token });
