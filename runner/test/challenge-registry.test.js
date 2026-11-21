@@ -83,19 +83,29 @@ test('registers three authored Node and Express lessons', () => {
   assert.equal(getChallengeSpec('mod-4-aula-5'), null);
 });
 
-test('request boundary accepts the new authored Node and Express lessons', () => {
-  for (const [challengeId, filename] of [
-    ['mod-4-aula-2', 'produtoController.js'],
-    ['mod-4-aula-3', 'validacao.js'],
-    ['mod-4-aula-4', 'errorHandler.js']
+test('request boundary accepts the authored Node and Express lesson file sets', () => {
+  for (const [challengeId, files] of [
+    ['mod-4-aula-2', { 'produtoController.js': 'function listarProdutosController(req, res) { return res.status(200).json([]); }', 'server.js': '// registered route example' }],
+    ['mod-4-aula-3', { 'validacao.js': 'function validarProduto(dados) { return true; }' }],
+    ['mod-4-aula-4', { 'errorHandler.js': 'function formatarErroApi(erro) { return {}; }' }],
+    ['node-01-controller-produto', { 'produtoController.js': 'function criarProdutoController(req, res) { return res.status(201).json({ id: 101 }); }', 'server.js': '// registered route example' }]
   ]) {
-    const result = validateExecutionRequest({
-      userId: 'student-1',
-      challengeId,
-      files: { [filename]: 'function solution() { return true; }' }
-    });
+    const result = validateExecutionRequest({ userId: 'student-1', challengeId, files });
     assert.equal(result.ok, true, challengeId);
   }
+});
+
+test('request boundary rejects undeclared supporting and arbitrary files', () => {
+  assert.equal(validateExecutionRequest({
+    userId: 'student-1',
+    challengeId: 'mod-4-aula-2',
+    files: { 'produtoController.js': 'function listarProdutosController() { return 1; }' }
+  }).ok, false);
+  assert.equal(validateExecutionRequest({
+    userId: 'student-1',
+    challengeId: 'mod-4-aula-2',
+    files: { 'produtoController.js': 'x', 'server.js': 'x', 'extra.js': 'x' }
+  }).ok, false);
 });
 
 
