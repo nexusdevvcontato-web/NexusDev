@@ -220,7 +220,7 @@ test('registers 67 generated module-two JavaScript lessons supported by the AST 
 
 test('registers all 136 generated module-three React state lessons', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
-    /^mod-3-aula-\\d+$/.test(id) && Number(id.slice('mod-3-aula-'.length)) >= 5);
+    /^mod-3-aula-\d+$/.test(id) && Number(id.slice('mod-3-aula-'.length)) >= 5);
   assert.equal(ids.length, 136);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
@@ -233,7 +233,7 @@ test('registers all 136 generated module-three React state lessons', () => {
 
 test('registers 34 generated Express controller lessons with trusted HTTP response tests', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
-    /^mod-4-aula-\\d+$/.test(id) && Number(id.slice('mod-4-aula-'.length)) >= 5);
+    /^mod-4-aula-\d+$/.test(id) && Number(id.slice('mod-4-aula-'.length)) >= 5);
   assert.equal(ids.length, 34);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
@@ -244,7 +244,7 @@ test('registers 34 generated Express controller lessons with trusted HTTP respon
 
 test('registers all 133 generated module-five security and data lessons', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
-    /^mod-5-aula-\\d+$/.test(id) && Number(id.slice('mod-5-aula-'.length)) >= 8);
+    /^mod-5-aula-\d+$/.test(id) && Number(id.slice('mod-5-aula-'.length)) >= 8);
   assert.equal(ids.length, 133);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
