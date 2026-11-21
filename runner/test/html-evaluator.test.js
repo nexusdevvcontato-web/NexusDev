@@ -72,3 +72,55 @@ test('does not treat a button click handler as proof of behavior', () => {
     source: `<button onclick="fetch('https://invalid.example')">Começar Agora</button>`
   }), { ok: true });
 });
+
+test('validates Box Model CSS declarations from the exact supporting stylesheet', () => {
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-12',
+    source: '<div class="caixa-destaque">Card</div>',
+    cssSource: '.caixa-destaque { padding: 16px; border-radius: 12px; }'
+  }), { ok: true });
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-12',
+    source: '<div class="caixa-destaque">Card</div>',
+    cssSource: '.caixa-destaque { padding: 8px; border-radius: 12px; }'
+  }), { ok: false, reason: 'tests-failed' });
+});
+
+test('validates Flexbox and Grid declarations without running a browser', () => {
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-13',
+    source: '<div class="centro"><span>Badge</span></div>',
+    cssSource: '.centro { display: flex; justify-content: center; align-items: center; }'
+  }), { ok: true });
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-14',
+    source: '<div class="vitrine"><div>A</div><div>B</div></div>',
+    cssSource: '.vitrine { display: grid; grid-template-columns: repeat(2, 1fr); }'
+  }), { ok: true });
+});
+
+test('validates debug source correction and required alert color', () => {
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-15',
+    source: '<div class="alerta"><p>Atenção</p></div>',
+    cssSource: '.alerta { color: #f8fafc; }'
+  }), { ok: true });
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-15',
+    source: '<div class="alerta"><p>Atenção</p></div>',
+    cssSource: '.alerta { color: red; }'
+  }), { ok: false, reason: 'tests-failed' });
+});
+
+test('rejects unsupported CSS selectors and malformed CSS safely', () => {
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-13',
+    source: '<div class="centro"></div>',
+    cssSource: '* { display: flex; } .centro { justify-content: center; align-items: center; }'
+  }), { ok: false, reason: 'unsupported-css-selector' });
+  assert.deepEqual(evaluateChallenge({
+    challengeId: 'mod-1-aula-13',
+    source: '<div class="centro"></div>',
+    cssSource: '.centro { display flex; }'
+  }), { ok: false, reason: 'invalid-css-declaration' });
+});
