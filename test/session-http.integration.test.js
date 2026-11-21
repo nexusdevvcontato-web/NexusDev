@@ -795,9 +795,45 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(generatedJavaScriptCompletion.response.status, 200, JSON.stringify(generatedJavaScriptCompletion.payload));
     assert.equal(generatedJavaScriptCompletion.payload.xp, 150);
     assert.ok(generatedJavaScriptCompletion.payload.completedIds.includes('mod-2-aula-8'));
+    const reactCompletion = await request('/api/progress/complete', {
+      method: 'POST', token: b.accessToken,
+      body: {
+        challengeId: 'mod-3-aula-5',
+        files: {
+          'script.js': 'function alternarFavoritoReact_5(itens, idAlvo) { return itens.map(item => item.id === idAlvo ? { ...item, favorito: !item.favorito } : item); }'
+        }
+      }
+    });
+    assert.equal(reactCompletion.response.status, 200, JSON.stringify(reactCompletion.payload));
+
+    const expressCompletion = await request('/api/progress/complete', {
+      method: 'POST', token: b.accessToken,
+      body: {
+        challengeId: 'mod-4-aula-8',
+        files: {
+          'controller.js': "function handlerExpress_8(req, res) { const nome = req.body.nome; if (!nome || nome.trim().length < 3) return res.status(400).json({ erro: 'Nome muito curto' }); return res.status(200).json({ ok: true, nome: nome.trim() }); }"
+        }
+      }
+    });
+    assert.equal(expressCompletion.response.status, 200, JSON.stringify(expressCompletion.payload));
+
+    const databaseCompletion = await request('/api/progress/complete', {
+      method: 'POST', token: b.accessToken,
+      body: {
+        challengeId: 'mod-5-aula-11',
+        files: {
+          'relatorioPedidos.js': "function somarPedidosPagos_11(pedidos) { return pedidos.filter(p => p.status === 'pago').reduce((acc, p) => acc + p.total, 0); }"
+        }
+      }
+    });
+    assert.equal(databaseCompletion.response.status, 200, JSON.stringify(databaseCompletion.payload));
+    assert.equal(databaseCompletion.payload.xp, 300);
     const multiFileFinalUser = await mongoose.model('User').findById(bProfileIdForReauth).lean();
-    assert.equal(multiFileFinalUser.xp, 150);
-    assert.deepEqual(new Set(multiFileFinalUser.completedIds), new Set(['mod-4-aula-2', 'mod-1-aula-9', 'mod-2-aula-8']));
+    assert.equal(multiFileFinalUser.xp, 300);
+    assert.deepEqual(new Set(multiFileFinalUser.completedIds), new Set([
+      'mod-4-aula-2', 'mod-1-aula-9', 'mod-2-aula-8',
+      'mod-3-aula-5', 'mod-4-aula-8', 'mod-5-aula-11'
+    ]));
 
     for (const token of [a.accessToken, b.accessToken]) {
       const me = await request('/api/me', { token });
