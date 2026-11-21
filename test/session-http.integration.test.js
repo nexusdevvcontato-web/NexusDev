@@ -685,7 +685,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       }
     });
     assert.equal(unsupportedCompletion.response.status, 400);
-    assert.match(unsupportedCompletion.payload.error, /validador seguro/i);
+    assert.match(unsupportedCompletion.payload.error, /aula inválida|currículo oficial/i);
     const userAfterUnsupported = await mongoose.model('User').findById(aProfile.payload.id).lean();
     assert.equal(userAfterUnsupported.xp, 0);
     assert.deepEqual(userAfterUnsupported.completedIds, []);
