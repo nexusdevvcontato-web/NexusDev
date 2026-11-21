@@ -72,3 +72,21 @@ test('resolves typeof against callback parent scopes without exposing globals', 
     { ok: true }
   );
 });
+
+test('rejects unsafe object keys and computed property construction', () => {
+  assert.deepEqual(
+    evaluate('function validarPermissaoJWT_8(usuario) { return { constructor: usuario.role }; }'),
+    { ok: false, reason: 'unsafe-property' }
+  );
+  assert.deepEqual(
+    evaluate('function validarPermissaoJWT_8(usuario) { return { ["role"]: usuario.role }; }'),
+    { ok: false, reason: 'unsupported-object-property' }
+  );
+});
+
+test('rejects unapproved regular expressions before they can cause excessive backtracking', () => {
+  assert.deepEqual(
+    evaluate('function validarPermissaoJWT_8(usuario) { return /^(a+)+$/.test(usuario.role); }'),
+    { ok: false, reason: 'unsupported-regex' }
+  );
+});
