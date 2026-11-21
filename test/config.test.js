@@ -79,3 +79,37 @@ test('rejects invalid or excessively long JWT lifetimes', () => {
     assert.match(result.stderr, /JWT_EXPIRES_IN/);
   }
 });
+
+
+test('rejects insecure or non-origin CORS URLs in production', () => {
+  for (const origins of [
+    'http://app.example.test',
+    'https://app.example.test/path',
+    'https://app.example.test?debug=1',
+    'not-a-url'
+  ]) {
+    const result = loadConfig({
+      NODE_ENV: 'production',
+      CORS_ORIGINS: origins,
+      SESSION_ACCESS_TOKEN_SECRET: 'session-test-secret-with-at-least-32-characters'
+    });
+    assert.notEqual(result.status, 0, `expected ${origins} to be rejected`);
+    assert.match(result.stderr, /origem CORS|HTTPS/);
+  }
+});
+
+test('normalizes a valid development origin to its exact origin', () => {
+  const result = spawnSync(process.execPath, ['-e', "process.stdout.write(require('./src/config').ALLOWED_ORIGINS[0])"], {
+    cwd: process.cwd(),
+    env: {
+      PATH: process.env.PATH,
+      NODE_ENV: 'test',
+      MONGO_URI: 'mongodb://127.0.0.1:27017/nexusdev_test',
+      JWT_SECRET: 'test-secret-with-at-least-32-characters-long',
+      CORS_ORIGINS: 'http://localhost:5173/'
+    },
+    encoding: 'utf8'
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'http://localhost:5173');
+});
