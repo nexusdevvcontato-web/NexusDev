@@ -6,8 +6,8 @@
 
 ## 1. CI
 
-- Backend commit `d43df0ad75ed41155fcdf51727c893af890e7a0e`: concluído com sucesso.
-- Execução mais recente: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890638522
+- Backend commit `40cec9d2157f5c5b095fb1d0943a2de363564f38`: concluído com sucesso (último commit auditado).
+- Execução mais recente: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44891046991
 - Commit anterior `43ff149ca72bbf641b84a3c1c55c259d1e4cbd27` também passou: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890609835
 - Ambas as execuções completaram auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
 - O CI valida o conjunto automatizado do repositório, incluindo testes com MongoDB descartável. Não substitui a jornada autenticada no serviço Render real.
