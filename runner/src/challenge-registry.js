@@ -265,7 +265,8 @@ const CHALLENGE_SPECS = Object.freeze({
   ...buildGeneratedModuleFourJavaScriptSpecs(),
   ...buildGeneratedModuleFiveJavaScriptSpecs(),
   ...buildGeneratedModuleTwoJavaScriptSpecs(),
-  ...buildGeneratedModuleOneHtmlSpecs(),\n  ...buildGeneratedModuleOneCssSpecs(),
+  ...buildGeneratedModuleOneHtmlSpecs(),
+  ...buildGeneratedModuleOneCssSpecs(),
   'html-00-o-que-e-web': {
     language: 'html', entrypoint: 'index.html',
     tests: [
