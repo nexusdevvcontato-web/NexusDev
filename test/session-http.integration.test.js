@@ -738,6 +738,38 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(savedAfterReplay.xp, 50);
     assert.deepEqual(savedAfterReplay.savedCodeMap[challengeId], savedAfterFirst.savedCodeMap[challengeId]);
 
+    // The two Express lessons have a trusted supporting server.js file; only
+    // produtoController.js is interpreted, and undeclared extras are rejected.
+    const multiFileCompletion = await request('/api/progress/complete', {
+      method: 'POST',
+      token: b.accessToken,
+      body: {
+        challengeId: 'mod-4-aula-2',
+        files: {
+          'produtoController.js': 'function listarProdutosController(req, res) { return res.status(200).json([{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]); }',
+          'server.js': "// app.get('/api/produtos', listarProdutosController);"
+        }
+      }
+    });
+    assert.equal(multiFileCompletion.response.status, 200, JSON.stringify(multiFileCompletion.payload));
+    assert.equal(multiFileCompletion.payload.xp, 50);
+    assert.deepEqual(multiFileCompletion.payload.completedIds, ['mod-4-aula-2']);
+    const extraFileCompletion = await request('/api/progress/complete', {
+      method: 'POST',
+      token: b.accessToken,
+      body: {
+        challengeId: 'mod-4-aula-2',
+        files: {
+          'produtoController.js': 'function listarProdutosController(req, res) { return res.status(200).json([{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]); }',
+          'server.js': '// route',
+          'unexpected.js': 'ignored'
+        }
+      }
+    });
+    assert.equal(extraFileCompletion.response.status, 400);
+    const multiFileFinalUser = await mongoose.model('User').findById(bProfile.payload.id).lean();
+    assert.equal(multiFileFinalUser.xp, 50);
+    assert.deepEqual(multiFileFinalUser.completedIds, ['mod-4-aula-2']);
 
     for (const token of [a.accessToken, b.accessToken]) {
       const me = await request('/api/me', { token });
