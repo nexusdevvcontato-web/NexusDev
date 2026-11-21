@@ -220,6 +220,30 @@ function buildGeneratedModuleFourJavaScriptSpecs() {
             expectedStatus: 200, expectedBody: lista[0] }
         ]
       };
+    } else if (scenario === 2) {
+      const exportName = `validarCadastroEmail_${lesson}`;
+      specs[`mod-4-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'validateMiddleware.js', exportName,
+        tests: [
+          { type: 'middleware-case', request: { body: { email: 'invalido', senha: 'segredo123' } },
+            expectedNext: false, expectedStatus: 400, expectedBody: { erro: 'Credenciais inválidas' } },
+          { type: 'middleware-case', request: { body: { email: 'dev@nexus.com', senha: '123' } },
+            expectedNext: false, expectedStatus: 400, expectedBody: { erro: 'Credenciais inválidas' } },
+          { type: 'middleware-case', request: { body: { email: 'dev@nexus.com', senha: 'segredo123' } },
+            expectedNext: true }
+        ]
+      };
+    } else {
+      const exportName = `normalizarQueryFiltro_${lesson}`;
+      specs[`mod-4-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'queryHelper.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [{ page: '2', limit: '50' }], expected: { page: 2, limit: 20 } },
+          { args: [{ page: '-3', limit: '0' }], expected: { page: 1, limit: 1 } },
+          { args: [{ page: 'abc', limit: 'abc' }], expected: { page: 1, limit: 10 } },
+          { args: [{}], expected: { page: 1, limit: 10 } }
+        ] }]
+      };
     }
   }
   return specs;
