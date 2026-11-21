@@ -13,7 +13,7 @@ Foram comparados os 27 desafios explicitamente registrados no `CHALLENGE_SPECS` 
 
 Esta auditoria é estática; não substitui testes de execução para cada solução-modelo.
 
-## Matriz dos 26 desafios
+## Matriz dos 27 desafios
 
 | ID | Currículo / requisito principal | Spec atual | Estado | Motivo / ação necessária |
 |---|---|---|---|---|
