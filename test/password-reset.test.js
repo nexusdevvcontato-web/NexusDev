@@ -112,6 +112,7 @@ test('does not send a reset link when the token digest was not persisted', async
     mongoose: { startSession: async () => { throw new Error('unused'); } },
     User: {
       findOne() { return { select() { return { lean: async () => user }; } }; },
+      async findOneAndUpdate() { return null; },
       async updateOne() { return { acknowledged: true, matchedCount: 0, modifiedCount: 0 }; }
     },
     Session: { updateMany: async () => ({}) },
