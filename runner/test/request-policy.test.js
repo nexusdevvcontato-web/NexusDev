@@ -79,3 +79,21 @@ test('accepts exact script entrypoints for generated module-two JavaScript lesso
     assert.equal(result.ok, true, challengeId);
   }
 });
+
+
+test('accepts the exact entrypoints for generated React, Express and module-five lessons', () => {
+  for (const [challengeId, filename] of [
+    ['mod-3-aula-5', 'script.js'],
+    ['mod-3-aula-9', 'script.js'],
+    ['mod-4-aula-8', 'controller.js'],
+    ['mod-5-aula-8', 'rbac.js'],
+    ['mod-5-aula-11', 'relatorioPedidos.js']
+  ]) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { [filename]: 'function solution() { return true; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
