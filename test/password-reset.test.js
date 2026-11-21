@@ -40,7 +40,7 @@ function makeHarness({ user = { _id: 'user-1', email: 'student@example.com', nam
     async updateOne(filter, update) {
       if (update.$set) stored = { ...update.$set };
       if (update.$unset && stored?.passwordResetTokenHash === filter.passwordResetTokenHash) stored = null;
-      return { modifiedCount: 1 };
+      return { acknowledged: true, matchedCount: 1, modifiedCount: 1 };
     },
     async findOneAndUpdate(filter, update) {
       passwordUpdate = update;
@@ -102,6 +102,26 @@ test('mail delivery failure clears the pending token and still avoids account en
   const h = makeHarness({ sendError: true });
   assert.deepEqual(await h.service.request('student@example.com'), { accepted: true });
   assert.equal(h.stored, null);
+});
+
+test('does not send a reset link when the token digest was not persisted', async () => {
+  const h = makeHarness();
+  const originalUpdateOne = h.service;
+  // Simulate a concurrent account removal between lookup and token persistence.
+  const user = { _id: 'user-1', email: 'student@example.com', name: 'Student' };
+  let sends = 0;
+  const service = createPasswordResetService({
+    mongoose: { startSession: async () => { throw new Error('unused'); } },
+    User: {
+      findOne() { return { select() { return { lean: async () => user }; } }; },
+      async updateOne() { return { acknowledged: true, matchedCount: 0, modifiedCount: 0 }; }
+    },
+    Session: { updateMany: async () => ({}) },
+    bcrypt: { hash: async value => value },
+    sendResetEmail: async () => { sends += 1; }
+  });
+  assert.deepEqual(await service.request(user.email), { accepted: true });
+  assert.equal(sends, 0);
 });
 
 test('reset consumes a valid token once, updates password and revokes all sessions transactionally', async () => {
