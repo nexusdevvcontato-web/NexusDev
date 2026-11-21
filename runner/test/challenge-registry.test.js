@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 26);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 94);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -183,4 +183,20 @@ test('request boundary accepts a registered challenge', () => {
     files: { 'index.html': '<h1>Olá, Mundo!</h1>' }
   });
   assert.equal(result.ok, true);
+});
+
+
+test('registers only the 68 generated module-one HTML lessons with server-supported checks', () => {
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-1-aula-\\d+$/.test(id));
+  assert.equal(ids.length, 68);
+  for (const id of ids) {
+    const spec = getChallengeSpec(id);
+    assert.equal(spec.language, 'html', id);
+    assert.equal(spec.entrypoint, 'index.html', id);
+    assert.deepEqual(spec.supportingFiles, ['style.css'], id);
+    assert.ok(spec.tests.length > 0, id);
+  }
+  for (const id of ['mod-1-aula-7', 'mod-1-aula-12', 'mod-1-aula-15', 'mod-1-aula-140']) {
+    assert.equal(getChallengeSpec(id), null, id);
+  }
 });
