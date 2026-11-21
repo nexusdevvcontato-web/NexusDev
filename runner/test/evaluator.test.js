@@ -80,3 +80,18 @@ test('generated HTML lessons reject missing or undeclared supporting files', () 
     files: { 'index.html': '<header><h1>Portfólio Dev #9</h1></header>', 'style.css': '', 'extra.js': 'x' }
   }), { ok: false, reason: 'entrypoint-mismatch' });
 });
+
+
+test('evaluates generated module-two vowel, filter and coupon lessons', () => {
+  const cases = [
+    ['mod-2-aula-8', "function contarVogais_8(texto) { return texto.toLowerCase().split('').filter(letra => 'aeiou'.includes(letra)).length; }"],
+    ['mod-2-aula-9', 'function filtrarAprovados_9(notas) { return notas.filter(nota => nota >= 6); }'],
+    ['mod-2-aula-10', "function aplicarCupom_10(total, cupom) { return cupom.trim().toUpperCase() === 'NEXUS' ? total * 0.8 : total; }"]
+  ];
+  for (const [challengeId, source] of cases) {
+    assert.deepEqual(evaluateRegisteredChallenge({
+      challengeId,
+      files: { 'script.js': source }
+    }), { ok: true }, challengeId);
+  }
+});
