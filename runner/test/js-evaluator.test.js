@@ -223,7 +223,7 @@ test('bounds source and AST complexity', () => {
 });
 
 test('rejects unknown challenges and lesson specs without function-case tests', () => {
-  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-1-aula-7', source: '' }), { ok: false, reason: 'unsupported-challenge' });
+  assert.deepEqual(evaluateChallenge({ challengeId: 'mod-1-aula-141', source: '' }), { ok: false, reason: 'unsupported-challenge' });
   assert.deepEqual(evaluateChallenge({ challengeId: 'html-00-o-que-e-web', source: '' }), { ok: false, reason: 'unsupported-challenge' });
 });
 
