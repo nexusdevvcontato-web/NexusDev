@@ -24,9 +24,6 @@ function validateExecutionRequest(input) {
   if (entries.length < 1 || entries.length > MAX_FILES) {
     return { ok: false, reason: 'file-count-limit' };
   }
-  if (!validateChallengeFiles(challengeId, files)) {
-    return { ok: false, reason: 'entrypoint-mismatch' };
-  }
   let totalBytes = 0;
   for (const [name, content] of entries) {
     if (!MAX_SOURCE_NAME.test(name) || name === '.' || name === '..' ||
@@ -37,6 +34,9 @@ function validateExecutionRequest(input) {
     if (bytes > MAX_FILE_BYTES) return { ok: false, reason: 'file-size-limit' };
     totalBytes += bytes;
     if (totalBytes > MAX_TOTAL_BYTES) return { ok: false, reason: 'total-size-limit' };
+  }
+  if (!validateChallengeFiles(challengeId, files)) {
+    return { ok: false, reason: 'entrypoint-mismatch' };
   }
   return { ok: true, value: { userId, challengeId, files: Object.fromEntries(entries) } };
 }
