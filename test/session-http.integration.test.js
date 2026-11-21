@@ -725,11 +725,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactAfterLearning.response.status, 200);
     assert.equal(impactAfterLearning.payload.learning.dataPresent, true);
     const savedAfterFirst = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    const duplicateSubmission = await request('/api/progress/complete', {
+      method: 'POST', token: a.accessToken, body: completionBody
+    });
+    assert.equal(duplicateSubmission.response.status, 403);
     const replayed = await request('/api/progress/complete', {
       method: 'POST', token: a.accessToken,
       body: { ...completionBody, files: { 'index.html': '<h1>Conteúdo alterado no replay</h1>' } }
     });
-    assert.equal(replayed.response.status, 403);
+    assert.equal(replayed.response.status, 422);
     const savedAfterReplay = await mongoose.model('User').findById(aProfile.payload.id).lean();
     assert.equal(savedAfterReplay.xp, 50);
     assert.deepEqual(savedAfterReplay.savedCodeMap[challengeId], savedAfterFirst.savedCodeMap[challengeId]);
