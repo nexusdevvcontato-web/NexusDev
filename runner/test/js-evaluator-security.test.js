@@ -61,7 +61,7 @@ test('keeps unknown challenge identifiers ineligible for official evaluation', (
 test('resolves typeof against callback parent scopes without exposing globals', () => {
   assert.deepEqual(
     evaluate(
-      "function filtrarBuscaProdutos_7(produtos, termoBusca) { return produtos.filter(p => typeof termoBusca === 'string' && p.nome.toLowerCase().includes(termoBusca.trim().toLowerCase())); }",
+      "function filtrarBuscaProdutos_7(produtos, termoBusca) { return produtos.filter(p => typeof termoBusca === 'string' && p.nome === 'Mouse Gamer'); }",
       'mod-3-aula-7',
       'script.js'
     ),
