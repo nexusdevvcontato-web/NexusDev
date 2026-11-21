@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 564);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 632);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -234,10 +234,10 @@ test('registers all 136 generated module-three React state lessons', () => {
   }
 });
 
-test('registers 68 generated Express controller and find-by-id lessons with trusted HTTP response tests', () => {
+test('registers 136 generated Express controller, find, middleware and pagination lessons', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
     /^mod-4-aula-\d+$/.test(id) && Number(id.slice('mod-4-aula-'.length)) >= 5);
-  assert.equal(ids.length, 68);
+  assert.equal(ids.length, 136);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
     assert.equal(spec.entrypoint, 'controller.js', id);
