@@ -67,6 +67,17 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       return { response, payload, setCookies, cookieMap };
     };
 
+    // The real HTTP endpoints must reflect the connected MongoDB state and remain non-cacheable.
+    const health = await request('/api/health');
+    assert.equal(health.response.status, 200);
+    assert.equal(health.payload.status, 'online');
+    assert.match(health.response.headers.get('cache-control') || '', /no-store/i);
+
+    const readiness = await request('/api/ready');
+    assert.equal(readiness.response.status, 200);
+    assert.deepEqual(readiness.payload, { status: 'ready', database: 'connected' });
+    assert.match(readiness.response.headers.get('cache-control') || '', /no-store/i);
+
     // Password-reset requests are limited both by client IP and by normalized email.
     for (let attempt = 0; attempt < 3; attempt++) {
       const resetRequest = await request('/api/auth/password-reset/request', {
