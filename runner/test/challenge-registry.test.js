@@ -18,7 +18,7 @@ test('registers only lessons with explicit server-owned test specifications', ()
 
 test('does not treat generated placeholder curriculum IDs as executable lessons', () => {
   assert.equal(getChallengeSpec('mod-1-aula-7'), null);
-  assert.equal(getChallengeSpec('mod-5-aula-140'), null);
+  assert.equal(getChallengeSpec('mod-5-aula-141'), null);
   assert.equal(isRunnerSupportedChallenge('unknown-lesson'), false);
 });
 
@@ -55,7 +55,7 @@ test('registers three authored React foundation lessons', () => {
     assert.ok(spec.exportName);
     assert.ok(spec.tests.length > 0);
   }
-  assert.equal(getChallengeSpec('mod-3-aula-5'), null);
+  assert.equal(getChallengeSpec('mod-3-aula-141'), null);
 });
 
 test('request boundary accepts the new authored React lessons', () => {
@@ -119,7 +119,7 @@ test('registers three authored MongoDB and secure signup lessons', () => {
   const signup = getChallengeSpec('mod-5-aula-4');
   assert.equal(signup.exportName, 'validarCadastroUsuario');
   assert.ok(signup.tests.some((check) => check.type === 'function-cases'));
-  assert.equal(getChallengeSpec('mod-5-aula-8'), null);
+  assert.equal(getChallengeSpec('mod-5-aula-141'), null);
 });
 
 test('request boundary accepts the new MongoDB and signup lessons', () => {
