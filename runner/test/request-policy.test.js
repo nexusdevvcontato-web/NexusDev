@@ -67,3 +67,15 @@ test('accepts exact editor file sets for generated module-one HTML lessons', () 
     assert.equal(result.ok, true, challengeId);
   }
 });
+
+
+test('accepts exact script entrypoints for generated module-two JavaScript lessons', () => {
+  for (const challengeId of ['mod-2-aula-8', 'mod-2-aula-9', 'mod-2-aula-10']) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { 'script.js': 'function solution() { return true; }' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
