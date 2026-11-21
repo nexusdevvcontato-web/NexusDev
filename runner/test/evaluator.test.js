@@ -227,3 +227,20 @@ test('rejects arbitrary spread calls and unsupported numeric formatting methods'
     files: { 'script.js': 'function formatarMoedaBRL_7(valor) { return valor.toFixed(8); }' }
   }), { ok: false, reason: 'unsupported-call' });
 });
+
+
+test('evaluates the authored module-five admin middleware lesson', () => {
+  const source = `function verificarAdmin(req, res, next) {
+    if (!req.headers?.authorization?.startsWith("Bearer ")) {
+      return res.status(401).json({ erro: "Não autorizado" });
+    }
+    if (req.usuario?.cargo !== "admin") {
+      return res.status(403).json({ erro: "Acesso restrito" });
+    }
+    next();
+  }`;
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'auth-01-middleware-admin',
+    files: { 'authMiddleware.js': source }
+  }), { ok: true });
+});
