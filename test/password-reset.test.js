@@ -32,6 +32,7 @@ function makeHarness({ user = { _id: 'user-1', email: 'student@example.com', nam
   let sessionEnded = false;
   let sessionRevoked = false;
   let transactionCount = 0;
+  let passwordUpdate = null;
   const User = {
     findOne() {
       return { select() { return { lean: async () => user }; } };
@@ -42,6 +43,7 @@ function makeHarness({ user = { _id: 'user-1', email: 'student@example.com', nam
       return { modifiedCount: 1 };
     },
     async findOneAndUpdate(filter, update) {
+      passwordUpdate = update;
       if (!stored || stored.passwordResetTokenHash !== filter.passwordResetTokenHash ||
           stored.passwordResetExpiresAt <= filter.passwordResetExpiresAt.$gt) return null;
       stored = null;
@@ -75,7 +77,7 @@ function makeHarness({ user = { _id: 'user-1', email: 'student@example.com', nam
     },
     now: () => new Date('2026-11-20T12:00:00.000Z')
   });
-  return { service, sent, get stored() { return stored; }, get sessionEnded() { return sessionEnded; }, get sessionRevoked() { return sessionRevoked; }, get transactionCount() { return transactionCount; } };
+  return { service, sent, get stored() { return stored; }, get sessionEnded() { return sessionEnded; }, get sessionRevoked() { return sessionRevoked; }, get transactionCount() { return transactionCount; }, get passwordUpdate() { return passwordUpdate; } };
 }
 
 test('request always has a generic result and sends only a short-lived raw token to the mail adapter', async () => {
@@ -108,6 +110,10 @@ test('reset consumes a valid token once, updates password and revokes all sessio
   const token = h.sent[0].token;
   assert.deepEqual(await h.service.reset({ token, newPassword: 'new-password-123' }), { ok: true });
   assert.equal(h.sessionRevoked, true);
+  assert.deepEqual(h.passwordUpdate.$inc, { authVersion: 1 });
+  assert.ok(h.passwordUpdate.$set.passwordChangedAt instanceof Date);
+  assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'passwordResetTokenHash'));
+  assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'passwordResetExpiresAt'));
   assert.equal(h.transactionCount, 1);
   assert.equal(h.sessionEnded, true);
   assert.deepEqual(await h.service.reset({ token, newPassword: 'another-password-123' }), { ok: false });
