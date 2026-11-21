@@ -1,6 +1,6 @@
 'use strict';
 
-const { getChallengeSpec } = require('./challenge-registry');
+const { getChallengeSpec, validateChallengeFiles } = require('./challenge-registry');
 const { evaluateChallenge: evaluateHtmlChallenge } = require('./html-evaluator');
 const { evaluateChallenge: evaluateJavaScriptChallenge } = require('./js-evaluator');
 
@@ -17,10 +17,10 @@ function evaluateRegisteredChallenge(request) {
   const spec = getChallengeSpec(challengeId);
   if (!spec) return { ok: false, reason: 'unsupported-challenge' };
 
-  // Every currently authored challenge is a single-file exercise. Reject extras
-  // instead of silently ignoring attacker-controlled or ambiguous file content.
-  const names = Object.keys(files);
-  if (names.length !== 1 || names[0] !== spec.entrypoint || typeof files[spec.entrypoint] !== 'string') {
+  // Each trusted lesson declares its exact editor file set. Only the registered
+  // entrypoint is interpreted; explicitly declared supporting files are hashed
+  // and saved but never executed by the evaluator.
+  if (!validateChallengeFiles(challengeId, files)) {
     return { ok: false, reason: 'entrypoint-mismatch' };
   }
 
