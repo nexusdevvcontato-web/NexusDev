@@ -192,7 +192,7 @@ function executeFunction(fn, args, budget, options = {}) {
         throw new EvaluationError('unsupported-member');
       }
       case 'CallExpression': {
-        if (node.arguments.some((a) => a.type === 'SpreadElement')) throw new EvaluationError('unsupported-call');
+        if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement')) throw new EvaluationError('unsupported-call');
         if (node.callee.type === 'Identifier' && node.callee.name === 'next' &&
             node.arguments.length === 0 && options.allowNext === true &&
             fn.params.some((param) => param.name === 'next')) {
@@ -200,18 +200,19 @@ function executeFunction(fn, args, budget, options = {}) {
           if (options.nextCalls.count > 1) throw new EvaluationError('duplicate-next-call');
           return undefined;
         }
+        if (node.callee.type === 'Identifier' && node.callee.name === 'Number' && node.arguments.length === 1) {
+          return Number(evalExpr(node.arguments[0], depth + 1));
+        }
+        if (node.callee.type === 'MemberExpression' && !node.callee.computed &&
+            node.callee.object.type === 'Identifier' && node.callee.object.name === 'Math') {
+          if (!['min', 'max'].includes(node.callee.property.name) || node.arguments.length < 1) {
+            throw new EvaluationError('unsupported-call');
+          }
+          const values = node.arguments.map((arg) => evalExpr(arg, depth + 1));
+          if (values.some((value) => typeof value !== 'number')) throw new EvaluationError('invalid-math-argument');
+          return node.callee.property.name === 'min' ? Math.min(...values) : Math.max(...values);
+        }
         if (node.callee.type !== 'MemberExpression' || node.callee.computed) {
-          if (node.callee.type === 'Identifier' && node.callee.name === 'Number' && node.arguments.length === 1) {
-            const value = evalExpr(node.arguments[0], depth + 1);
-            return Number(value);
-          }
-          if (node.callee.type === 'MemberExpression' && !node.callee.computed &&
-              node.callee.object.type === 'Identifier' && node.callee.object.name === 'Math' &&
-              ['min', 'max'].includes(node.callee.property.name) && node.arguments.length >= 1) {
-            const values = node.arguments.map((arg) => evalExpr(arg, depth + 1));
-            if (values.some((value) => typeof value !== 'number')) throw new EvaluationError('invalid-math-argument');
-            return node.callee.property.name === 'min' ? Math.min(...values) : Math.max(...values);
-          }
           throw new EvaluationError('unsupported-call');
         }
         const method = node.callee.property.name;
@@ -349,6 +350,10 @@ function executeFunction(fn, args, budget, options = {}) {
       case 'IfStatement':
         return execStatement(evalExpr(node.test, depth + 1) ? node.consequent : (node.alternate || { type: 'EmptyStatement' }), depth + 1);
       case 'ExpressionStatement':
+        if (node.expression.type === 'CallExpression') {
+          evalExpr(node.expression, depth + 1);
+          return { returned: false };
+        }
         if (node.expression.type !== 'AssignmentExpression' || node.expression.operator !== '=' || node.expression.left.type !== 'Identifier') throw new EvaluationError('unsupported-statement');
         assign(node.expression.left.name, evalExpr(node.expression.right, depth + 1)); return { returned: false };
       case 'EmptyStatement': return { returned: false };
