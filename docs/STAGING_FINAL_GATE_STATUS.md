@@ -106,3 +106,21 @@ A rechecagem do Atlas confirmou cluster `IDLE`, MongoDB `8.0.39`, zero alertas a
 **Ainda bloqueado/inconclusivo:** jornada autenticada end-to-end no Render; navegação autenticada real no Preview protegido; confirmação das opções live `unique`/TTL dos índices; identificação segura do usuário Atlas efetivamente usado pelo Render; configuração OAuth/Gmail de recuperação; decisões de produto/jurídicas sobre certificados e comentários legados.
 
 Este gate continua sendo uma validação de staging, não autorização nem certificação para produção.
+
+## 10. Hardening adicional da recuperação de senha — 2026-11-21
+
+A revisão do fluxo de recuperação identificou uma condição de corrida operacional: o serviço enviava o e-mail de redefinição sem verificar se o digest do token havia sido efetivamente persistido no documento do usuário. O serviço agora exige matchedCount igual a 1 antes de enviar a mensagem; se a conta deixar de existir entre a leitura e a gravação, a resposta permanece genérica e nenhum link é enviado.
+
+Também foi antecipado o cabeçalho Cache-Control: no-store para antes dos limitadores dos endpoints de solicitação e confirmação, de modo que respostas de rate limit também recebam a política de não armazenamento.
+
+**Cobertura adicionada:**
+- teste de conta removida entre consulta e persistência, verificando que nenhum e-mail é enviado;
+- testes de serviço atualizados para refletir o resultado real de updateOne;
+- suite completa executada com MongoDB replica set descartável.
+
+**Evidência final:**
+- commit: 8162b5c57499ee0c3584fc89257bc949583bcd28
+- CI: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44892957349 — success.
+- auditoria de dependências, inicialização do MongoDB, testes de sintaxe/segurança e limpeza: concluídos com sucesso.
+
+Os commits intermediários desta sequência tiveram execuções de CI com falhas nos testes do novo mock de persistência; a cobertura foi corrigida e o commit final acima passou integralmente. Nenhum deploy foi iniciado. Nenhum secret, dado real, usuário Atlas, índice ou recurso de produção foi alterado.
