@@ -23,7 +23,6 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 const { isRunnerSupportedChallenge, getChallengeSpec } = require('./runner/src/challenge-registry');
-const { hashCompletionFiles } = require('./src/modules/proofs/completion-files-hash');
 const { evaluateAndCreateCompletionProof } = require('./src/modules/proofs/evaluate-completion');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/complete-lesson');
@@ -637,7 +636,7 @@ app.post('/api/progress/complete', (req, res, next) => {
   next();
 }, requireAuth, progressLimiter, async (req, res) => {
   try {
-    const { challengeId, files, completionProof } = req.body || {};
+    const { challengeId, files } = req.body || {};
     if (!isKnownChallengeId(challengeId)) {
       return res.status(400).json({ error: 'Aula inválida ou não encontrada no currículo oficial.' });
     }
