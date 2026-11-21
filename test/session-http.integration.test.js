@@ -767,7 +767,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       }
     });
     assert.equal(extraFileCompletion.response.status, 400);
-    const multiFileFinalUser = await mongoose.model('User').findById(bProfile.payload.id).lean();
+    const multiFileFinalUser = await mongoose.model('User').findById(bProfileIdForReauth).lean();
     assert.equal(multiFileFinalUser.xp, 50);
     assert.deepEqual(multiFileFinalUser.completedIds, ['mod-4-aula-2']);
 
