@@ -325,3 +325,8 @@ The generated module-four registry now covers both the existing 34 field-validat
 ### Express middleware and pagination evaluator expansion
 
 The module-four registry now covers all four generated scenario families (136 lessons): field-validation controllers, find-by-ID controllers, email-validation middleware and query pagination helpers. The AST interpreter adds bounded optional property access, nullish coalescing, `Number(value)`, `Math.min/max`, and a single explicit `next()` callback signal for registered middleware tests. It does not expose globals, invoke arbitrary callbacks, run Express, or access a database.
+
+
+### Module-two formatting, maximum and average lessons
+
+The final three generated module-two families are now registered: BRL formatting using bounded template literals and `toFixed(2)`, maximum lookup using the single approved `Math.max(...array)` spread form, and average calculation with an empty-array guard plus `reduce`. Spread syntax remains forbidden for every other call target; numeric formatting is restricted to two decimal places. Module-two generated coverage is now 134/134.
