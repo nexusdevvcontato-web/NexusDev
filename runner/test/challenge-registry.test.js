@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 632);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 699);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -31,7 +31,7 @@ test('registers the three new JavaScript foundation lessons', () => {
     assert.ok(spec.exportName);
     assert.ok(spec.tests.some((check) => check.type === 'function-cases'));
   }
-  assert.equal(getChallengeSpec('mod-2-aula-7'), null);
+  assert.equal(getChallengeSpec('mod-2-aula-141'), null);
 });
 
 test('request boundary accepts the new authored JavaScript lessons', () => {
@@ -215,7 +215,7 @@ test('registers all 134 generated module-two JavaScript lessons supported by the
     assert.ok(spec.exportName, id);
     assert.ok(spec.tests.length > 0, id);
   }
-  for (const id of ['mod-2-aula-6', 'mod-2-aula-141']) {
+  for (const id of ['mod-2-aula-141']) {
     assert.equal(getChallengeSpec(id), null, id);
   }
 });
