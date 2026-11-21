@@ -95,3 +95,30 @@ test('evaluates generated module-two vowel, filter and coupon lessons', () => {
     }), { ok: true }, challengeId);
   }
 });
+
+
+test('evaluates generated module-three React state and pagination lessons', () => {
+  const cases = [
+    ['mod-3-aula-5', 'function alternarFavoritoReact_5(itens, idAlvo) { return itens.map(item => item.id === idAlvo ? { ...item, favorito: !item.favorito } : item); }'],
+    ['mod-3-aula-6', 'function removerItemEstado_6(itens, idRemover) { return itens.filter(item => item.id !== idRemover); }'],
+    [ 'mod-3-aula-7', "function filtrarBuscaProdutos_7(produtos, termoBusca) { return produtos.filter(p => p.nome.toLowerCase().includes(termoBusca.trim().toLowerCase())); }" ],
+    ['mod-3-aula-8', 'function calcularSubtotalCarrinho_8(carrinho) { return carrinho.reduce((acc, item) => acc + item.preco * item.qtd, 0); }'],
+    ['mod-3-aula-9', 'function paginarListaReact_9(itens, pagina, porPagina) { const inicio = (pagina - 1) * porPagina; return itens.slice(inicio, inicio + porPagina); }']
+  ];
+  for (const [challengeId, source] of cases) {
+    assert.deepEqual(evaluateRegisteredChallenge({ challengeId, files: { 'script.js': source } }), { ok: true }, challengeId);
+  }
+});
+
+test('evaluates generated Express and module-five security/data lessons', () => {
+  const cases = [
+    ['mod-4-aula-8', "function handlerExpress_8(req, res) { const nome = req.body.nome; if (!nome || nome.trim().length < 3) return res.status(400).json({ erro: 'Nome muito curto' }); return res.status(200).json({ ok: true, nome: nome.trim() }); }", 'controller.js'],
+    ['mod-5-aula-8', "function validarPermissaoJWT_8(usuario) { return usuario && usuario.role === 'admin'; }", 'rbac.js'],
+    ['mod-5-aula-9', "function verificarExpiracaoToken_9(payload, agoraSegundos) { return payload && typeof payload.exp === 'number' && payload.exp > agoraSegundos; }", 'jwtGuard.js'],
+    ['mod-5-aula-10', 'function sanitizarUsuarioPublico_10(userDoc) { return { id: userDoc._id, name: userDoc.name, email: userDoc.email }; }', 'userSerializer.js'],
+    ['mod-5-aula-11', "function somarPedidosPagos_11(pedidos) { return pedidos.filter(p => p.status === 'pago').reduce((acc, p) => acc + p.total, 0); }", 'relatorioPedidos.js']
+  ];
+  for (const [challengeId, source, filename] of cases) {
+    assert.deepEqual(evaluateRegisteredChallenge({ challengeId, files: { [filename]: source } }), { ok: true }, challengeId);
+  }
+});
