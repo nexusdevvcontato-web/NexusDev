@@ -60,5 +60,14 @@ test('daily streak increment is guarded by the stored activity date', async () =
   await completeLessonAtomically(input(deps));
   const streakCall = deps.calls.find(x => Array.isArray(x) && x[0] === 'updateOne' && x[1].lastActiveDate);
   assert.deepEqual(streakCall[1], { _id: 'user-1', lastActiveDate: { $ne: '2026-11-20' } });
-  assert.deepEqual(streakCall[2], { $inc: { streak: 1 }, $set: { lastActiveDate: '2026-11-20' } });
+  assert.deepEqual(streakCall[2], [{
+    $set: {
+      streak: { $cond: [
+        { $eq: ['$lastActiveDate', '2026-11-19'] },
+        { $add: [{ $ifNull: ['$streak', 0] }, 1] },
+        1
+      ] },
+      lastActiveDate: '2026-11-20'
+    }
+  }]);
 });
