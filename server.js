@@ -24,7 +24,7 @@ const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
 const { isRunnerSupportedChallenge, getChallengeSpec } = require('./runner/src/challenge-registry');
 const { hashCompletionFiles } = require('./src/modules/proofs/completion-files-hash');
-const { verifyCompletionProof } = require('./src/modules/proofs/verifyCompletionProof');
+const { evaluateAndCreateCompletionProof } = require('./src/modules/proofs/evaluate-completion');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/complete-lesson');
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
@@ -655,31 +655,19 @@ app.post('/api/progress/complete', (req, res, next) => {
       return res.status(400).json({ error: 'Envie somente o arquivo principal desta aula.' });
     }
 
-    let filesHash;
-    try {
-      filesHash = hashCompletionFiles(files);
-    } catch {
-      return res.status(400).json({ error: 'Os arquivos excedem os limites ou possuem conteúdo inválido.' });
-    }
-
-    // The proof is bound to the exact files evaluated by the trusted runner.
-    const proofResult = verifyCompletionProof(completionProof, {
-      publicKey: LESSON_PROOF_PUBLIC_KEY,
+    const evaluationResult = evaluateAndCreateCompletionProof({
       userId: req.user._id.toString(),
       challengeId,
-      filesHash
+      files
     });
-    if (!proofResult.ok) {
-      if (proofResult.reason === 'not-configured') {
-        return res.status(503).json({ error: 'Validação segura de exercícios ainda não está configurada.' });
-      }
-      return res.status(403).json({ error: 'Comprovante de conclusão ausente ou inválido.' });
+    if (!evaluationResult.ok) {
+      return res.status(422).json({ error: 'A solução ainda não passou nos testes oficiais desta aula.' });
     }
 
     const today = new Date().toISOString().slice(0, 10);
     let user;
     try {
-      user = await completeLessonAtomically({ mongoose, User, CompletionProof, userId: req.user._id, proof: proofResult.proof, challengeId, files, today });
+      user = await completeLessonAtomically({ mongoose, User, CompletionProof, userId: req.user._id, proof: evaluationResult.proof, challengeId, files, today });
     } catch (error) {
       if (error?.code === REPLAY_CODE) return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
       throw error;
