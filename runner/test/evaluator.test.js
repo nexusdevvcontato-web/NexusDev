@@ -122,3 +122,29 @@ test('evaluates generated Express and module-five security/data lessons', () => 
     assert.deepEqual(evaluateRegisteredChallenge({ challengeId, files: { [filename]: source } }), { ok: true }, challengeId);
   }
 });
+
+test('evaluates generated Box Model, Flexbox, Grid and debugging CSS lessons end-to-end', () => {
+  const cases = [
+    ['mod-1-aula-12', '<div class="caixa-destaque">Card</div>', '.caixa-destaque { padding: 16px; border-radius: 12px; }'],
+    ['mod-1-aula-13', '<div class="centro"><span>Badge</span></div>', '.centro { display: flex; justify-content: center; align-items: center; }'],
+    ['mod-1-aula-14', '<div class="vitrine"><div>A</div><div>B</div></div>', '.vitrine { display: grid; grid-template-columns: repeat(2, 1fr); }'],
+    ['mod-1-aula-15', '<div class="alerta"><p>Atenção</p></div>', '.alerta { color: #f8fafc; }']
+  ];
+  for (const [challengeId, html, css] of cases) {
+    assert.deepEqual(evaluateRegisteredChallenge({
+      challengeId,
+      files: { 'index.html': html, 'style.css': css }
+    }), { ok: true }, challengeId);
+  }
+});
+
+test('rejects CSS lesson submissions with missing stylesheet or invalid required declarations', () => {
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-1-aula-13',
+    files: { 'index.html': '<div class="centro"></div>', 'style.css': '.centro { display: block; justify-content: center; align-items: center; }' }
+  }), { ok: false, reason: 'tests-failed' });
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-1-aula-13',
+    files: { 'index.html': '<div class="centro"></div>', 'style.css': '' }
+  }), { ok: false, reason: 'tests-failed' });
+});
