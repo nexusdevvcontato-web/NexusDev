@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 94);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 161);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -197,6 +197,22 @@ test('registers only the 68 generated module-one HTML lessons with server-suppor
     assert.ok(spec.tests.length > 0, id);
   }
   for (const id of ['mod-1-aula-7', 'mod-1-aula-12', 'mod-1-aula-15', 'mod-1-aula-140']) {
+    assert.equal(getChallengeSpec(id), null, id);
+  }
+});
+
+
+test('registers 67 generated module-two JavaScript lessons supported by the AST interpreter', () => {
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-2-aula-\\d+$/.test(id));
+  assert.equal(ids.length, 67);
+  for (const id of ids) {
+    const spec = getChallengeSpec(id);
+    assert.equal(spec.language, 'javascript', id);
+    assert.equal(spec.entrypoint, 'script.js', id);
+    assert.ok(spec.exportName, id);
+    assert.ok(spec.tests.length > 0, id);
+  }
+  for (const id of ['mod-2-aula-7', 'mod-2-aula-12', 'mod-2-aula-13', 'mod-2-aula-140']) {
     assert.equal(getChallengeSpec(id), null, id);
   }
 });
