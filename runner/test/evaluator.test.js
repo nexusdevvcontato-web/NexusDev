@@ -164,3 +164,34 @@ test('rejects CSS lesson submissions with missing stylesheet or invalid required
     files: { 'index.html': '<div class="centro"></div>', 'style.css': '' }
   }), { ok: false, reason: 'tests-failed' });
 });
+
+test('evaluates generated Express email middleware with optional chaining and next callback', () => {
+  const source = "function validarCadastroEmail_6(req, res, next) { if (!req.body?.email?.includes('@') || (req.body?.senha || '').length < 6) return res.status(400).json({ erro: 'Credenciais inválidas' }); next(); }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-6',
+    files: { 'validateMiddleware.js': source }
+  }), { ok: true });
+});
+
+test('evaluates generated Express pagination helpers with bounded Number and Math methods', () => {
+  const source = "function normalizarQueryFiltro_7(query) { const page = Math.max(1, Number(query.page) || 1); const limit = Math.min(20, Math.max(1, Number(query.limit) || 10)); return { page, limit }; }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-7',
+    files: { 'queryHelper.js': source }
+  }), { ok: true });
+});
+
+test('rejects Express middleware that skips next or accepts invalid credentials', () => {
+  const source = "function validarCadastroEmail_6(req, res, next) { if (!req.body?.email?.includes('@')) return res.status(200).json({ ok: true }); next(); }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-6',
+    files: { 'validateMiddleware.js': source }
+  }), { ok: false, reason: 'tests-failed' });
+});
+
+test('rejects unsupported optional calls and non-whitelisted Math methods', () => {
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-7',
+    files: { 'queryHelper.js': 'function normalizarQueryFiltro_7(query) { return Math.random(); }' }
+  }), { ok: false, reason: 'unsupported-call' });
+});
