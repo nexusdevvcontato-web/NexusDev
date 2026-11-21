@@ -1,6 +1,6 @@
 'use strict';
 
-const { isRunnerSupportedChallenge } = require('./challenge-registry');
+const { isRunnerSupportedChallenge, validateChallengeFiles } = require('./challenge-registry');
 
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50_000;
@@ -23,6 +23,9 @@ function validateExecutionRequest(input) {
   const entries = Object.entries(files);
   if (entries.length < 1 || entries.length > MAX_FILES) {
     return { ok: false, reason: 'file-count-limit' };
+  }
+  if (!validateChallengeFiles(challengeId, files)) {
+    return { ok: false, reason: 'entrypoint-mismatch' };
   }
   let totalBytes = 0;
   for (const [name, content] of entries) {
