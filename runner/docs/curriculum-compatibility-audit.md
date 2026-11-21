@@ -316,3 +316,7 @@ O avaliador recebe o `style.css` somente para as aulas que declaram esse arquivo
 ### Evidência automatizada
 
 No commit `1a02c717bac0e1afb1efa28cb66f0f64340a6cb2`, o workflow Backend security tests concluiu com **314 testes aprovados, zero falhas e zero ignorados**, incluindo auditoria de dependências e integração com MongoDB replica set descartável. Após o CI verde, a branch foi publicada no staging Render `nexusdev-staging-v2`: deploy `dep-dc11rq7f3r2c73bb5fhg`, status `live`, commit `f619d412c5fd892053d59c106e18d086473aa52c`. Os logs confirmam conexão ao MongoDB e inicialização do servidor na porta 10000. O serviço continua no plano Free, com auto deploy desligado. A consulta HTTP externa direta de `/api/health` não foi concluída pelo verificador disponível; o estado `live` e os logs não são apresentados como prova de teste funcional HTTP da rota de avaliação. Produção permaneceu intocada.
+
+### Express find-by-id evaluator expansion
+
+The generated module-four registry now covers both the existing 34 field-validation controllers and 34 find-by-ID controllers (68 generated lessons total). The bounded AST interpreter supports `Array.find` with a restricted callback, and trusted controller fixtures provide route params plus a fixed synthetic item list. Tests verify both 404/not-found and 200/found responses. This does not execute Express, access a database, or enable arbitrary JavaScript.
