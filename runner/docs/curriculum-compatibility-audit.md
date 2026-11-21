@@ -258,3 +258,14 @@ A suíte inclui:
 - fluxo HTTP de conclusão real com conta sintética: aulas Express de dois arquivos, aula HTML gerada e aula JavaScript gerada, com XP incrementado apenas após validação server-side.
 
 O CI verde comprova o comportamento no ambiente descartável de testes. Ainda falta publicar esta versão no Render staging e validar o endpoint remoto; isso não autoriza publicação em produção.
+
+
+### Publicação em staging — 2026-11-21
+
+A versão com 161 especificações foi publicada no serviço Render `nexusdev-staging-v2`:
+
+- Deploy `dep-dc11b1ec6qcc73cjuob0`, status `live`, commit `58ada5a5`.
+- Plano do serviço: Free; deploy automático continua desligado.
+- Logs do processo confirmam conexão ao MongoDB e inicialização do servidor NexusDev v2.0 na porta 10000.
+- A verificação HTTP externa de `/api/health` e `/api/ready` não pôde ser concluída pelo verificador disponível. Portanto, o estado `live` e os logs de inicialização não são apresentados como prova de teste funcional remoto.
+- Nenhum deploy ou alteração foi feito em produção.
