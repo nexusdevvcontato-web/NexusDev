@@ -41,6 +41,48 @@ function buildGeneratedModuleOneHtmlSpecs() {
 // Generated lessons are deterministic curriculum templates. Only the four
 // HTML-only patterns with complete server-side checks are registered here;
 // CSS/debugging patterns remain study-only until a dedicated CSS evaluator exists.
+
+function buildGeneratedModuleOneCssSpecs() {
+  const specs = {};
+  for (let lesson = 7; lesson <= 140; lesson += 1) {
+    const scenario = lesson % 8;
+    let tests;
+    if (scenario === 4) {
+      const padPx = 16 + (lesson % 4) * 4;
+      tests = [
+        { type: 'css-declaration', selector: '.caixa-destaque', property: 'padding', expected: `${padPx}px` },
+        { type: 'css-declaration', selector: '.caixa-destaque', property: 'border-radius', expected: '12px' }
+      ];
+    } else if (scenario === 5) {
+      tests = [
+        { type: 'css-declaration', selector: '.centro', property: 'display', expected: 'flex' },
+        { type: 'css-declaration', selector: '.centro', property: 'justify-content', expected: 'center' },
+        { type: 'css-declaration', selector: '.centro', property: 'align-items', expected: 'center' }
+      ];
+    } else if (scenario === 6) {
+      const cols = (lesson % 2) + 2;
+      tests = [
+        { type: 'css-declaration', selector: '.vitrine', property: 'display', expected: 'grid' },
+        { type: 'css-declaration', selector: '.vitrine', property: 'grid-template-columns', expected: `repeat(${cols}, 1fr)` }
+      ];
+    } else if (scenario === 7) {
+      tests = [
+        { type: 'source-contains', value: '</p>' },
+        { type: 'css-declaration', selector: '.alerta', property: 'color', expected: '#f8fafc' }
+      ];
+    } else {
+      continue;
+    }
+    specs[`mod-1-aula-${lesson}`] = {
+      language: 'html',
+      entrypoint: 'index.html',
+      supportingFiles: ['style.css'],
+      tests
+    };
+  }
+  return specs;
+}
+
 function buildGeneratedModuleTwoJavaScriptSpecs() {
   const specs = {};
   for (let lesson = 7; lesson <= 140; lesson += 1) {
@@ -224,7 +266,7 @@ const CHALLENGE_SPECS = Object.freeze({
   ...buildGeneratedModuleFourJavaScriptSpecs(),
   ...buildGeneratedModuleFiveJavaScriptSpecs(),
   ...buildGeneratedModuleTwoJavaScriptSpecs(),
-  ...buildGeneratedModuleOneHtmlSpecs(),
+  ...buildGeneratedModuleOneHtmlSpecs(),\n  ...buildGeneratedModuleOneCssSpecs(),
   'html-00-o-que-e-web': {
     language: 'html', entrypoint: 'index.html',
     tests: [
