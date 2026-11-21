@@ -549,6 +549,19 @@ const CHALLENGE_SPECS = Object.freeze({
       { args: [{ role: 'admin' }, null], expected: false }
     ]}]
   },
+  'auth-01-middleware-admin': {
+    language: 'javascript', entrypoint: 'authMiddleware.js', exportName: 'verificarAdmin',
+    tests: [
+      { type: 'middleware-case', request: { headers: {} }, expectedNext: false,
+        expectedStatus: 401, expectedBody: { erro: 'Não autorizado' } },
+      { type: 'middleware-case', request: { headers: { authorization: 'Basic token' }, usuario: { cargo: 'admin' } },
+        expectedNext: false, expectedStatus: 401, expectedBody: { erro: 'Não autorizado' } },
+      { type: 'middleware-case', request: { headers: { authorization: 'Bearer token_admin' }, usuario: { cargo: 'student' } },
+        expectedNext: false, expectedStatus: 403, expectedBody: { erro: 'Acesso restrito' } },
+      { type: 'middleware-case', request: { headers: { authorization: 'Bearer token_admin' }, usuario: { cargo: 'admin' } },
+        expectedNext: true }
+    ]
+  },
   'node-01-controller-produto': {
     language: 'javascript', entrypoint: 'produtoController.js', supportingFiles: ['server.js'], exportName: 'criarProdutoController',
     tests: [
