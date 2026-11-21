@@ -66,7 +66,6 @@ function parseRestrictedCss(source) {
   const rules = [];
   const pattern = /([^{}]+)\{([^{}]*)\}/g;
   let match;
-  let consumed = '';
   while ((match = pattern.exec(css)) !== null) {
     if (rules.length >= LIMITS.cssRules) throw new HtmlEvaluationError('css-rule-limit');
     const selector = match[1].trim();
@@ -87,7 +86,6 @@ function parseRestrictedCss(source) {
       declarations[property] = value;
     }
     rules.push({ selector, declarations });
-    consumed += match[0];
   }
   const residue = css.replace(pattern, '').trim();
   if (residue) throw new HtmlEvaluationError('invalid-css-syntax');
