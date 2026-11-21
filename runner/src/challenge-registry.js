@@ -239,7 +239,7 @@ function buildGeneratedModuleFourJavaScriptSpecs() {
         language: 'javascript', entrypoint: 'queryHelper.js', exportName,
         tests: [{ type: 'function-cases', cases: [
           { args: [{ page: '2', limit: '50' }], expected: { page: 2, limit: 20 } },
-          { args: [{ page: '-3', limit: '0' }], expected: { page: 1, limit: 1 } },
+          { args: [{ page: '-3', limit: '0' }], expected: { page: 1, limit: 10 } },
           { args: [{ page: 'abc', limit: 'abc' }], expected: { page: 1, limit: 10 } },
           { args: [{}], expected: { page: 1, limit: 10 } }
         ] }]
