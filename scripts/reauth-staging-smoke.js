@@ -79,10 +79,10 @@ async function run() {
     throw new Error('Successful response does not match the expected short-lived proof contract.');
   }
 
-  // Intentionally do not print, persist, or consume the proof. No sensitive-action endpoint exists yet.
+  // Intentionally do not print, persist, or consume the proof. Privacy export consumes a proof, but that separate path is tested independently.
   console.log('PASS valid password issued a five-minute proof; token withheld from output');
   console.log('PASS response marked no-store');
-  console.log('NOTE proof was not consumed; no sensitive-action endpoint is connected');
+  console.log('NOTE this smoke test does not consume the proof; staging export consumption requires a separate end-to-end check');
 }
 
 run().catch((error) => {
