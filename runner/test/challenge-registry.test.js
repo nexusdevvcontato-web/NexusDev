@@ -171,7 +171,7 @@ test('request boundary rejects a valid-looking but unauthored challenge', () => 
   const result = validateExecutionRequest({
     userId: 'student-1',
     challengeId: 'mod-4-aula-141',
-    files: { 'index.html': '<h1>Oi</h1>' }
+    files: { 'controller.js': 'function resposta() { return true; }' }
   });
   assert.deepEqual(result, { ok: false, reason: 'challenge-not-authored' });
 });
