@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const { createApiErrorHandlers } = require('./src/http/api-error-handlers');
+const { getReadiness } = require('./src/http/readiness');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -62,6 +63,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '100kb', strict: true }));
 
+// express-rate-limit's default MemoryStore is process-local; keep one API instance until a shared store is configured.
 const passwordResetRequestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas solicitações. Tente novamente mais tarde.' } });
 const passwordResetEmailLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -411,8 +413,17 @@ app.post('/api/auth/password-reset/confirm', (req, res, next) => { res.set('Cach
   }
 });
 
+// Liveness stays independent of MongoDB so a database outage does not trigger restart loops.
 app.get('/api/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.json({ status: 'online', service: 'NexusDev API v2.0', timestamp: new Date().toISOString() });
+});
+
+// Readiness is separate from Render's liveness probe and reports database availability.
+app.get('/api/ready', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const readiness = getReadiness(mongoose.connection.readyState);
+  return res.status(readiness.httpStatus).json(readiness.body);
 });
 
 // Legacy token-issuing endpoints are retired. The frontend uses session-based auth only.
