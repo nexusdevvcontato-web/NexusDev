@@ -170,7 +170,7 @@ test('request boundary accepts the new authentication and RBAC lessons', () => {
 test('request boundary rejects a valid-looking but unauthored challenge', () => {
   const result = validateExecutionRequest({
     userId: 'student-1',
-    challengeId: 'mod-1-aula-141',
+    challengeId: 'mod-4-aula-5',
     files: { 'index.html': '<h1>Oi</h1>' }
   });
   assert.deepEqual(result, { ok: false, reason: 'challenge-not-authored' });
