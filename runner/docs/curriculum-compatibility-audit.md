@@ -269,3 +269,24 @@ A versão com 161 especificações foi publicada no serviço Render `nexusdev-st
 - Logs do processo confirmam conexão ao MongoDB e inicialização do servidor NexusDev v2.0 na porta 10000.
 - A verificação HTTP externa de `/api/health` e `/api/ready` não pôde ser concluída pelo verificador disponível. Portanto, o estado `live` e os logs de inicialização não são apresentados como prova de teste funcional remoto.
 - Nenhum deploy ou alteração foi feito em produção.
+
+
+## Atualização — cobertura dos módulos React, Express e segurança (2026-11-21)
+
+A registry chegou a **464 especificações server-side confiáveis de 700 aulas (66,3%)**. A expansão adicionou:
+
+- 136 aulas geradas do módulo 3: estado React imutável, `map`, `filter`, busca, `reduce` e paginação com `slice`.
+- 34 aulas geradas do módulo 4: controllers Express com validação de campos e respostas HTTP verificadas.
+- 133 aulas geradas do módulo 5: RBAC, validade de token, serialização segura de usuário e agregação de pedidos pagos.
+
+O currículo foi ajustado para incorporar explicitamente `additionalChallenges` antes de gerar os itens restantes. Isso mantém os exercícios autorais dos módulos 3, 4 e 5 presentes na trilha e evita colisões de IDs entre esses exercícios e os modelos gerados. O total por módulo continua limitado a 140 aulas.
+
+### Limites do suporte
+
+- O módulo 4 só habilita as 34 variantes cujo padrão de controller já é coberto pelo avaliador HTTP. Os padrões com `Array.find`, optional chaining e conversão/limitação numérica ainda permanecem sem XP oficial.
+- O interpretador AST ganhou apenas `Array.slice` com índices inteiros não negativos e limites sobre o array; não foi adicionada execução arbitrária nem acesso a APIs do Node.
+- As aulas sem especificação explícita continuam sem XP oficial. A contagem 464 representa cobertura de validação server-side, não uma afirmação de que todas as 700 aulas tenham sido revisadas pedagogicamente ou testadas no navegador.
+
+### Evidência automatizada
+
+No commit `236a8e02`, o CI executou **300 testes aprovados, zero falhas e zero ignorados**, incluindo integração HTTP com MongoDB replica set descartável. A integração testa conclusões oficiais em aulas HTML, JavaScript, React, Express e MongoDB, e confirma o incremento de XP somente após a avaliação do servidor.
