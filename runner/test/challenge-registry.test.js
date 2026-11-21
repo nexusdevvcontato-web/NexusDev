@@ -205,9 +205,9 @@ test('registers all 134 generated module-one HTML and CSS lessons with server-su
 });
 
 
-test('registers 67 generated module-two JavaScript lessons supported by the AST interpreter', () => {
+test('registers all 134 generated module-two JavaScript lessons supported by the AST interpreter', () => {
   const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-2-aula-\d+$/.test(id) && Number(id.slice('mod-2-aula-'.length)) >= 7);
-  assert.equal(ids.length, 67);
+  assert.equal(ids.length, 134);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
     assert.equal(spec.language, 'javascript', id);
@@ -215,7 +215,7 @@ test('registers 67 generated module-two JavaScript lessons supported by the AST 
     assert.ok(spec.exportName, id);
     assert.ok(spec.tests.length > 0, id);
   }
-  for (const id of ['mod-2-aula-7', 'mod-2-aula-11', 'mod-2-aula-12', 'mod-2-aula-13']) {
+  for (const id of ['mod-2-aula-6', 'mod-2-aula-141']) {
     assert.equal(getChallengeSpec(id), null, id);
   }
 });
