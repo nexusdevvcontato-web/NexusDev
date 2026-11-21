@@ -32,7 +32,7 @@ O repositório contém um smoke test manual com proteções para evitar apontar 
 
 Com uma conta local descartável já autenticada no staging, definir as variáveis apenas no terminal seguro/secret manager:
 ```sh
-STAGING_API_URL="https://api-staging.example.com" \
+STAGING_API_URL="https://nexusdev-staging-v2.onrender.com" \
 STAGING_ACCESS_TOKEN="<ACCESS_TOKEN_DE_STAGING>" \
 STAGING_TEST_PASSWORD="<SENHA_DA_CONTA_DESCARTAVEL>" \
 yarn test:staging:reauth
