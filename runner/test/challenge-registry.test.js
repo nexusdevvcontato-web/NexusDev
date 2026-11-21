@@ -3,10 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = require('../src/challenge-registry');
+const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('../../src/modules/curriculum/catalog');
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 699);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 700);
+  assert.equal(EXPECTED_COURSE_COMPLETIONS, 700);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -267,3 +269,4 @@ test('registers all 133 generated module-five security and data lessons', () => 
     assert.ok(spec.tests.length > 0, id);
   }
 });
+\n\ntest('recognizes and registers the authored module-five admin middleware lesson', () => {\n  const id = 'auth-01-middleware-admin';\n  assert.equal(isKnownChallengeId(id), true);\n  assert.equal(isRunnerSupportedChallenge(id), true);\n  assert.equal(getChallengeSpec(id).entrypoint, 'authMiddleware.js');\n  assert.equal(getChallengeSpec(id).tests.length, 4);\n  assert.equal(isKnownChallengeId('mod-5-aula-1'), false);\n  assert.equal(isKnownChallengeId('mod-5-aula-2'), true);\n});\n
