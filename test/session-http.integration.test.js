@@ -209,7 +209,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       ],
       csrf: secondDeviceLogin.cookieMap['__Host-nexusdev_csrf']
     });
-    assert.equal(revokedDeviceRefresh.response.status, 403);
+    assert.equal(revokedDeviceRefresh.response.status, 401);
     assert.equal((await request('/api/me', { token: b.accessToken })).response.status, 200);
 
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
