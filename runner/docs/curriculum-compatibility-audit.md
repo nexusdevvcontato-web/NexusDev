@@ -300,3 +300,19 @@ No commit `236a8e02`, o CI executou **300 testes aprovados, zero falhas e zero i
 - A URL pública do serviço é `https://nexusdev-staging-v2.onrender.com`.
 - O verificador HTTP externo ainda não conseguiu obter resposta de `/api/health` ou `/api/ready`; a confirmação disponível é o status de deploy `live` e os logs de inicialização, não um teste remoto de endpoint.
 - Produção permanece intocada.
+
+## Atualização — validação estática de CSS no módulo 1 (2026-11-21)
+
+A registry passou de 464 para **530 especificações confiáveis de 700 aulas (75,7%)**. Foram adicionadas 66 especificações geradas de CSS no módulo 1; junto às 68 especificações HTML já existentes, agora as 134 aulas geradas do módulo 1 têm critérios server-side.
+
+Cobertura CSS adicionada:
+- Box Model: `padding` e `border-radius` na classe `.caixa-destaque`, com o valor de padding específico de cada aula.
+- Flexbox: `display: flex`, `justify-content: center` e `align-items: center` em `.centro`.
+- Grid: `display: grid` e `grid-template-columns: repeat(n, 1fr)` em `.vitrine`, com duas ou três colunas conforme o enunciado.
+- Debugging: presença do fechamento `</p>` no HTML enviado e `color: #f8fafc` em `.alerta`.
+
+O avaliador recebe o `style.css` somente para as aulas que declaram esse arquivo como supporting file. O parser CSS é deliberadamente restrito, limitado em bytes, regras e declarações, aceita seletores simples e compara valores declarativos; não executa CSS, não abre navegador e não tenta reproduzir o mecanismo de layout/cascata completo. O restante do currículo sem especificação confiável continua sem XP oficial.
+
+### Evidência automatizada
+
+No commit `1a02c717bac0e1afb1efa28cb66f0f64340a6cb2`, o workflow Backend security tests concluiu com **314 testes aprovados, zero falhas e zero ignorados**, incluindo auditoria de dependências e integração com MongoDB replica set descartável. O deploy de staging não foi alterado nesta etapa; produção permaneceu intocada.
