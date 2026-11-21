@@ -68,7 +68,7 @@ test('resolves typeof against callback parent scopes without exposing globals', 
     { ok: true }
   );
   assert.deepEqual(
-    evaluate('function validarPermissaoJWT_8(usuario) { return typeof process === "undefined" && usuario.role === "admin"; }'),
+    evaluate('function validarPermissaoJWT_8(usuario) { return !!(usuario && typeof process === "undefined" && usuario.role === "admin"); }'),
     { ok: true }
   );
 });
