@@ -88,3 +88,14 @@ test('returns the existing completion when a committed proof is retried after a 
   assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);
   assert.equal(deps.calls.at(-1), 'session:end');
 });
+
+
+test('returns the existing completion when a committed proof is retried after a lost response', async () => {
+  const deps = setup({ replay: true, replayAlreadyCompleted: true });
+  const user = await completeLessonAtomically(input(deps));
+  assert.equal(user.xp, 50);
+  assert.deepEqual(user.completedIds, ['html-00-o-que-e-web']);
+  assert.equal(deps.calls.includes('transaction:commit'), false);
+  assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);
+  assert.equal(deps.calls.at(-1), 'session:end');
+});
