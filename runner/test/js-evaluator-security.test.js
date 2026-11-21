@@ -57,3 +57,18 @@ test('keeps unknown challenge identifiers ineligible for official evaluation', (
     'rbac.js'
   ), { ok: false, reason: 'unsupported-challenge' });
 });
+
+test('resolves typeof against callback parent scopes without exposing globals', () => {
+  assert.deepEqual(
+    evaluate(
+      "function filtrarBuscaProdutos_7(produtos, termoBusca) { return produtos.filter(p => typeof termoBusca === 'string' && p.nome.toLowerCase().includes(termoBusca.trim().toLowerCase())); }",
+      'mod-3-aula-7',
+      'script.js'
+    ),
+    { ok: true }
+  );
+  assert.deepEqual(
+    evaluate('function validarPermissaoJWT_8(usuario) { return typeof process === "undefined" && usuario.role === "admin"; }'),
+    { ok: true }
+  );
+});
