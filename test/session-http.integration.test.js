@@ -212,6 +212,29 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(revokedDeviceRefresh.response.status, 401);
     assert.equal((await request('/api/me', { token: b.accessToken })).response.status, 200);
 
+    // Concurrent reuse of one refresh token must fail closed: one rotation may
+    // complete, but replay detection revokes the session before it can be reused.
+    const concurrentRefreshOwner = await register('concurrent-refresh@example.test');
+    const concurrentRefreshCookies = [
+      `__Host-nexusdev_refresh=${concurrentRefreshOwner.refresh}`,
+      `__Host-nexusdev_csrf=${concurrentRefreshOwner.csrf}`
+    ];
+    const concurrentRefreshResults = await Promise.all([
+      request('/api/auth/session/refresh', {
+        method: 'POST', cookies: concurrentRefreshCookies, csrf: concurrentRefreshOwner.csrf
+      }),
+      request('/api/auth/session/refresh', {
+        method: 'POST', cookies: concurrentRefreshCookies, csrf: concurrentRefreshOwner.csrf
+      })
+    ]);
+    assert.deepEqual(
+      concurrentRefreshResults.map(result => result.response.status).sort((left, right) => left - right),
+      [200, 401]
+    );
+    const rotatedAccessToken = concurrentRefreshResults.find(result => result.response.status === 200).payload.accessToken;
+    assert.equal((await request('/api/me', { token: rotatedAccessToken })).response.status, 401);
+
+
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
     const aProfile = await request('/api/me', { token: a.accessToken });
     assert.match(aProfile.response.headers.get('cache-control') || '', /no-store/i);
