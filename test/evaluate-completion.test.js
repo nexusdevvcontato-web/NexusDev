@@ -27,6 +27,31 @@ test('creates proof for supported JavaScript only when server-owned cases pass',
   assert.equal(result.ok, true);
 });
 
+test('creates proofs for registered multi-file Express lessons while evaluating only the entrypoint', () => {
+  const list = evaluateAndCreateCompletionProof({
+    userId: 'synthetic-user',
+    challengeId: 'mod-4-aula-2',
+    files: {
+      'produtoController.js': 'function listarProdutosController(req, res) { return res.status(200).json([{ id: 1, nome: "Teclado" }, { id: 2, nome: "Mouse" }]); }',
+      'server.js': "// app.get('/api/produtos', listarProdutosController);"
+    },
+    nowSeconds: 3000
+  });
+  assert.equal(list.ok, true);
+  assert.match(list.proof.filesHash, /^[a-f0-9]{64}$/);
+
+  const create = evaluateAndCreateCompletionProof({
+    userId: 'synthetic-user',
+    challengeId: 'node-01-controller-produto',
+    files: {
+      'produtoController.js': 'function criarProdutoController(req, res) { const titulo = req.body.titulo; const preco = req.body.preco; if (!titulo || typeof preco !== "number" || preco <= 0) return res.status(400).json({ erro: "Dados inválidos" }); return res.status(201).json({ id: 101, titulo, preco }); }',
+      'server.js': "// app.post('/api/produtos', criarProdutoController);"
+    },
+    nowSeconds: 3000
+  });
+  assert.equal(create.ok, true);
+});
+
 test('does not create proof for failed, unknown or unsupported lessons', () => {
   for (const input of [
     { userId: 'u', challengeId: 'html-00-o-que-e-web', files: { 'index.html': '<h1>não confere</h1>' } },
