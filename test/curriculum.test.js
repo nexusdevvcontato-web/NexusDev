@@ -64,7 +64,8 @@ test('curriculum allowlist contains exactly 700 valid lesson IDs', () => {
     'js-02-condicionais-frete',
     'js-03-arrays-soma',
     'react-01-carrinho-imutavel',
-    'node-01-controller-produto'
+    'node-01-controller-produto',
+    'auth-01-middleware-admin'
   ];
   const starts = { 1: 7, 2: 4, 3: 2, 4: 2, 5: 2 };
   for (const [moduleNumber, first] of Object.entries(starts)) {
