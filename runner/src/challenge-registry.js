@@ -92,7 +92,137 @@ function buildGeneratedModuleTwoJavaScriptSpecs() {
 
 // These generated JavaScript exercises are registered only when every operation
 // used by the lesson is supported by the bounded AST interpreter and has cases.
+function buildGeneratedModuleThreeJavaScriptSpecs() {
+  const specs = {};
+  for (let lesson = 5; lesson <= 140; lesson += 1) {
+    const scenario = lesson % 5;
+    if (scenario === 0) {
+      const exportName = `alternarFavoritoReact_${lesson}`;
+      const args = [[{ id: 1, favorito: false }], 1];
+      specs[`mod-3-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [
+          { type: 'function-deep-equals', args, expected: [{ id: 1, favorito: true }] },
+          { type: 'does-not-mutate-input', args }
+        ]
+      };
+    } else if (scenario === 1) {
+      const exportName = `removerItemEstado_${lesson}`;
+      const args = [[{ id: 1 }, { id: 2 }], 1];
+      specs[`mod-3-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [
+          { type: 'function-deep-equals', args, expected: [{ id: 2 }] },
+          { type: 'does-not-mutate-input', args }
+        ]
+      };
+    } else if (scenario === 2) {
+      const exportName = `filtrarBuscaProdutos_${lesson}`;
+      const args = [[{ nome: 'Teclado Mecânico' }, { nome: 'Mouse Gamer' }], 'MOUSE'];
+      specs[`mod-3-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [
+          { type: 'function-deep-equals', args, expected: [{ nome: 'Mouse Gamer' }] },
+          { type: 'does-not-mutate-input', args }
+        ]
+      };
+    } else if (scenario === 3) {
+      const exportName = `calcularSubtotalCarrinho_${lesson}`;
+      specs[`mod-3-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [
+          { type: 'function-deep-equals', args: [[{ preco: 120, qtd: 2 }, { preco: 50, qtd: 1 }]], expected: 290 },
+          { type: 'function-deep-equals', args: [[]], expected: 0 }
+        ]
+      };
+    } else {
+      const exportName = `paginarListaReact_${lesson}`;
+      specs[`mod-3-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [
+          { type: 'function-deep-equals', args: [['A', 'B', 'C', 'D', 'E'], 2, 2], expected: ['C', 'D'] },
+          { type: 'function-deep-equals', args: [['A', 'B', 'C'], 1, 2], expected: ['A', 'B'] }
+        ]
+      };
+    }
+  }
+  return specs;
+}
+
+function buildGeneratedModuleFourJavaScriptSpecs() {
+  const specs = {};
+  for (let lesson = 5; lesson <= 140; lesson += 1) {
+    if (lesson % 4 !== 0) continue;
+    const exportName = `handlerExpress_${lesson}`;
+    specs[`mod-4-aula-${lesson}`] = {
+      language: 'javascript',
+      entrypoint: 'controller.js',
+      exportName,
+      tests: [
+        { type: 'http-controller-case', body: { nome: 'ab' }, expectedStatus: 400, expectedBodyIncludes: 'erro' },
+        { type: 'http-controller-case', body: { nome: 'Notebook Pro' }, expectedStatus: 200,
+          expectedBody: { ok: true, nome: 'Notebook Pro' } }
+      ]
+    };
+  }
+  return specs;
+}
+
+function buildGeneratedModuleFiveJavaScriptSpecs() {
+  const specs = {};
+  for (let lesson = 8; lesson <= 140; lesson += 1) {
+    const scenario = lesson % 4;
+    if (scenario === 0) {
+      const exportName = `validarPermissaoJWT_${lesson}`;
+      const requiredRole = lesson % 2 === 0 ? 'admin' : 'editor';
+      specs[`mod-5-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'rbac.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [{ role: requiredRole }], expected: true },
+          { args: [{ role: 'guest' }], expected: false },
+          { args: [null], expected: false }
+        ] }]
+      };
+    } else if (scenario === 1) {
+      const exportName = `verificarExpiracaoToken_${lesson}`;
+      specs[`mod-5-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'jwtGuard.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [{ exp: 2000 }, 1500], expected: true },
+          { args: [{ exp: 1500 }, 1500], expected: false },
+          { args: [{ exp: 1000 }, 1500], expected: false },
+          { args: [null, 1500], expected: false }
+        ] }]
+      };
+    } else if (scenario === 2) {
+      const exportName = `sanitizarUsuarioPublico_${lesson}`;
+      specs[`mod-5-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'userSerializer.js', exportName,
+        tests: [
+          { type: 'function-deep-equals',
+            args: [{ _id: '1', name: 'Ana', email: 'ana@dev.com', passwordHash: 'secret' }],
+            expected: { id: '1', name: 'Ana', email: 'ana@dev.com' } }
+        ]
+      };
+    } else {
+      const exportName = `somarPedidosPagos_${lesson}`;
+      specs[`mod-5-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'relatorioPedidos.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [[{ status: 'pago', total: 150 }, { status: 'pendente', total: 300 }, { status: 'pago', total: 50 }]], expected: 200 },
+          { args: [[]], expected: 0 },
+          { args: [[{ status: 'pendente', total: 300 }]], expected: 0 }
+        ] }]
+      };
+    }
+  }
+  return specs;
+}
+
 const CHALLENGE_SPECS = Object.freeze({
+  ...buildGeneratedModuleThreeJavaScriptSpecs(),
+  ...buildGeneratedModuleFourJavaScriptSpecs(),
+  ...buildGeneratedModuleFiveJavaScriptSpecs(),
   ...buildGeneratedModuleTwoJavaScriptSpecs(),
   ...buildGeneratedModuleOneHtmlSpecs(),
   'html-00-o-que-e-web': {
