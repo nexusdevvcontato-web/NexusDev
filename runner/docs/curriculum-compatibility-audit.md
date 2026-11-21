@@ -290,3 +290,13 @@ O currículo foi ajustado para incorporar explicitamente `additionalChallenges` 
 ### Evidência automatizada
 
 No commit `236a8e02`, o CI executou **300 testes aprovados, zero falhas e zero ignorados**, incluindo integração HTTP com MongoDB replica set descartável. A integração testa conclusões oficiais em aulas HTML, JavaScript, React, Express e MongoDB, e confirma o incremento de XP somente após a avaliação do servidor.
+
+
+### Publicação da expansão completa em staging — 2026-11-21
+
+- Deploy Render `dep-dc11dp6c6qcc73ck7170`, status `live`, commit `bfc3ec27`.
+- O serviço continua no plano Free, com deploy automático desligado.
+- Logs confirmam conexão ao MongoDB e inicialização do servidor NexusDev v2.0.
+- A URL pública do serviço é `https://nexusdev-staging-v2.onrender.com`.
+- O verificador HTTP externo ainda não conseguiu obter resposta de `/api/health` ou `/api/ready`; a confirmação disponível é o status de deploy `live` e os logs de inicialização, não um teste remoto de endpoint.
+- Produção permanece intocada.
