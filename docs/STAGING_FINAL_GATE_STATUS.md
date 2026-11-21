@@ -72,3 +72,14 @@ O Preview da Vercel permanece protegido por autenticação da plataforma. Não f
 - Nenhum secret foi exibido ou alterado.
 - Runner e XP autoritativo permanecem desabilitados.
 - Serviço Render staging continua com auto deploy desligado.
+
+
+## 7. Rechecagem operacional do Atlas — 2026-11-21
+
+- Cluster `NexusDevStaging`: estado `IDLE`, tipo `FREE`, região `SA_EAST_1`, MongoDB `8.0.39`.
+- Access List do projeto contém exatamente `74.220.48.0/24` e `74.220.56.0/24`, ambas descritas como faixas de saída do Render staging. Nenhuma regra `0.0.0.0/0` foi encontrada na Access List do Atlas.
+- O serviço Render tem ingress público (`0.0.0.0/0`) para servir o endpoint HTTP; isso é distinto da Access List do Atlas e não foi alterado.
+- Atlas reportou zero alertas abertos na consulta realizada.
+- Foram encontrados dois usuários de banco: `nexusdev_staging_app` e `nexusdev_staging_app_v2`. Ambos têm somente `readWrite` em `nexusdev_staging` e escopo no cluster `NexusDevStaging`.
+- Não é possível determinar, pela listagem de usuários, qual credencial está atualmente referenciada pelo Render. Nenhum usuário foi removido ou modificado; a duplicidade permanece como item de reconciliação operacional, sem impacto presumido.
+- Não foram consultados documentos de usuários nem exibidos valores de credenciais.
