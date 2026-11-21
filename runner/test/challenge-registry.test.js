@@ -203,7 +203,7 @@ test('registers only the 68 generated module-one HTML lessons with server-suppor
 
 
 test('registers 67 generated module-two JavaScript lessons supported by the AST interpreter', () => {
-  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-2-aula-\\d+$/.test(id));
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-2-aula-\d+$/.test(id));
   assert.equal(ids.length, 67);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
@@ -212,7 +212,7 @@ test('registers 67 generated module-two JavaScript lessons supported by the AST 
     assert.ok(spec.exportName, id);
     assert.ok(spec.tests.length > 0, id);
   }
-  for (const id of ['mod-2-aula-7', 'mod-2-aula-12', 'mod-2-aula-13', 'mod-2-aula-140']) {
+  for (const id of ['mod-2-aula-7', 'mod-2-aula-12', 'mod-2-aula-13', 'mod-2-aula-14']) {
     assert.equal(getChallengeSpec(id), null, id);
   }
 });
