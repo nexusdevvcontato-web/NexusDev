@@ -53,10 +53,12 @@ function createPasswordResetService({
     const { token, tokenHash } = createPasswordResetToken();
     const currentTime = now();
     const expiresAt = new Date(currentTime.getTime() + ttlMs);
-    await User.updateOne(
+    const stored = await User.updateOne(
       { _id: user._id },
       { $set: { passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt } }
     );
+    // Never email a reset link unless its digest was actually persisted.
+    if (stored?.matchedCount !== 1) return { accepted: true };
 
     try {
       await sendResetEmail({
