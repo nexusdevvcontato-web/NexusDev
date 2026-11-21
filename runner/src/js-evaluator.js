@@ -58,7 +58,7 @@ function parseSolution(source, exportName) {
   const visit = (node, depth = 0) => {
     if (!node || typeof node !== 'object') return;
     if (typeof node.type === 'string') {
-      const allowed = new Set(['Program','ChainExpression','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','SpreadElement','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
+      const allowed = new Set(['Program','ChainExpression','TemplateLiteral','TemplateElement','FunctionDeclaration','VariableDeclaration','VariableDeclarator','Identifier','BlockStatement','ReturnStatement','IfStatement','EmptyStatement','ExpressionStatement','AssignmentExpression','Literal','ArrayExpression','ObjectExpression','Property','SpreadElement','UnaryExpression','BinaryExpression','LogicalExpression','ConditionalExpression','MemberExpression','CallExpression','ArrowFunctionExpression','FunctionExpression']);
       if (!allowed.has(node.type)) throw new EvaluationError('unsupported-syntax');
       count += 1;
       if (count > LIMITS.astNodes) throw new EvaluationError('ast-node-limit');
@@ -96,6 +96,21 @@ function executeFunction(fn, args, budget, options = {}) {
     tick(); if (depth > LIMITS.depth) throw new EvaluationError('evaluation-depth-limit');
     switch (node.type) {
       case 'Literal': return node.value;
+      case 'TemplateLiteral': {
+        let output = '';
+        for (let index = 0; index < node.quasis.length; index += 1) {
+          output += node.quasis[index].value.cooked ?? node.quasis[index].value.raw;
+          if (index < node.expressions.length) {
+            const value = evalExpr(node.expressions[index], depth + 1);
+            if (value !== null && !['string', 'number', 'boolean', 'undefined'].includes(typeof value)) {
+              throw new EvaluationError('unsupported-template-value');
+            }
+            output += String(value);
+          }
+          if (output.length > LIMITS.stringLength) throw new EvaluationError('string-limit');
+        }
+        return bounded(output);
+      }
       case 'ChainExpression': return evalExpr(node.expression, depth + 1);
       case 'Identifier': return lookup(node.name);
       case 'ArrayExpression': {
@@ -192,7 +207,20 @@ function executeFunction(fn, args, budget, options = {}) {
         throw new EvaluationError('unsupported-member');
       }
       case 'CallExpression': {
-        if (node.optional || node.arguments.some((a) => a.type === 'SpreadElement')) throw new EvaluationError('unsupported-call');
+        if (node.optional) throw new EvaluationError('unsupported-call');
+        if (node.arguments.some((a) => a.type === 'SpreadElement')) {
+          const isMaxSpread = node.callee.type === 'MemberExpression' && !node.callee.computed &&
+            node.callee.object.type === 'Identifier' && node.callee.object.name === 'Math' &&
+            node.callee.property.name === 'max' && node.arguments.length === 1 &&
+            node.arguments[0].type === 'SpreadElement';
+          if (!isMaxSpread) throw new EvaluationError('unsupported-call');
+          const values = evalExpr(node.arguments[0].argument, depth + 1);
+          if (!Array.isArray(values) || values.length > LIMITS.arrayLength ||
+              values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+            throw new EvaluationError('invalid-math-spread');
+          }
+          return Math.max(...values);
+        }
         if (node.callee.type === 'Identifier' && node.callee.name === 'next' &&
             node.arguments.length === 0 && options.allowNext === true &&
             fn.params.some((param) => param.name === 'next')) {
@@ -224,6 +252,13 @@ function executeFunction(fn, args, budget, options = {}) {
         }
         const target = evalExpr(node.callee.object, depth + 1);
         if ((target === null || target === undefined) && node.callee.optional) return undefined;
+        if (typeof target === 'number' && method === 'toFixed') {
+          const digits = node.arguments.length === 1 ? evalExpr(node.arguments[0], depth + 1) : 0;
+          if (!Number.isFinite(target) || !Number.isInteger(digits) || digits !== 2) {
+            throw new EvaluationError('unsupported-call');
+          }
+          return bounded(target.toFixed(2));
+        }
         if (target instanceof RegExp && method === 'test' && node.arguments.length === 1) {
           const allowedPatterns = new Set([
             '[A-Z]', '[a-z]', '[0-9]',
