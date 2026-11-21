@@ -201,6 +201,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(revokeOtherDevice.response.status, 204);
     assert.equal((await request('/api/me', { token: a.accessToken })).response.status, 200);
     assert.equal((await request('/api/me', { token: secondDeviceToken })).response.status, 401);
+    const revokedDeviceRefresh = await request('/api/auth/session/refresh', {
+      method: 'POST',
+      cookies: [
+        `__Host-nexusdev_refresh=${secondDeviceLogin.cookieMap['__Host-nexusdev_refresh']}`,
+        `__Host-nexusdev_csrf=${secondDeviceLogin.cookieMap['__Host-nexusdev_csrf']}`
+      ],
+      csrf: secondDeviceLogin.cookieMap['__Host-nexusdev_csrf']
+    });
+    assert.equal(revokedDeviceRefresh.response.status, 403);
     assert.equal((await request('/api/me', { token: b.accessToken })).response.status, 200);
 
     // A signed runner proof is accepted once; concurrent/replayed submissions cannot mutate progress twice.
