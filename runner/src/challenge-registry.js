@@ -2,7 +2,47 @@
 
 // Trusted, declarative lesson checks. Never accept this structure from a browser.
 // Only lessons with an explicit specification are eligible for future runner execution.
+function buildGeneratedModuleOneHtmlSpecs() {
+  const specs = {};
+  for (let lesson = 7; lesson <= 140; lesson += 1) {
+    const scenario = lesson % 8;
+    let tests;
+    if (scenario === 0) {
+      tests = [
+        { type: 'selector-exists', selector: 'article.perfil h2' },
+        { type: 'selector-exists', selector: 'article.perfil p' }
+      ];
+    } else if (scenario === 1) {
+      const title = `Portfólio Dev #${lesson}`;
+      tests = [
+        { type: 'selector-exists', selector: 'header h1' },
+        { type: 'text-includes', selector: 'header h1', value: title }
+      ];
+    } else if (scenario === 2) {
+      tests = [{ type: 'selector-count-min', selector: 'nav a', minCount: 2 }];
+    } else if (scenario === 3) {
+      tests = [
+        { type: 'selector-exists', selector: 'form input' },
+        { type: 'selector-exists', selector: 'form button' }
+      ];
+    } else {
+      continue;
+    }
+    specs[`mod-1-aula-${lesson}`] = {
+      language: 'html',
+      entrypoint: 'index.html',
+      supportingFiles: ['style.css'],
+      tests
+    };
+  }
+  return specs;
+}
+
+// Generated lessons are deterministic curriculum templates. Only the four
+// HTML-only patterns with complete server-side checks are registered here;
+// CSS/debugging patterns remain study-only until a dedicated CSS evaluator exists.
 const CHALLENGE_SPECS = Object.freeze({
+  ...buildGeneratedModuleOneHtmlSpecs(),
   'html-00-o-que-e-web': {
     language: 'html', entrypoint: 'index.html',
     tests: [
