@@ -738,7 +738,8 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const duplicateSubmission = await request('/api/progress/complete', {
       method: 'POST', token: a.accessToken, body: completionBody
     });
-    assert.equal(duplicateSubmission.response.status, 403);
+    assert.equal(duplicateSubmission.response.status, 200);
+    assert.equal(duplicateSubmission.payload.xp, 50);
     const replayed = await request('/api/progress/complete', {
       method: 'POST', token: a.accessToken,
       body: { ...completionBody, files: { 'index.html': '<h1>Conteúdo alterado no replay</h1>' } }
