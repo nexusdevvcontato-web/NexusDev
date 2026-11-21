@@ -110,6 +110,22 @@ test('evaluates generated module-three React state and pagination lessons', () =
   }
 });
 
+test('evaluates generated Express find-by-id controllers for found and missing resources', () => {
+  const source = "function buscarPorIdController_5(req, res, lista) { const item = lista.find(i => i.id === req.params.id); if (!item) return res.status(404).json({ erro: 'Não encontrado' }); return res.status(200).json(item); }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-5',
+    files: { 'controller.js': source }
+  }), { ok: true });
+});
+
+test('rejects generated Express find-by-id controllers with incorrect status or body', () => {
+  const wrongStatus = "function buscarPorIdController_5(req, res, lista) { const item = lista.find(i => i.id === req.params.id); return res.status(200).json(item || { erro: 'Não encontrado' }); }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-4-aula-5',
+    files: { 'controller.js': wrongStatus }
+  }), { ok: false, reason: 'tests-failed' });
+});
+
 test('evaluates generated Express and module-five security/data lessons', () => {
   const cases = [
     ['mod-4-aula-8', "function handlerExpress_8(req, res) { const nome = req.body.nome; if (!nome || nome.trim().length < 3) return res.status(400).json({ erro: 'Nome muito curto' }); return res.status(200).json({ ok: true, nome: nome.trim() }); }", 'controller.js'],
