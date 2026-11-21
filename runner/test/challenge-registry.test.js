@@ -269,4 +269,14 @@ test('registers all 133 generated module-five security and data lessons', () => 
     assert.ok(spec.tests.length > 0, id);
   }
 });
-\n\ntest('recognizes and registers the authored module-five admin middleware lesson', () => {\n  const id = 'auth-01-middleware-admin';\n  assert.equal(isKnownChallengeId(id), true);\n  assert.equal(isRunnerSupportedChallenge(id), true);\n  assert.equal(getChallengeSpec(id).entrypoint, 'authMiddleware.js');\n  assert.equal(getChallengeSpec(id).tests.length, 4);\n  assert.equal(isKnownChallengeId('mod-5-aula-1'), false);\n  assert.equal(isKnownChallengeId('mod-5-aula-2'), true);\n});\n
+
+
+test('recognizes and registers the authored module-five admin middleware lesson', () => {
+  const id = 'auth-01-middleware-admin';
+  assert.equal(isKnownChallengeId(id), true);
+  assert.equal(isRunnerSupportedChallenge(id), true);
+  assert.equal(getChallengeSpec(id).entrypoint, 'authMiddleware.js');
+  assert.equal(getChallengeSpec(id).tests.length, 4);
+  assert.equal(isKnownChallengeId('mod-5-aula-1'), false);
+  assert.equal(isKnownChallengeId('mod-5-aula-2'), true);
+});
