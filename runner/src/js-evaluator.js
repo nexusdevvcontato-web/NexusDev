@@ -433,7 +433,10 @@ function evaluateChallenge({ challengeId, source }) {
         for (const testCase of test.cases) {
           if (!Array.isArray(testCase.args)) return { ok: false, reason: 'invalid-test-spec' };
           const actual = executeFunction(fn, testCase.args, { steps: 0 });
-          if (!equal(actual, testCase.expected)) return { ok: false, reason: 'tests-failed' };
+          if (!equal(actual, testCase.expected)) {
+            if (spec.entrypoint === 'queryHelper.js') console.error('pagination-test-mismatch', JSON.stringify(testCase.args), JSON.stringify(actual), JSON.stringify(testCase.expected));
+            return { ok: false, reason: 'tests-failed' };
+          }
         }
       } else if (test.type === 'function-deep-equals') {
         if (!Array.isArray(test.args) || !Object.prototype.hasOwnProperty.call(test, 'expected')) {
