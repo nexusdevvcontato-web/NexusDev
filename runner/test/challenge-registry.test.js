@@ -187,7 +187,7 @@ test('request boundary accepts a registered challenge', () => {
 
 
 test('registers only the 68 generated module-one HTML lessons with server-supported checks', () => {
-  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-1-aula-\\d+$/.test(id));
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) => /^mod-1-aula-\d+$/.test(id));
   assert.equal(ids.length, 68);
   for (const id of ids) {
     const spec = getChallengeSpec(id);
