@@ -35,7 +35,7 @@ test('rejects missing, malformed, weak and non-RSA keys and unsupported challeng
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files, privateKey: '-----BEGIN PRIVATE KEY-----' }));
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files, privateKey: weak }));
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files, privateKey: ec }));
-  assert.throws(() => signCompletionProof({ userId: 'u', challengeId: 'mod-1-aula-7', files, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }) }));
+  assert.throws(() => signCompletionProof({ userId: 'u', challengeId: 'mod-1-aula-141', files, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }) }));
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files: { 'other.html': '<h1>x</h1>' }, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }) }));
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files: { ...files, 'extra.js': 'x' }, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }) }));
   assert.throws(() => signCompletionProof({ userId: 'u', challengeId: supported, files, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), ttlSeconds: 301 }));
