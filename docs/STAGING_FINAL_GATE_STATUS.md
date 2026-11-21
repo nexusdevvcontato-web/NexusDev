@@ -1,13 +1,15 @@
 # Gate de validação do staging — NexusDev 2.0
 
-**Data da verificação:** 2026-11-20  
+**Data da verificação:** 2026-11-21  
 **Branch:** `rebuild/v2-security`  
 **Escopo:** somente staging; nenhuma alteração em produção.
 
 ## 1. CI
 
-- Backend commit `dd40f9e9510cf9c45c63103d822298e6c328cb9c`: concluído com sucesso.
-- Execução: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44846018300
+- Backend commit `d43df0ad75ed41155fcdf51727c893af890e7a0e`: concluído com sucesso.
+- Execução mais recente: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890638522
+- Commit anterior `43ff149ca72bbf641b84a3c1c55c259d1e4cbd27` também passou: https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44890609835
+- Ambas as execuções completaram auditoria de dependências, MongoDB replica set descartável e testes de sintaxe/segurança.
 - O CI valida o conjunto automatizado do repositório, incluindo testes com MongoDB descartável. Não substitui a jornada autenticada no serviço Render real.
 
 ## 2. Render staging
@@ -20,6 +22,7 @@ Releitura do serviço `nexusdev-staging-v2`:
 - Trigger: off
 - Health check configurado: `/api/health`
 - URL: https://nexusdev-staging-v2.onrender.com
+- Revalidação via Preview Vercel: `/api/health` respondeu HTTP 200 com JSON `status: online`, serviço `NexusDev API v2.0` e cabeçalho `x-render-origin-server: Render`, confirmando o encaminhamento para o Render staging. Isso não substitui testes autenticados.
 
 Não foi solicitado nem iniciado deploy. A consulta recente de logs do Render falhou com HTTP 503 do serviço de logs (Loki indisponível); portanto, esta rodada não usa logs como evidência de ausência de erros.
 
