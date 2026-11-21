@@ -712,7 +712,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     ]);
     assert.deepEqual(
       concurrentCompletions.map(result => result.response.status).sort((a, b) => a - b),
-      [200, 403],
+      [200, 200],
       JSON.stringify(concurrentCompletions.map(result => ({ status: result.response.status, payload: result.payload })))
     );
     const completed = concurrentCompletions.find(result => result.response.status === 200);
@@ -721,6 +721,16 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const concurrentFinalUser = await mongoose.model('User').findById(aProfile.payload.id).lean();
     assert.equal(concurrentFinalUser.xp, 50);
     assert.deepEqual(concurrentFinalUser.completedIds, [challengeId]);
+
+    // A client retry after a lost response is idempotent and cannot grant XP twice.
+    const completionRetry = await request('/api/progress/complete', {
+      method: 'POST', token: a.accessToken, body: completionBody
+    });
+    assert.equal(completionRetry.response.status, 200);
+    assert.equal(completionRetry.payload.xp, 50);
+    const afterRetry = await mongoose.model('User').findById(aProfile.payload.id).lean();
+    assert.equal(afterRetry.xp, 50);
+    assert.deepEqual(afterRetry.completedIds, [challengeId]);
     const impactAfterLearning = await request('/api/privacy/deletion-impact', { token: a.accessToken });
     assert.equal(impactAfterLearning.response.status, 200);
     assert.equal(impactAfterLearning.payload.learning.dataPresent, true);
