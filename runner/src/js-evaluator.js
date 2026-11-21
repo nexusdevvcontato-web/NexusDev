@@ -274,7 +274,7 @@ function executeFunction(fn, args, budget, options = {}) {
             .map((item) => safeValue(item));
         }
         if (!Array.isArray(target) || node.arguments.length < 1 ||
-            !['reduce', 'map', 'filter', 'some'].includes(method) ||
+            !['reduce', 'map', 'filter', 'some', 'find'].includes(method) ||
             node.arguments.length > (method === 'reduce' ? 2 : 1)) {
           throw new EvaluationError('unsupported-call-target');
         }
@@ -302,9 +302,10 @@ function executeFunction(fn, args, budget, options = {}) {
           if (method === 'map') output.push(safeValue(result));
           else if (method === 'filter' && result) output.push(target[index]);
           else if (method === 'some' && result) return true;
+          else if (method === 'find' && result) return safeValue(target[index]);
           if (output.length > LIMITS.arrayLength) throw new EvaluationError('array-limit');
         }
-        return method === 'some' ? false : output;
+        return method === 'some' ? false : (method === 'find' ? null : output);
       }
       default: throw new EvaluationError('unsupported-expression');
     }
@@ -363,8 +364,9 @@ function evaluateChallenge({ challengeId, source }) {
         const responseState = { status: 200, body: null, sent: false };
         const responseMock = Object.create(null);
         RESPONSE_MOCKS.set(responseMock, responseState);
-        const requestMock = safeValue({ body: test.body ?? {} });
-        const result = executeFunction(fn, [requestMock, responseMock], { steps: 0 }, { controllerResponse: responseState });
+        const requestMock = safeValue({ body: test.body ?? {}, params: test.params ?? {} });
+        const extraArgs = Array.isArray(test.extraArgs) ? safeValue(test.extraArgs) : [];
+        const result = executeFunction(fn, [requestMock, responseMock, ...extraArgs], { steps: 0 }, { controllerResponse: responseState });
         if (!result.sent || result.status !== test.expectedStatus) return { ok: false, reason: 'tests-failed' };
         if (Object.prototype.hasOwnProperty.call(test, 'expectedBody') && !equal(result.body, test.expectedBody)) {
           return { ok: false, reason: 'tests-failed' };
