@@ -105,8 +105,6 @@ test('mail delivery failure clears the pending token and still avoids account en
 });
 
 test('does not send a reset link when the token digest was not persisted', async () => {
-  const h = makeHarness();
-  const originalUpdateOne = h.service;
   // Simulate a concurrent account removal between lookup and token persistence.
   const user = { _id: 'user-1', email: 'student@example.com', name: 'Student' };
   let sends = 0;
