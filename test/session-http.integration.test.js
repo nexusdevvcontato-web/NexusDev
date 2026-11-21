@@ -674,8 +674,8 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.comments.legacy.count, null);
     assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
 
-    // Generated curriculum lessons remain study-only until a trusted evaluator is registered.
-    const unsupportedChallengeId = 'mod-1-aula-7';
+    // IDs beyond the published curriculum remain unsupported until a trusted evaluator is registered.
+    const unsupportedChallengeId = 'mod-1-aula-141';
     const unsupportedCompletion = await request('/api/progress/complete', {
       method: 'POST',
       token: a.accessToken,
