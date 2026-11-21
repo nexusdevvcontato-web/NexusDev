@@ -1,7 +1,7 @@
 # Session authentication integration test plan
 
 **Branch:** `rebuild/v2-security`  
-**Status:** combined middleware tests and a real HTTP test against disposable MongoDB added; browser/staging tests pending.
+**Status:** combined middleware tests and real HTTP integration tests against disposable MongoDB are present and pass in CI; authenticated browser/staging tests remain pending.
 
 ## Security correction found during audit
 
@@ -45,8 +45,9 @@ Run only after a dedicated Render staging service, isolated MongoDB database, HT
 
 ## Release blockers
 
-- No staging service or database is provisioned.
-- No session, reauthentication, Google, or runner secrets are configured in staging.
-- No real browser test has been executed.
+- Dedicated Render staging service and isolated Atlas staging cluster are provisioned; service auto-deploy remains disabled.
+- `REAUTH_TOKEN_SECRET` is provisioned only in Render staging. The exact active Atlas DB username referenced by Render cannot be verified with the available read-only service metadata; two narrowly scoped staging DB users exist and neither was removed.
+- Session/authentication secrets and Google OAuth staging readiness have not been independently verified through the available service metadata. Do not infer their presence from the health check.
+- No authenticated real-browser journey has been executed.
 - No production endpoint, environment variable, database, deployment, or cookie setting was changed.
 - Do not enable the frontend session flow in a live environment until the full staging checklist passes.
