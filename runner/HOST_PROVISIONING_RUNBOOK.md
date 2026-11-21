@@ -6,12 +6,12 @@ This runbook defines the minimum conditions for a future isolated runner. It doe
 
 ## Current state
 
-- The API recognizes only the 26 lessons with trusted specifications in `runner/src/challenge-registry.js`.
-- The JavaScript evaluator is a restricted AST interpreter; it is not a general JavaScript runtime.
-- Completion proofs are signed with RS256, expire within five minutes, have a unique `jti`, and are bound to the exact canonical SHA-256 digest of the single registered entrypoint file.
-- The API rejects unsupported lessons, missing files, extra files, wrong entrypoints, and source substitution before consuming a proof.
-- The runner image currently has a fail-closed entrypoint. It does not contain an active execution service, Docker launcher, HTTP listener, or host adapter.
-- No runner private key is provisioned. The API's public-key verifier remains unconfigured in staging, so completion/XP remains disabled.
+- The API evaluates registered lesson submissions in-process using server-owned tests and the restricted evaluator adapters.
+- Successful evaluations create a deterministic, one-time database record bound to the authenticated user, lesson and canonical source hash; no browser-supplied signature is accepted.
+- Unsupported lesson IDs, missing files, extra files, wrong entrypoints and failed tests are rejected before progress/XP mutation.
+- The JavaScript evaluator is a restricted AST interpreter, not a general JavaScript runtime or OS sandbox.
+- The runner image remains fail-closed and inactive: there is no Docker launcher, HTTP listener or host adapter.
+- Current supported lessons do not require a runner private key or a separate host. Do not provision paid infrastructure; the external runner is an optional future architecture only if a future requirement cannot be met by a reviewed free in-process evaluator.
 
 ## Host boundary requirements
 
@@ -56,6 +56,6 @@ Before exposing an HTTP endpoint:
 
 ## Deployment and cost gate
 
-The current Render staging backend is a Node web service on the Free plan and is not a dedicated Docker host. A separate paid VM or runner provider must not be created automatically. If the existing infrastructure cannot meet the host requirements, stop and present the minimum provider, region, monthly cost, network design and operational trade-offs for explicit approval.
+This runbook describes an optional future isolated Docker runner only. It is not required for the current restricted evaluator path. The platform's permanent cost constraint is zero: do not create a paid VM, runner provider, upgrade, queue service or other billable infrastructure. If a future lesson cannot be evaluated safely with the existing free architecture, leave that lesson study-only until a suitable zero-cost design is reviewed.
 
-Production deployment, production secrets, production database access, merge to `main`, and any paid infrastructure require separate explicit authorization.
+Production deployment, production secrets, production database access and merge to `main` require separate explicit authorization.
