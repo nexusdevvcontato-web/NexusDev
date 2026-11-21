@@ -17,9 +17,9 @@ function evaluateRegisteredChallenge(request) {
   const spec = getChallengeSpec(challengeId);
   if (!spec) return { ok: false, reason: 'unsupported-challenge' };
 
-  // Each trusted lesson declares its exact editor file set. Only the registered
-  // entrypoint is interpreted; explicitly declared supporting files are hashed
-  // and saved but never executed by the evaluator.
+  // Each trusted lesson declares its exact editor file set. Only registered
+  // entrypoints and explicitly supported static checks are interpreted; no
+  // student JavaScript or CSS is executed by a browser or runtime.
   if (!validateChallengeFiles(challengeId, files)) {
     return { ok: false, reason: 'entrypoint-mismatch' };
   }
