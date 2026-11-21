@@ -227,3 +227,34 @@ A integração HTTP cobre:
 - O serviço Render de staging está no plano Free e com deploy automático desligado. A validação de saúde por chamada HTTP externa não foi confirmada nesta etapa; os logs confirmam inicialização do servidor e conexão MongoDB.
 - O inventário Atlas mostra os índices `jti_1` e `expiresAt_1`, mas a ferramenta de inspeção usada não expõe as opções `unique` e TTL. Não afirmar que essas opções estão confirmadas no cluster real apenas pelo nome dos índices.
 - A avaliação em processo Node é uma linguagem interpretada restrita, não um sandbox de sistema operacional. Não habilitar execução arbitrária, linguagens adicionais ou aulas com efeitos externos sem isolamento e testes específicos.
+
+
+## Atualização — segunda expansão de aulas verificáveis (2026-11-21)
+
+A registry passou de 94 para **161 especificações confiáveis**:
+
+- 26 especificações anteriores;
+- 68 aulas HTML geradas do módulo 1 (padrões de perfil, cabeçalho, navegação e formulário);
+- 67 aulas JavaScript geradas do módulo 2 (contagem de vogais, filtro de notas e validação de cupom).
+
+Isso representa 161 de 700 IDs publicados (23%). A contagem não significa que 23% de todo o conteúdo já foi testado em navegador: representa aulas com critérios server-side explícitos e executáveis pelo avaliador atual.
+
+### Critérios e limites
+
+- Os IDs gerados são determinísticos e os testes esperados são definidos exclusivamente no backend.
+- Aulas HTML aceitam exatamente `index.html` e `style.css`; o CSS é preservado no hash, mas não executado nem avaliado. As verificações são estruturais com parse5 e seletores permitidos.
+- Aulas JavaScript usam somente as construções e métodos já permitidos pelo interpretador AST restrito, incluindo `split`, `filter`, `includes`, `trim` e `toUpperCase`.
+- Aulas de CSS, Flexbox, Grid, debugging e outras variantes sem avaliador apropriado continuam sem XP oficial.
+- A expansão não transforma os 700 IDs em 700 aulas completas: parte do currículo é gerada por modelos repetidos, e a qualidade pedagógica e a progressão precisam de revisão separada.
+
+### Evidência CI e integração HTTP
+
+No commit `8c530334`, o workflow executou **294 testes aprovados, zero falhas e zero ignorados**, usando MongoDB replica set descartável.
+
+A suíte inclui:
+- registro exato das 68 aulas HTML e 67 aulas JavaScript novas;
+- aceitação apenas dos arquivos autorizados por aula;
+- testes representativos para os quatro padrões HTML e três padrões JavaScript;
+- fluxo HTTP de conclusão real com conta sintética: aulas Express de dois arquivos, aula HTML gerada e aula JavaScript gerada, com XP incrementado apenas após validação server-side.
+
+O CI verde comprova o comportamento no ambiente descartável de testes. Ainda falta publicar esta versão no Render staging e validar o endpoint remoto; isso não autoriza publicação em produção.
