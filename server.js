@@ -22,7 +22,7 @@ const { verifyReauthenticationCredential } = require('./src/modules/auth/reauthe
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { isKnownChallengeId, EXPECTED_COURSE_COMPLETIONS } = require('./src/modules/curriculum/catalog');
-const { isRunnerSupportedChallenge, getChallengeSpec } = require('./runner/src/challenge-registry');
+const { isRunnerSupportedChallenge, validateChallengeFiles } = require('./runner/src/challenge-registry');
 const { evaluateAndCreateCompletionProof } = require('./src/modules/proofs/evaluate-completion');
 const { createCompletionProofModel, consumeCompletionProof } = require('./src/modules/proofs/completion-proof-store');
 const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/complete-lesson');
@@ -645,13 +645,11 @@ app.post('/api/progress/complete', (req, res, next) => {
       return res.status(400).json({ error: 'Esta aula ainda não possui um validador seguro habilitado.' });
     }
 
-    const challengeSpec = getChallengeSpec(challengeId);
     if (!files || typeof files !== 'object' || Array.isArray(files)) {
       return res.status(400).json({ error: 'Os arquivos avaliados são obrigatórios.' });
     }
-    const fileNames = Object.keys(files);
-    if (fileNames.length !== 1 || fileNames[0] !== challengeSpec.entrypoint) {
-      return res.status(400).json({ error: 'Envie somente o arquivo principal desta aula.' });
+    if (!validateChallengeFiles(challengeId, files)) {
+      return res.status(400).json({ error: 'Os arquivos enviados não correspondem à estrutura autorizada desta aula.' });
     }
 
     const evaluationResult = evaluateAndCreateCompletionProof({
