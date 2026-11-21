@@ -20,7 +20,7 @@ async function completeLessonAtomically({ mongoose, User, CompletionProof, userI
       );
       await User.updateOne(
         { _id: userId, lastActiveDate: { $ne: today } },
-        { $inc: { streak: 1 }, $set: { lastActiveDate: today } },
+        buildDailyActivityUpdate(today),
         { session }
       );
       updatedUser = await User.findById(userId).session(session);
