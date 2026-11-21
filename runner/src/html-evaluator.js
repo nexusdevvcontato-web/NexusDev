@@ -2,7 +2,7 @@
 
 const parse5 = require('parse5');
 
-const LIMITS = Object.freeze({ sourceBytes: 50_000, nodes: 5_000, depth: 64, textLength: 20_000 });
+const LIMITS = Object.freeze({ sourceBytes: 50_000, cssBytes: 50_000, cssRules: 500, cssDeclarations: 100, nodes: 5_000, depth: 64, textLength: 20_000 });
 const SELECTORS = Object.freeze({
   h1: (node) => node.tagName === 'h1',
   h2: (node) => node.tagName === 'h2',
@@ -18,10 +18,10 @@ const SELECTORS = Object.freeze({
   'form button': (node, ancestors) => node.tagName === 'button' && ancestors.some((parent) => parent.tagName === 'form'),
   'article.perfil h2': (node, ancestors) => node.tagName === 'h2' && ancestors.some((parent) =>
     parent.tagName === 'article' && parent.attrs?.some((attr) =>
-      attr.name === 'class' && attr.value.split(/\s+/).includes('perfil'))),
+      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil'))),
   'article.perfil p': (node, ancestors) => node.tagName === 'p' && ancestors.some((parent) =>
     parent.tagName === 'article' && parent.attrs?.some((attr) =>
-      attr.name === 'class' && attr.value.split(/\s+/).includes('perfil')))
+      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil')))
 });
 
 class HtmlEvaluationError extends Error {
@@ -40,9 +40,7 @@ function collectElements(root) {
     if (node.tagName) found.push({ node, ancestors: current.ancestors });
     const children = Array.isArray(node.childNodes) ? node.childNodes : [];
     const ancestors = node.tagName ? [...current.ancestors, node] : current.ancestors;
-    for (let i = children.length - 1; i >= 0; i -= 1) {
-      stack.push({ node: children[i], ancestors, depth: current.depth + 1 });
-    }
+    for (let i = children.length - 1; i >= 0; i -= 1) stack.push({ node: children[i], ancestors, depth: current.depth + 1 });
   }
   return found;
 }
@@ -60,7 +58,43 @@ function textContent(node) {
   return result;
 }
 
-function evaluateChallenge({ challengeId, source }) {
+function parseRestrictedCss(source) {
+  if (typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > LIMITS.cssBytes) {
+    throw new HtmlEvaluationError('css-source-limit');
+  }
+  const css = source.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
+  const rules = [];
+  const pattern = /([^{}]+)\\{([^{}]*)\\}/g;
+  let match;
+  let consumed = '';
+  while ((match = pattern.exec(css)) !== null) {
+    if (rules.length >= LIMITS.cssRules) throw new HtmlEvaluationError('css-rule-limit');
+    const selector = match[1].trim();
+    if (!/^\\.[a-zA-Z_][a-zA-Z0-9_-]*$/.test(selector) && !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(selector)) {
+      throw new HtmlEvaluationError('unsupported-css-selector');
+    }
+    const declarations = Object.create(null);
+    const parts = match[2].split(';').filter((part) => part.trim());
+    if (parts.length > LIMITS.cssDeclarations) throw new HtmlEvaluationError('css-declaration-limit');
+    for (const part of parts) {
+      const colon = part.indexOf(':');
+      if (colon <= 0) throw new HtmlEvaluationError('invalid-css-declaration');
+      const property = part.slice(0, colon).trim().toLowerCase();
+      const value = part.slice(colon + 1).trim().toLowerCase().replace(/\\s+/g, ' ');
+      if (!/^[a-z-]+$/.test(property) || !value || /[{};]/.test(value) || /!important/.test(value)) {
+        throw new HtmlEvaluationError('invalid-css-declaration');
+      }
+      declarations[property] = value;
+    }
+    rules.push({ selector, declarations });
+    consumed += match[0];
+  }
+  const residue = css.replace(pattern, '').trim();
+  if (residue) throw new HtmlEvaluationError('invalid-css-syntax');
+  return rules;
+}
+
+function evaluateChallenge({ challengeId, source, cssSource = '' }) {
   const { getChallengeSpec } = require('./challenge-registry');
   const spec = getChallengeSpec(challengeId);
   if (!spec || spec.language !== 'html' || spec.entrypoint !== 'index.html' ||
@@ -73,6 +107,7 @@ function evaluateChallenge({ challengeId, source }) {
     }
     const document = parse5.parseFragment(source, { scriptingEnabled: false });
     const elements = collectElements(document);
+    let cssRules = null;
     const matches = (selector) => {
       const matcher = SELECTORS[selector];
       if (!matcher) throw new HtmlEvaluationError('unsupported-selector');
@@ -89,11 +124,7 @@ function evaluateChallenge({ challengeId, source }) {
           if (!nodes.some((node) => textContent(node).includes(check.value))) return { ok: false, reason: 'tests-failed' };
           break;
         }
-        case 'text-min-length': {
-          const nodes = matches(check.selector);
-          if (!nodes.some((node) => textContent(node).trim().length >= check.minLength)) return { ok: false, reason: 'tests-failed' };
-          break;
-        }
+        case 'text-min-length':
         case 'selector-text-min-length': {
           const nodes = matches(check.selector);
           if (!nodes.some((node) => textContent(node).trim().length >= check.minLength)) return { ok: false, reason: 'tests-failed' };
@@ -102,6 +133,20 @@ function evaluateChallenge({ challengeId, source }) {
         case 'selector-count-min':
           if (matches(check.selector).length < check.minCount) return { ok: false, reason: 'tests-failed' };
           break;
+        case 'source-contains':
+          if (typeof check.value !== 'string' || !source.toLowerCase().includes(check.value.toLowerCase())) return { ok: false, reason: 'tests-failed' };
+          break;
+        case 'css-declaration': {
+          if (typeof check.selector !== 'string' || typeof check.property !== 'string' || typeof check.expected !== 'string') {
+            throw new HtmlEvaluationError('invalid-test-spec');
+          }
+          if (cssRules === null) cssRules = parseRestrictedCss(cssSource);
+          const actual = cssRules.filter((rule) => rule.selector === check.selector)
+            .reduce((value, rule) => Object.hasOwn(rule.declarations, check.property) ? rule.declarations[check.property] : value, undefined);
+          const expected = check.expected.toLowerCase().replace(/\\s+/g, ' ').trim();
+          if (actual !== expected) return { ok: false, reason: 'tests-failed' };
+          break;
+        }
         default:
           throw new HtmlEvaluationError('unsupported-test-type');
       }
@@ -112,4 +157,4 @@ function evaluateChallenge({ challengeId, source }) {
   }
 }
 
-module.exports = { evaluateChallenge, LIMITS, HtmlEvaluationError };
+module.exports = { evaluateChallenge, LIMITS, HtmlEvaluationError, parseRestrictedCss };
