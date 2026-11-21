@@ -113,8 +113,8 @@ test('evaluates generated module-three React state and pagination lessons', () =
 test('evaluates generated Express and module-five security/data lessons', () => {
   const cases = [
     ['mod-4-aula-8', "function handlerExpress_8(req, res) { const nome = req.body.nome; if (!nome || nome.trim().length < 3) return res.status(400).json({ erro: 'Nome muito curto' }); return res.status(200).json({ ok: true, nome: nome.trim() }); }", 'controller.js'],
-    ['mod-5-aula-8', "function validarPermissaoJWT_8(usuario) { return usuario && usuario.role === 'admin'; }", 'rbac.js'],
-    ['mod-5-aula-9', "function verificarExpiracaoToken_9(payload, agoraSegundos) { return payload && typeof payload.exp === 'number' && payload.exp > agoraSegundos; }", 'jwtGuard.js'],
+    ['mod-5-aula-8', "function validarPermissaoJWT_8(usuario) { return !!(usuario && usuario.role === 'admin'); }", 'rbac.js'],
+    ['mod-5-aula-9', "function verificarExpiracaoToken_9(payload, agoraSegundos) { return !!(payload && typeof payload.exp === 'number' && payload.exp > agoraSegundos); }", 'jwtGuard.js'],
     ['mod-5-aula-10', 'function sanitizarUsuarioPublico_10(userDoc) { return { id: userDoc._id, name: userDoc.name, email: userDoc.email }; }', 'userSerializer.js'],
     ['mod-5-aula-11', "function somarPedidosPagos_11(pedidos) { return pedidos.filter(p => p.status === 'pago').reduce((acc, p) => acc + p.total, 0); }", 'relatorioPedidos.js']
   ];
