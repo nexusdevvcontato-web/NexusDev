@@ -149,7 +149,7 @@ test('registers password policy, Bearer parsing and RBAC lessons', () => {
     assert.equal(spec.language, 'javascript');
     assert.equal(spec.tests[0].type, 'function-cases');
   }
-  assert.equal(getChallengeSpec('mod-5-aula-8'), null);
+  assert.equal(getChallengeSpec('mod-5-aula-141'), null);
 });
 
 test('request boundary accepts the new authentication and RBAC lessons', () => {
