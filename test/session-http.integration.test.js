@@ -674,27 +674,14 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.comments.legacy.count, null);
     assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
 
-    // Generated curriculum lessons without trusted runner specifications must never earn XP,
-    // even if a syntactically valid runner signature is presented.
+    // Generated curriculum lessons remain study-only until a trusted evaluator is registered.
     const unsupportedChallengeId = 'mod-1-aula-7';
-    const unsupportedProofNow = Math.floor(Date.now() / 1000);
-    const unsupportedProof = jwt.sign({
-      jti: crypto.randomUUID(),
-      purpose: 'lesson-completion',
-      challengeId: unsupportedChallengeId,
-      sub: aProfile.payload.id,
-      iss: 'nexusdev-runner',
-      aud: 'nexusdev-progress',
-      iat: unsupportedProofNow,
-      exp: unsupportedProofNow + 120
-    }, completionKeys.privateKey, { algorithm: 'RS256' });
     const unsupportedCompletion = await request('/api/progress/complete', {
       method: 'POST',
       token: a.accessToken,
       body: {
         challengeId: unsupportedChallengeId,
-        files: { 'script.js': 'function resposta() { return true; }' },
-        completionProof: unsupportedProof
+        files: { 'script.js': 'function resposta() { return true; }' }
       }
     });
     assert.equal(unsupportedCompletion.response.status, 400);
@@ -704,44 +691,24 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.deepEqual(userAfterUnsupported.completedIds, []);
     assert.equal(await mongoose.model('CompletionProof').countDocuments({ userId: aProfile.payload.id }), 0);
 
-    const proofNow = Math.floor(Date.now() / 1000);
-    const evaluatedFiles = { 'index.html': '<h1>Primeira versão</h1>' };
-    const completionProof = jwt.sign({
-      jti: crypto.randomUUID(),
-      purpose: 'lesson-completion',
-      challengeId,
-      filesHash: hashCompletionFiles(evaluatedFiles),
-      sub: aProfile.payload.id,
-      iss: 'nexusdev-runner',
-      aud: 'nexusdev-progress',
-      iat: proofNow,
-      exp: proofNow + 120
-    }, completionKeys.privateKey, { algorithm: 'RS256' });
-    const completionBody = {
-      challengeId,
-      files: evaluatedFiles,
-      completionProof
-    };
+    // The API evaluates the exact submitted source using server-owned tests; clients cannot mint proofs.
+    const evaluatedFiles = { 'index.html': '<h1>Olá, Mundo!</h1>' };
+    const completionBody = { challengeId, files: evaluatedFiles };
 
-    // A proof for one source must not authorize saving a different source or awarding XP.
     const substituted = await request('/api/progress/complete', {
       method: 'POST',
       token: a.accessToken,
       body: { ...completionBody, files: { 'index.html': '<h1>Conteúdo não avaliado</h1>' } }
     });
-    assert.equal(substituted.response.status, 403);
+    assert.equal(substituted.response.status, 422);
     assert.equal(await mongoose.model('CompletionProof').countDocuments({ userId: aProfile.payload.id }), 0);
     const userAfterSubstitution = await mongoose.model('User').findById(aProfile.payload.id).lean();
     assert.equal(userAfterSubstitution.xp, 0);
     assert.deepEqual(userAfterSubstitution.completedIds, []);
 
     const concurrentCompletions = await Promise.all([
-      request('/api/progress/complete', {
-        method: 'POST', token: a.accessToken, body: completionBody
-      }),
-      request('/api/progress/complete', {
-        method: 'POST', token: a.accessToken, body: completionBody
-      })
+      request('/api/progress/complete', { method: 'POST', token: a.accessToken, body: completionBody }),
+      request('/api/progress/complete', { method: 'POST', token: a.accessToken, body: completionBody })
     ]);
     assert.deepEqual(
       concurrentCompletions.map(result => result.response.status).sort((a, b) => a - b),
