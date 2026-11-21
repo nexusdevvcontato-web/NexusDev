@@ -177,3 +177,53 @@ Validation scope: code inspection and unit tests only. No real MongoDB instance,
 - A regra de produto existente permanece: `streak` conta dias distintos com atividade, mas não verifica continuidade entre dias consecutivos nem zera após ausência. Isso não foi alterado sem uma definição funcional explícita.
 
 Testes unitários mockados verificam os filtros e updates atômicos, o caminho de concorrência em que a atualização já foi realizada e o caso de conta ausente. Eles não substituem testes de integração com MongoDB nem validam o estado dos índices no banco real.
+
+
+## Atualização — integração da validação e suporte a arquivos auxiliares (2026-11-21)
+
+Esta seção atualiza as conclusões antigas desta auditoria, que foram escritas antes da integração da avaliação à API.
+
+### Estado atual da integração
+
+- A rota autenticada `POST /api/progress/complete` chama `evaluateAndCreateCompletionProof`; a conclusão não depende de um JWT de runner externo.
+- O backend avalia a submissão com testes e especificações mantidos no servidor. O navegador não envia testes, resultados esperados nem comprovantes.
+- A gravação do comprovante, do código submetido, do ID de conclusão, do XP e da atividade diária ocorre dentro da mesma transação MongoDB.
+- O identificador de comprovante é determinístico para usuário, aula e hash dos arquivos; a restrição única de `jti` impede reutilização idêntica. O incremento de XP é condicionado à aula ainda não constar em `completedIds`.
+- A execução JavaScript continua sendo interpretação restrita de AST. Não usa `eval`, `Function`, `vm`, processo filho, rede ou execução arbitrária do código do aluno.
+
+### Arquivos por aula
+
+A regra anterior de “um único arquivo para todas as aulas” foi substituída por uma allowlist declarativa por aula:
+
+- Por padrão, cada especificação aceita somente o seu `entrypoint`.
+- Quando uma aula realmente usa arquivos auxiliares no editor, a especificação pode declarar `supportingFiles`.
+- A validação exige o conjunto exato de nomes declarados; arquivos adicionais ou ausentes são rejeitados.
+- Todos os arquivos aceitos entram no hash de integridade e são salvos no rascunho/progresso. Somente o `entrypoint` é interpretado; arquivos auxiliares não são executados.
+- `mod-4-aula-2` e `node-01-controller-produto` declaram `produtoController.js` como entrypoint e `server.js` como arquivo auxiliar.
+
+### Compatibilidade atual do currículo
+
+- O currículo publicado contém 700 IDs de aula.
+- Existem 26 especificações explícitas no registro confiável do executor. Somente essas aulas podem conceder XP oficial; as demais continuam disponíveis como conteúdo/atividade local, mas não recebem XP validado até ganharem especificação e testes revisados.
+- As limitações apontadas anteriormente para `mod-4-aula-3` e `mod-5-aula-4`, `mod-5-aula-5` e `mod-5-aula-6` foram resolvidas no avaliador restrito atual: ele oferece `trim`, `Number.isFinite`, e padrões regex fixos e limitados para os casos dessas aulas.
+- A linguagem continua intencionalmente incompleta: sem loops, recursão, chamadas arbitrárias, acesso a globals, rede ou bibliotecas externas. Novos métodos e construções exigem implementação explícita e testes adversariais.
+- A aula HTML do botão verifica a estrutura e o texto do elemento; não simula uma interação de clique. Não deve ser apresentada como teste de comportamento JavaScript.
+
+### Evidência automatizada
+
+O workflow de backend executou a suíte com MongoDB replica set descartável, não pulou testes e terminou com **287 testes aprovados, 0 falhas e 0 ignorados** no commit `94eef13f`.
+
+A integração HTTP cobre:
+- rejeição de aula sem avaliador, sem XP e sem comprovante;
+- rejeição de código que não passa nos testes confiáveis;
+- duas submissões simultâneas idênticas, com uma única conclusão e um único incremento de 50 XP;
+- rejeição de replay do comprovante;
+- conclusão de aula Express com os dois arquivos declarados;
+- rejeição de arquivo extra não declarado, sem XP adicional.
+
+### Limites que permanecem
+
+- Os testes acima usam uma base MongoDB descartável no CI. O fluxo com uma sessão de navegador real no Preview Vercel/Render ainda não foi validado; o Preview continua protegido por autenticação da Vercel.
+- O serviço Render de staging está no plano Free e com deploy automático desligado. A validação de saúde por chamada HTTP externa não foi confirmada nesta etapa; os logs confirmam inicialização do servidor e conexão MongoDB.
+- O inventário Atlas mostra os índices `jti_1` e `expiresAt_1`, mas a ferramenta de inspeção usada não expõe as opções `unique` e TTL. Não afirmar que essas opções estão confirmadas no cluster real apenas pelo nome dos índices.
+- A avaliação em processo Node é uma linguagem interpretada restrita, não um sandbox de sistema operacional. Não habilitar execução arbitrária, linguagens adicionais ou aulas com efeitos externos sem isolamento e testes específicos.
