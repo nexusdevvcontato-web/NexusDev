@@ -33,10 +33,19 @@ function evaluateAndCreateCompletionProof({ userId, challengeId, files, nowSecon
   const evaluation = evaluateRegisteredChallenge({ challengeId, files });
   if (!evaluation.ok) return { ok: false, reason: evaluation.reason || 'tests-failed' };
 
+  const jtiBytes = crypto.createHash('sha256')
+    .update(userId + String.fromCharCode(0) + challengeId + String.fromCharCode(0) + filesHash)
+    .digest().subarray(0, 16);
+  jtiBytes[6] = (jtiBytes[6] & 0x0f) | 0x50;
+  jtiBytes[8] = (jtiBytes[8] & 0x3f) | 0x80;
+  const jti = [jtiBytes.subarray(0, 4).toString('hex'), jtiBytes.subarray(4, 6).toString('hex'),
+    jtiBytes.subarray(6, 8).toString('hex'), jtiBytes.subarray(8, 10).toString('hex'),
+    jtiBytes.subarray(10, 16).toString('hex')].join('-');
+
   return {
     ok: true,
     proof: {
-      jti: crypto.randomUUID(),
+      jti,
       exp: nowSeconds + 120,
       challengeId,
       filesHash
