@@ -141,7 +141,7 @@ function executeFunction(fn, args, budget, options = {}) {
         if (node.operator === 'typeof') {
           // typeof on an unresolved identifier is safe and returns "undefined";
           // no other identifier lookup is relaxed.
-          if (node.argument.type === 'Identifier' && !scope.has(node.argument.name)) return 'undefined';
+          if (node.argument.type === 'Identifier' && !scope.has(node.argument.name) && !parentScope?.has(node.argument.name)) return 'undefined';
           return typeof evalExpr(node.argument, depth + 1);
         }
         const value = evalExpr(node.argument, depth + 1);
