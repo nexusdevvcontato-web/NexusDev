@@ -380,7 +380,7 @@ app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
   return requireSessionCsrf(req, res, next);
 }, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
 
-app.post('/api/auth/password-reset/request', passwordResetRequestLimiter, passwordResetEmailLimiter, async (req, res) => {
+app.post('/api/auth/password-reset/request', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, passwordResetRequestLimiter, passwordResetEmailLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const { email } = req.body || {};
   if (typeof email !== 'string' || email.length > 254) {
@@ -397,7 +397,7 @@ app.post('/api/auth/password-reset/request', passwordResetRequestLimiter, passwo
   }
 });
 
-app.post('/api/auth/password-reset/confirm', passwordResetConfirmLimiter, async (req, res) => {
+app.post('/api/auth/password-reset/confirm', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, passwordResetConfirmLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (!passwordResetService) return res.status(503).json({ error: 'Recuperação de senha ainda não está configurada neste ambiente.' });
   try {
