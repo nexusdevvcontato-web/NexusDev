@@ -303,7 +303,7 @@ No commit `236a8e02`, o CI executou **300 testes aprovados, zero falhas e zero i
 
 ## Atualização — validação estática de CSS no módulo 1 (2026-11-21)
 
-A registry passou de 464 para **530 especificações confiáveis de 700 aulas (75,7%)**. Foram adicionadas 66 especificações geradas de CSS no módulo 1; junto às 68 especificações HTML já existentes, agora as 134 aulas geradas do módulo 1 têm critérios server-side.
+Após a expansão de `Array.find` no módulo 4, a registry passou a **564 especificações confiáveis de 700 aulas (80,6%)**. O módulo 1 mantém 134 aulas geradas com critérios HTML/CSS server-side; o módulo 4 agora cobre 68 aulas geradas: 34 controllers de validação e 34 controllers de busca por ID.
 
 Cobertura CSS adicionada:
 - Box Model: `padding` e `border-radius` na classe `.caixa-destaque`, com o valor de padding específico de cada aula.
