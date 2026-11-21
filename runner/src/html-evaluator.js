@@ -62,15 +62,15 @@ function parseRestrictedCss(source) {
   if (typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > LIMITS.cssBytes) {
     throw new HtmlEvaluationError('css-source-limit');
   }
-  const css = source.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
+  const css = source.replace(/\/\*[\s\S]*?\*\//g, '');
   const rules = [];
-  const pattern = /([^{}]+)\\{([^{}]*)\\}/g;
+  const pattern = /([^{}]+)\{([^{}]*)\}/g;
   let match;
   let consumed = '';
   while ((match = pattern.exec(css)) !== null) {
     if (rules.length >= LIMITS.cssRules) throw new HtmlEvaluationError('css-rule-limit');
     const selector = match[1].trim();
-    if (!/^\\.[a-zA-Z_][a-zA-Z0-9_-]*$/.test(selector) && !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(selector)) {
+    if (!/^\.[a-zA-Z_][a-zA-Z0-9_-]*$/.test(selector) && !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(selector)) {
       throw new HtmlEvaluationError('unsupported-css-selector');
     }
     const declarations = Object.create(null);
@@ -80,7 +80,7 @@ function parseRestrictedCss(source) {
       const colon = part.indexOf(':');
       if (colon <= 0) throw new HtmlEvaluationError('invalid-css-declaration');
       const property = part.slice(0, colon).trim().toLowerCase();
-      const value = part.slice(colon + 1).trim().toLowerCase().replace(/\\s+/g, ' ');
+      const value = part.slice(colon + 1).trim().toLowerCase().replace(/\s+/g, ' ');
       if (!/^[a-z-]+$/.test(property) || !value || /[{};]/.test(value) || /!important/.test(value)) {
         throw new HtmlEvaluationError('invalid-css-declaration');
       }
