@@ -1,7 +1,7 @@
 'use strict';
 
 function previousUtcDate(today) {
-  if (typeof today !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(today)) {
+  if (typeof today !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
     throw new TypeError('Data de atividade inválida.');
   }
   const date = new Date(`${today}T00:00:00.000Z`);
