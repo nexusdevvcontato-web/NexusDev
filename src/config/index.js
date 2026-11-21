@@ -17,7 +17,21 @@ const LESSON_PROOF_PUBLIC_KEY = process.env.LESSON_PROOF_PUBLIC_KEY || '';
 const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) => {
+    let parsed;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error('Cada origem CORS deve ser uma URL válida.');
+    }
+    if (parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash ||
+        (NODE_ENV === 'production' && parsed.protocol !== 'https:') ||
+        !['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Cada origem CORS deve conter somente uma origem HTTP(S); produção exige HTTPS.');
+    }
+    return parsed.origin;
+  });
 
 const jwtDuration = /^(?:[1-9]\d{0,5})(s|m|h|d)$/.exec(JWT_EXPIRES_IN);
 const jwtUnitsInSeconds = { s: 1, m: 60, h: 3600, d: 86400 };
