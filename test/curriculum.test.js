@@ -11,7 +11,8 @@ test('accepts the curriculum static lesson IDs', () => {
     'html-05-botao-clicavel',
     'js-01-variaveis-calculo',
     'react-01-carrinho-imutavel',
-    'node-01-controller-produto'
+    'node-01-controller-produto',
+    'auth-01-middleware-admin'
   ]) {
     assert.equal(isKnownChallengeId(id), true, id);
   }
@@ -23,7 +24,7 @@ test('accepts generated lesson ranges that exist in each module', () => {
     'mod-2-aula-4', 'mod-2-aula-140',
     'mod-3-aula-2', 'mod-3-aula-140',
     'mod-4-aula-2', 'mod-4-aula-140',
-    'mod-5-aula-1', 'mod-5-aula-140'
+    'mod-5-aula-2', 'mod-5-aula-140'
   ]) {
     assert.equal(isKnownChallengeId(id), true, id);
   }
@@ -65,7 +66,7 @@ test('curriculum allowlist contains exactly 700 valid lesson IDs', () => {
     'react-01-carrinho-imutavel',
     'node-01-controller-produto'
   ];
-  const starts = { 1: 7, 2: 4, 3: 2, 4: 2, 5: 1 };
+  const starts = { 1: 7, 2: 4, 3: 2, 4: 2, 5: 2 };
   for (const [moduleNumber, first] of Object.entries(starts)) {
     for (let lesson = first; lesson <= 140; lesson += 1) {
       ids.push(`mod-${moduleNumber}-aula-${lesson}`);
