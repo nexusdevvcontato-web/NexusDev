@@ -11,7 +11,17 @@ const SELECTORS = Object.freeze({
   'p strong': (node, ancestors) => node.tagName === 'strong' && ancestors.some((parent) => parent.tagName === 'p'),
   ul: (node) => node.tagName === 'ul',
   'ul li': (node, ancestors) => node.tagName === 'li' && ancestors.some((parent) => parent.tagName === 'ul'),
-  button: (node) => node.tagName === 'button'
+  button: (node) => node.tagName === 'button',
+  'header h1': (node, ancestors) => node.tagName === 'h1' && ancestors.some((parent) => parent.tagName === 'header'),
+  'nav a': (node, ancestors) => node.tagName === 'a' && ancestors.some((parent) => parent.tagName === 'nav'),
+  'form input': (node, ancestors) => node.tagName === 'input' && ancestors.some((parent) => parent.tagName === 'form'),
+  'form button': (node, ancestors) => node.tagName === 'button' && ancestors.some((parent) => parent.tagName === 'form'),
+  'article.perfil h2': (node, ancestors) => node.tagName === 'h2' && ancestors.some((parent) =>
+    parent.tagName === 'article' && parent.attrs?.some((attr) =>
+      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil'))),
+  'article.perfil p': (node, ancestors) => node.tagName === 'p' && ancestors.some((parent) =>
+    parent.tagName === 'article' && parent.attrs?.some((attr) =>
+      attr.name === 'class' && attr.value.split(/\\s+/).includes('perfil')))
 });
 
 class HtmlEvaluationError extends Error {
