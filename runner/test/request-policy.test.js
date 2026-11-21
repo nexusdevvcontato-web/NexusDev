@@ -50,3 +50,20 @@ test('rejects null bytes and oversized identities', () => {
   assert.equal(validateExecutionRequest({ userId: 'u', challengeId: 'html-00-o-que-e-web', files: { 'a.js': 'x' + String.fromCharCode(0) + 'y' } }).ok, false);
   assert.equal(validateExecutionRequest({ userId: 'x'.repeat(129), challengeId: 'html-00-o-que-e-web', files: { 'a.js': 'x' } }).ok, false);
 });
+
+
+test('accepts exact editor file sets for generated module-one HTML lessons', () => {
+  for (const [challengeId, html] of [
+    ['mod-1-aula-8', '<article class="perfil"><h2>Ana</h2><p>Dev</p></article>'],
+    ['mod-1-aula-9', '<header><h1>Portfólio Dev #9</h1></header>'],
+    ['mod-1-aula-10', '<nav><a>Início</a><a>Projetos</a></nav>'],
+    ['mod-1-aula-11', '<form><input><button>Enviar</button></form>']
+  ]) {
+    const result = validateExecutionRequest({
+      userId: 'student-1',
+      challengeId,
+      files: { 'index.html': html, 'style.css': '' }
+    });
+    assert.equal(result.ok, true, challengeId);
+  }
+});
