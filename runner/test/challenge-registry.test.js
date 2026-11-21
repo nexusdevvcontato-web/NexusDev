@@ -6,7 +6,7 @@ const { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge } = requir
 const { validateExecutionRequest } = require('../src/request-policy');
 
 test('registers only lessons with explicit server-owned test specifications', () => {
-  assert.equal(Object.keys(CHALLENGE_SPECS).length, 161);
+  assert.equal(Object.keys(CHALLENGE_SPECS).length, 464);
   for (const [id, spec] of Object.entries(CHALLENGE_SPECS)) {
     assert.equal(isRunnerSupportedChallenge(id), true);
     assert.ok(['html', 'javascript'].includes(spec.language));
@@ -214,5 +214,42 @@ test('registers 67 generated module-two JavaScript lessons supported by the AST 
   }
   for (const id of ['mod-2-aula-7', 'mod-2-aula-11', 'mod-2-aula-12', 'mod-2-aula-13']) {
     assert.equal(getChallengeSpec(id), null, id);
+  }
+});
+
+
+test('registers all 136 generated module-three React state lessons', () => {
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
+    /^mod-3-aula-\\d+$/.test(id) && Number(id.slice('mod-3-aula-'.length)) >= 5);
+  assert.equal(ids.length, 136);
+  for (const id of ids) {
+    const spec = getChallengeSpec(id);
+    assert.equal(spec.language, 'javascript', id);
+    assert.equal(spec.entrypoint, 'script.js', id);
+    assert.ok(spec.exportName, id);
+    assert.ok(spec.tests.length > 0, id);
+  }
+});
+
+test('registers 34 generated Express controller lessons with trusted HTTP response tests', () => {
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
+    /^mod-4-aula-\\d+$/.test(id) && Number(id.slice('mod-4-aula-'.length)) >= 5);
+  assert.equal(ids.length, 34);
+  for (const id of ids) {
+    const spec = getChallengeSpec(id);
+    assert.equal(spec.entrypoint, 'controller.js', id);
+    assert.ok(spec.tests.every((check) => check.type === 'http-controller-case'), id);
+  }
+});
+
+test('registers all 133 generated module-five security and data lessons', () => {
+  const ids = Object.keys(CHALLENGE_SPECS).filter((id) =>
+    /^mod-5-aula-\\d+$/.test(id) && Number(id.slice('mod-5-aula-'.length)) >= 8);
+  assert.equal(ids.length, 133);
+  for (const id of ids) {
+    const spec = getChallengeSpec(id);
+    assert.equal(spec.language, 'javascript', id);
+    assert.ok(spec.exportName, id);
+    assert.ok(spec.tests.length > 0, id);
   }
 });
