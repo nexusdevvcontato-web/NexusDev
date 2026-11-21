@@ -127,7 +127,7 @@ const CHALLENGE_SPECS = Object.freeze({
     ]
   },
   'mod-4-aula-2': {
-    language: 'javascript', entrypoint: 'produtoController.js', exportName: 'listarProdutosController',
+    language: 'javascript', entrypoint: 'produtoController.js', supportingFiles: ['server.js'], exportName: 'listarProdutosController',
     tests: [{ type: 'http-controller-case', expectedStatus: 200, expectedBody: [{ id: 1, nome: 'Teclado' }, { id: 2, nome: 'Mouse' }] }]
   },
   'mod-4-aula-3': {
@@ -218,7 +218,7 @@ const CHALLENGE_SPECS = Object.freeze({
     ]}]
   },
   'node-01-controller-produto': {
-    language: 'javascript', entrypoint: 'produtoController.js', exportName: 'criarProdutoController',
+    language: 'javascript', entrypoint: 'produtoController.js', supportingFiles: ['server.js'], exportName: 'criarProdutoController',
     tests: [
       { type: 'http-controller-case', body: { titulo: '', preco: -5 }, expectedStatus: 400, expectedBodyIncludes: 'erro' },
       { type: 'http-controller-case', body: { titulo: 'Teclado', preco: 200 }, expectedStatus: 201, expectedBody: { id: 101, titulo: 'Teclado', preco: 200 } },
@@ -237,4 +237,31 @@ function isRunnerSupportedChallenge(challengeId) {
   return getChallengeSpec(challengeId) !== null;
 }
 
-module.exports = { CHALLENGE_SPECS, getChallengeSpec, isRunnerSupportedChallenge };
+function getAllowedChallengeFiles(spec) {
+  if (!spec || typeof spec.entrypoint !== 'string') return [];
+  const supportingFiles = spec.supportingFiles ?? [];
+  if (!Array.isArray(supportingFiles) ||
+      supportingFiles.some((name) => typeof name !== 'string' || !name || name === spec.entrypoint) ||
+      new Set(supportingFiles).size !== supportingFiles.length) return [];
+  return [spec.entrypoint, ...supportingFiles];
+}
+
+function validateChallengeFiles(challengeId, files) {
+  const spec = getChallengeSpec(challengeId);
+  if (!spec || !files || typeof files !== 'object' || Array.isArray(files)) return false;
+  const prototype = Object.getPrototypeOf(files);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const allowed = getAllowedChallengeFiles(spec);
+  const names = Object.keys(files);
+  return allowed.length > 0 && names.length === allowed.length &&
+    allowed.every((name) => Object.hasOwn(files, name) && typeof files[name] === 'string') &&
+    names.every((name) => allowed.includes(name));
+}
+
+module.exports = {
+  CHALLENGE_SPECS,
+  getChallengeSpec,
+  isRunnerSupportedChallenge,
+  getAllowedChallengeFiles,
+  validateChallengeFiles
+};
