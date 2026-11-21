@@ -17,7 +17,7 @@ test('registers only lessons with explicit server-owned test specifications', ()
 });
 
 test('does not treat generated placeholder curriculum IDs as executable lessons', () => {
-  assert.equal(getChallengeSpec('mod-1-aula-7'), null);
+  assert.equal(getChallengeSpec('mod-1-aula-141'), null);
   assert.equal(getChallengeSpec('mod-5-aula-141'), null);
   assert.equal(isRunnerSupportedChallenge('unknown-lesson'), false);
 });
