@@ -27,7 +27,7 @@ function evaluateRegisteredChallenge(request) {
   const source = files[spec.entrypoint];
   switch (spec.language) {
     case 'html':
-      return evaluateHtmlChallenge({ challengeId, source });
+      return evaluateHtmlChallenge({ challengeId, source, cssSource: files['style.css'] ?? '' });
     case 'javascript':
       return evaluateJavaScriptChallenge({ challengeId, source });
     default:
