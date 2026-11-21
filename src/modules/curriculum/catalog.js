@@ -11,7 +11,8 @@ const STATIC_CHALLENGE_IDS = new Set([
   'js-02-condicionais-frete',
   'js-03-arrays-soma',
   'react-01-carrinho-imutavel',
-  'node-01-controller-produto'
+  'node-01-controller-produto',
+  'auth-01-middleware-admin'
 ]);
 
 const GENERATED_MODULE_STARTS = Object.freeze({
@@ -19,7 +20,7 @@ const GENERATED_MODULE_STARTS = Object.freeze({
   2: 4,
   3: 2,
   4: 2,
-  5: 1
+  5: 2
 });
 const LESSONS_PER_GENERATED_MODULE = 140;
 
