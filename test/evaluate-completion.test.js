@@ -45,3 +45,22 @@ test('does not accept caller-provided tests or expected outputs', () => {
   });
   assert.deepEqual(result, { ok: false, reason: 'tests-failed' });
 });
+
+test('uses a deterministic one-time identifier for identical user, lesson and source', () => {
+  const input = {
+    userId: 'synthetic-user',
+    challengeId: 'html-00-o-que-e-web',
+    files: { 'index.html': '<h1>Olá, Mundo!</h1>' },
+    nowSeconds: 2000
+  };
+  const first = evaluateAndCreateCompletionProof(input);
+  const repeated = evaluateAndCreateCompletionProof(input);
+  const changed = evaluateAndCreateCompletionProof({
+    ...input,
+    files: { 'index.html': '<h1>Olá, Mundo!</h1><p>Outro texto</p>' }
+  });
+  assert.equal(first.ok, true);
+  assert.equal(repeated.ok, true);
+  assert.equal(first.proof.jti, repeated.proof.jti);
+  assert.notEqual(first.proof.jti, changed.proof.jti);
+});
