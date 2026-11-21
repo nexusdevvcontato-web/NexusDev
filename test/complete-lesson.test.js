@@ -17,7 +17,13 @@ function setup({ replay = false, replayAlreadyCompleted = false, failAt = null }
   const User = {
     async updateOne(filter, update, options) { calls.push(['updateOne', filter, update, options.session]); if (failAt === 'saved-code') throw new Error('saved code write failed'); return { matchedCount: 1 }; },
     async findOneAndUpdate(filter, update, options) { calls.push(['xp', filter, update, options]); if (failAt === 'xp') throw new Error('xp write failed'); return {}; },
-    findById(id) {\n      const query = { session: async s => { calls.push(['read-user', id, s]); return { _id: id, xp: 50 }; } };\n      query.then = (resolve, reject) => Promise.resolve(replayAlreadyCompleted\n        ? { _id: id, xp: 50, completedIds: ['html-00-o-que-e-web'] }\n        : { _id: id, xp: 0, completedIds: [] }).then(resolve, reject);\n      return query;\n    }
+    findById(id) {
+      const query = { session: async s => { calls.push(['read-user', id, s]); return { _id: id, xp: 50 }; } };
+      query.then = (resolve, reject) => Promise.resolve(replayAlreadyCompleted
+        ? { _id: id, xp: 50, completedIds: ['html-00-o-que-e-web'] }
+        : { _id: id, xp: 0, completedIds: [] }).then(resolve, reject);
+      return query;
+    }
   };
   return { calls, mongoose, User, CompletionProof };
 }
@@ -71,4 +77,14 @@ test('daily streak increment is guarded by the stored activity date', async () =
     }
   }]);
 });
-\n\ntest('returns the existing completion when a committed proof is retried after a lost response', async () => {\n  const deps = setup({ replay: true, replayAlreadyCompleted: true });\n  const user = await completeLessonAtomically(input(deps));\n  assert.equal(user.xp, 50);\n  assert.deepEqual(user.completedIds, ['html-00-o-que-e-web']);\n  assert.equal(deps.calls.includes('transaction:commit'), false);\n  assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);\n  assert.equal(deps.calls.at(-1), 'session:end');\n});\n
+
+
+test('returns the existing completion when a committed proof is retried after a lost response', async () => {
+  const deps = setup({ replay: true, replayAlreadyCompleted: true });
+  const user = await completeLessonAtomically(input(deps));
+  assert.equal(user.xp, 50);
+  assert.deepEqual(user.completedIds, ['html-00-o-que-e-web']);
+  assert.equal(deps.calls.includes('transaction:commit'), false);
+  assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);
+  assert.equal(deps.calls.at(-1), 'session:end');
+});
