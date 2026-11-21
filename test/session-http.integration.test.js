@@ -675,7 +675,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(impactA.payload.externalSystems.status, 'not_inspected');
 
     // IDs beyond the published curriculum remain unsupported until a trusted evaluator is registered.
-    const unsupportedChallengeId = 'mod-4-aula-6';
+    const unsupportedChallengeId = 'mod-4-aula-141';
     const unsupportedCompletion = await request('/api/progress/complete', {
       method: 'POST',
       token: a.accessToken,
