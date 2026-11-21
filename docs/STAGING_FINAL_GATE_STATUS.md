@@ -83,3 +83,26 @@ O Preview da Vercel permanece protegido por autenticação da plataforma. Não f
 - Foram encontrados dois usuários de banco: `nexusdev_staging_app` e `nexusdev_staging_app_v2`. Ambos têm somente `readWrite` em `nexusdev_staging` e escopo no cluster `NexusDevStaging`.
 - Não é possível determinar, pela listagem de usuários, qual credencial está atualmente referenciada pelo Render. Nenhum usuário foi removido ou modificado; a duplicidade permanece como item de reconciliação operacional, sem impacto presumido.
 - Não foram consultados documentos de usuários nem exibidos valores de credenciais.
+
+
+## 8. Rechecagem final de CI e eventos Render — 2026-11-21
+
+Após a atualização documental anterior, os três commits mais recentes foram validados integralmente pelo workflow backend:
+
+- `f310927f159bd9e0fa6f85b37c7a1c0f0f945323`: CI [44891159208](https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44891159208) — success.
+- `d750ee04dc95487e37a6ee152e0c335f5412cfcc`: CI [44891161437](https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44891161437) — success.
+- `ac68c06960d588588f71dbacb0999ff49ca4c3a4`: CI [44891164622](https://github.com/nexusdevvcontato-web/NexusDev/actions/runs/44891164622) — success.
+
+Em todas as três execuções, instalação, auditoria de dependências, inicialização do replica set MongoDB descartável, inicialização do replica set, testes de sintaxe/segurança e limpeza terminaram com sucesso.
+
+A releitura dos eventos Render confirmou que o deploy live mais recente observado (`dep-dc0drlafngtc738r83eg`) terminou com sucesso em 2026-11-20 23:55 UTC. O histórico também contém uma tentativa de deploy anterior com saída não zero, seguida por builds/deploys posteriores bem-sucedidos; portanto, o evento antigo não representa o estado atual, mas fica registrado como histórico. O serviço continua Free, não suspenso, na branch de staging, com auto deploy desligado e health check `/api/health`.
+
+A rechecagem do Atlas confirmou cluster `IDLE`, MongoDB `8.0.39`, zero alertas abertos. Nenhum índice, usuário, documento, secret ou configuração foi alterado nesta rechecagem.
+
+## 9. Estado do gate após as três execuções
+
+**Concluído:** CI backend verde para os três commits documentais mais recentes; Render staging operacional segundo metadata e último deploy; cluster Atlas operacional e sem alertas abertos.
+
+**Ainda bloqueado/inconclusivo:** jornada autenticada end-to-end no Render; navegação autenticada real no Preview protegido; confirmação das opções live `unique`/TTL dos índices; identificação segura do usuário Atlas efetivamente usado pelo Render; configuração OAuth/Gmail de recuperação; decisões de produto/jurídicas sobre certificados e comentários legados.
+
+Este gate continua sendo uma validação de staging, não autorização nem certificação para produção.
