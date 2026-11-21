@@ -4,6 +4,7 @@
 
 require('dotenv').config();
 const express = require('express');
+const { createApiErrorHandlers } = require('./src/http/api-error-handlers');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -890,6 +891,11 @@ app.post('/api/lessons/:lessonId/comments', (req, res, next) => {
     return res.status(500).json({ error: 'Erro ao publicar comentário.' });
   }
 });
+
+// Keep API failures predictable and never expose parser or internal error details.
+const { notFound: apiNotFound, errorHandler: apiErrorHandler } = createApiErrorHandlers();
+app.use(apiNotFound);
+app.use(apiErrorHandler);
 
 async function startServer() {
   try {
