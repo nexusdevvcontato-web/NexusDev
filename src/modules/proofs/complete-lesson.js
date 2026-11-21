@@ -1,6 +1,7 @@
 'use strict';
 
 const { consumeCompletionProof, REPLAY_CODE } = require('./completion-proof-store');
+const { buildDailyActivityUpdate } = require('../users/daily-activity');
 
 async function completeLessonAtomically({ mongoose, User, CompletionProof, userId, proof, challengeId, files, today }) {
   if (!mongoose || typeof mongoose.startSession !== 'function' || !User || !CompletionProof) throw new TypeError('Dependências de conclusão inválidas.');
