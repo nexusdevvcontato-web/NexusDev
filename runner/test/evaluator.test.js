@@ -195,3 +195,35 @@ test('rejects unsupported optional calls and non-whitelisted Math methods', () =
     files: { 'queryHelper.js': 'function normalizarQueryFiltro_7(query) { return Math.random(); }' }
   }), { ok: false, reason: 'unsupported-call' });
 });
+
+test('evaluates generated module-two currency formatting with a bounded template literal and toFixed', () => {
+  const source = 'function formatarMoedaBRL_7(valor) { return `R$ ${valor.toFixed(2)}`; }';
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-2-aula-7',
+    files: { 'script.js': source }
+  }), { ok: true });
+});
+
+test('evaluates generated module-two maximum and average lessons with safe array operations', () => {
+  const maximum = "function encontrarMaior_11(numeros) { if (numeros.length === 0) return 0; return Math.max(...numeros); }";
+  const average = "function calcularMedia_12(notas) { if (!notas || notas.length === 0) return 0; const soma = notas.reduce((acc, n) => acc + n, 0); return soma / notas.length; }";
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-2-aula-11',
+    files: { 'script.js': maximum }
+  }), { ok: true });
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-2-aula-12',
+    files: { 'script.js': average }
+  }), { ok: true });
+});
+
+test('rejects arbitrary spread calls and unsupported numeric formatting methods', () => {
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-2-aula-11',
+    files: { 'script.js': 'function encontrarMaior_11(numeros) { return numeros.concat(...numeros); }' }
+  }), { ok: false, reason: 'unsupported-call' });
+  assert.deepEqual(evaluateRegisteredChallenge({
+    challengeId: 'mod-2-aula-7',
+    files: { 'script.js': 'function formatarMoedaBRL_7(valor) { return valor.toFixed(8); }' }
+  }), { ok: false, reason: 'unsupported-call' });
+});
