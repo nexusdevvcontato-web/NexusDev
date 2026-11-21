@@ -20,11 +20,11 @@ test('routes registered JavaScript lessons to the restricted JavaScript evaluato
 
 test('does not route unknown or unsupported lessons', () => {
   assert.deepEqual(evaluateRegisteredChallenge({
-    challengeId: 'mod-1-aula-7',
+    challengeId: 'mod-1-aula-141',
     files: { 'index.html': '<h1>Olá, Mundo!</h1>' }
   }), { ok: false, reason: 'unsupported-challenge' });
   assert.deepEqual(evaluateRegisteredChallenge({
-    challengeId: 'mod-1-aula-7',
+    challengeId: 'mod-1-aula-141',
     files: { 'script.js': 'function exemplo() { return true; }' }
   }), { ok: false, reason: 'unsupported-challenge' });
 });
