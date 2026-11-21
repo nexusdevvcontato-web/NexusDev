@@ -41,7 +41,59 @@ function buildGeneratedModuleOneHtmlSpecs() {
 // Generated lessons are deterministic curriculum templates. Only the four
 // HTML-only patterns with complete server-side checks are registered here;
 // CSS/debugging patterns remain study-only until a dedicated CSS evaluator exists.
+function buildGeneratedModuleTwoJavaScriptSpecs() {
+  const specs = {};
+  for (let lesson = 7; lesson <= 140; lesson += 1) {
+    const kind = lesson % 6;
+    if (kind === 2) {
+      const exportName = `contarVogais_${lesson}`;
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript',
+        entrypoint: 'script.js',
+        exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: ['NexusDev'], expected: 3 },
+          { args: ['AEIOU'], expected: 5 },
+          { args: ['xyz'], expected: 0 },
+          { args: [''], expected: 0 }
+        ] }]
+      };
+    } else if (kind === 3) {
+      const exportName = `filtrarAprovados_${lesson}`;
+      const minGrade = 6 + (lesson % 3);
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript',
+        entrypoint: 'script.js',
+        exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [[4, 8, 9, 5]], expected: [8, 9] },
+          { args: [[minGrade - 1, minGrade, minGrade + 1]], expected: [minGrade, minGrade + 1] },
+          { args: [[]], expected: [] }
+        ] }]
+      };
+    } else if (kind === 4) {
+      const exportName = `aplicarCupom_${lesson}`;
+      const discount = 10 + (lesson % 4) * 5;
+      const discounted = 200 * ((100 - discount) / 100);
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript',
+        entrypoint: 'script.js',
+        exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [200, 'nexus'], expected: discounted },
+          { args: [200, ' NEXUS '], expected: discounted },
+          { args: [200, 'INVALIDO'], expected: 200 }
+        ] }]
+      };
+    }
+  }
+  return specs;
+}
+
+// These generated JavaScript exercises are registered only when every operation
+// used by the lesson is supported by the bounded AST interpreter and has cases.
 const CHALLENGE_SPECS = Object.freeze({
+  ...buildGeneratedModuleTwoJavaScriptSpecs(),
   ...buildGeneratedModuleOneHtmlSpecs(),
   'html-00-o-que-e-web': {
     language: 'html', entrypoint: 'index.html',
