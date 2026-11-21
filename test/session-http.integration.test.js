@@ -119,6 +119,21 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       return { accessToken: result.payload.accessToken, refresh, csrf };
     };
 
+    // A credential-generation change invalidates existing access and refresh credentials.
+    const credentialVersionOwner = await register('credential-version@example.test');
+    const credentialVersionUser = await mongoose.model('User').findOne({ email: 'credential-version@example.test' });
+    await mongoose.model('User').updateOne({ _id: credentialVersionUser._id }, { $inc: { authVersion: 1 } });
+    assert.equal((await request('/api/me', { token: credentialVersionOwner.accessToken })).response.status, 401);
+    const staleRefresh = await request('/api/auth/session/refresh', {
+      method: 'POST',
+      cookies: [
+        `__Host-nexusdev_refresh=${credentialVersionOwner.refresh}`,
+        `__Host-nexusdev_csrf=${credentialVersionOwner.csrf}`
+      ],
+      csrf: credentialVersionOwner.csrf
+    });
+    assert.equal(staleRefresh.response.status, 401);
+
     const allSessionsOwner = await register('session-all@example.test');
     const secondLogin = await request('/api/auth/session/login', {
       method: 'POST',
