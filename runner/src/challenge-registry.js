@@ -86,7 +86,15 @@ function buildGeneratedModuleTwoJavaScriptSpecs() {
   const specs = {};
   for (let lesson = 7; lesson <= 140; lesson += 1) {
     const kind = lesson % 6;
-    if (kind === 2) {
+    if (kind === 1) {
+      const exportName = `formatarMoedaBRL_${lesson}`;
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [49.9], expected: 'R$ 49.90' }
+        ] }]
+      };
+    } else if (kind === 2) {
       const exportName = `contarVogais_${lesson}`;
       specs[`mod-2-aula-${lesson}`] = {
         language: 'javascript',
@@ -124,6 +132,26 @@ function buildGeneratedModuleTwoJavaScriptSpecs() {
           { args: [200, 'nexus'], expected: discounted },
           { args: [200, ' NEXUS '], expected: discounted },
           { args: [200, 'INVALIDO'], expected: 200 }
+        ] }]
+      };
+    } else if (kind === 5) {
+      const exportName = `encontrarMaior_${lesson}`;
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [[12, 45, 7, 89, 23]], expected: 89 },
+          { args: [[-5, -2, -9]], expected: -2 },
+          { args: [[]], expected: 0 }
+        ] }]
+      };
+    } else {
+      const exportName = `calcularMedia_${lesson}`;
+      specs[`mod-2-aula-${lesson}`] = {
+        language: 'javascript', entrypoint: 'script.js', exportName,
+        tests: [{ type: 'function-cases', cases: [
+          { args: [[]], expected: 0 },
+          { args: [[8, 10]], expected: 9 },
+          { args: [[5, 7, 9]], expected: 7 }
         ] }]
       };
     }
