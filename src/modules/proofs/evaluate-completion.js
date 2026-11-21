@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 const { evaluateRegisteredChallenge } = require('../../../runner/src/evaluator');
-const { isRunnerSupportedChallenge, getChallengeSpec, validateChallengeFiles } = require('../../../runner/src/challenge-registry');
+const { isRunnerSupportedChallenge, validateChallengeFiles } = require('../../../runner/src/challenge-registry');
 const { hashCompletionFiles } = require('./completion-files-hash');
 
 // This is an in-process, server-owned evaluation result, not a runner JWT.
@@ -14,7 +14,6 @@ function evaluateAndCreateCompletionProof({ userId, challengeId, files, nowSecon
     return { ok: false, reason: 'invalid-request' };
   }
 
-  const spec = getChallengeSpec(challengeId);
   if (!files || typeof files !== 'object' || Array.isArray(files)) {
     return { ok: false, reason: 'invalid-files' };
   }
