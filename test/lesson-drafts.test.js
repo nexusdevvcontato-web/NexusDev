@@ -26,6 +26,7 @@ function harness() {
   let stored = null;
   const calls = [];
   const reads = [];
+  const projections = [];
   const User = {
     async findOneAndUpdate(filter, update, options) {
       calls.push({ filter, update, options });
@@ -39,13 +40,14 @@ function harness() {
       stored = update.$set['savedDraftMap.mod-1-aula-1'];
       return { _id: 'user-1' };
     },
-    findById(userId) {
+    findById(userId, projection) {
       reads.push(userId);
+      projections.push(projection);
       return { lean: async () => ({ savedDraftMap: stored ? { 'mod-1-aula-1': stored } : {} }) };
     }
   };
   const service = createLessonDraftService({ User, now: () => new Date('2026-11-20T12:00:00.000Z') });
-  return { service, calls, reads, get stored() { return stored; } };
+  return { service, calls, reads, projections, get stored() { return stored; } };
 }
 
 test('first draft save creates revision one using a compare-and-swap filter', async () => {
@@ -110,6 +112,7 @@ test('draft read returns an empty revision without leaking another user scope', 
   const h = harness();
   assert.deepEqual(await h.service.read('user-1', 'mod-1-aula-1'), { revision: 0, files: null, updatedAt: null });
   assert.deepEqual(h.reads, ['user-1']);
+  assert.deepEqual(h.projections, [{ 'savedDraftMap.mod-1-aula-1': 1 }]);
 });
 
 test('stored malformed drafts fail closed instead of appearing as an empty revision', async () => {
