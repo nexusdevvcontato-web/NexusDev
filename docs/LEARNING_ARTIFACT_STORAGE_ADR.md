@@ -60,4 +60,8 @@ Não executar a migração automaticamente na inicialização da aplicação, em
 
 ## Estado desta etapa
 
-Esta ADR documenta a direção técnica recomendada. Nenhum documento de usuário foi lido, migrado, alterado ou removido. Nenhum índice foi criado em Atlas e nenhum endpoint foi redirecionado. A implementação exige testes de integração em MongoDB descartável e uma etapa de migração explicitamente controlada.
+A coleção/modelo e o serviço isolado foram implementados em código, com testes unitários e integração em MongoDB descartável. O planejador de migração transforma os mapas legados em registros candidatos, valida os IDs contra o catálogo e registra apenas motivos de rejeição, sem incluir código-fonte nos diagnósticos.
+
+Também existe `scripts/plan-learning-artifact-migration.js`, um inventário *dry-run* estritamente read-only. Ele aceita somente `MONGO_SESSION_TEST_URI` apontando para `127.0.0.1`, `localhost` ou `::1`, banco `nexusdev_session_test` e replica set `rs0`. Não possui modo de gravação; `--apply` é explicitamente recusado. Sua saída contém apenas contagens, motivos de rejeição e estimativa agregada de bytes, nunca conteúdo dos arquivos ou IDs de usuários.
+
+Nenhum documento de usuário foi lido, migrado, alterado ou removido durante esta etapa. Nenhum índice foi criado em Atlas e nenhum endpoint foi redirecionado. A migração efetiva continua bloqueada até backup verificável, revisão do dry-run, estratégia de corte/rollback e aprovação operacional explícita.
