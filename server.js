@@ -42,6 +42,7 @@ const { createSessionAccessMiddleware } = require('./src/modules/auth/session-ac
 const { createPasswordResetService, normalizeEmail } = require('./src/modules/auth/password-reset');
 const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
 const { validateDraftFiles, createLessonDraftService } = require('./src/modules/drafts/lesson-drafts');
+const { createLearningArtifactModel } = require('./src/modules/drafts/learning-artifacts');
 
 const app = express();
 // Render terminates the public connection at one trusted proxy hop.
@@ -200,6 +201,8 @@ const userSchema = new mongoose.Schema(
 );
 
 const User = mongoose.model('User', userSchema);
+// Metadata-only registration; automatic indexes remain disabled pending reviewed migration.
+const LearningArtifact = createLearningArtifactModel(mongoose);
 const lessonDraftService = createLessonDraftService({ User });
 
 const commentSchema = new mongoose.Schema(
@@ -521,11 +524,12 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
 }, requireAuth, async (req, res) => {
   try {
     const userId = req.user._id;
-    const [sessionCount, ownedSessions, completionProofs, linkedComments] = await Promise.all([
+    const [sessionCount, ownedSessions, completionProofs, linkedComments, learningArtifacts] = await Promise.all([
       Session.countDocuments({ userId }),
       Session.find({ userId }).select('_id').lean(),
       CompletionProof.countDocuments({ userId }),
-      Comment.countDocuments({ authorUserId: userId })
+      Comment.countDocuments({ authorUserId: userId }),
+      LearningArtifact.countDocuments({ userId })
     ]);
     const sessionIds = ownedSessions.map((session) => session._id);
     const refreshTokens = await RefreshToken.countDocuments({
@@ -536,6 +540,7 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
       (Array.isArray(req.user.completedIds) && req.user.completedIds.length) ||
       (req.user.savedCodeMap && Object.keys(req.user.savedCodeMap).length) ||
       (req.user.savedDraftMap && Object.keys(req.user.savedDraftMap).length) ||
+      learningArtifacts > 0 ||
       req.user.xp > 0 || req.user.streak > 1
     );
     return res.json(buildDeletionImpact({
@@ -543,6 +548,7 @@ app.get('/api/privacy/deletion-impact', (req, res, next) => {
       refreshTokens,
       completionProofs,
       linkedComments,
+      learningArtifacts,
       hasCertificate,
       hasLearningData,
       hasProfileData: true
@@ -572,7 +578,7 @@ app.get('/api/privacy/export', (req, res, next) => {
     }
 
     // Scope every query to the authenticated database identity; never accept an owner ID from the client.
-    const [comments, sessions] = await Promise.all([
+    const [comments, sessions, learningArtifacts] = await Promise.all([
       Comment.find({ authorUserId: req.user._id })
         .sort({ createdAt: 1, _id: 1 })
         .select('_id lessonId author badge text createdAt updatedAt')
@@ -580,10 +586,14 @@ app.get('/api/privacy/export', (req, res, next) => {
       Session.find({ userId: req.user._id })
         .sort({ createdAt: 1, _id: 1 })
         .select('_id createdAt lastUsedAt expiresAt revokedAt revokeReason')
+        .lean(),
+      LearningArtifact.find({ userId: req.user._id })
+        .sort({ updatedAt: 1, _id: 1 })
+        .select('lessonId kind files revision updatedAt')
         .lean()
     ]);
     res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
-    return res.json(buildUserDataExport(req.user, comments, sessions));
+    return res.json(buildUserDataExport(req.user, comments, sessions, learningArtifacts));
   } catch {
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
   }
