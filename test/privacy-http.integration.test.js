@@ -108,7 +108,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(impact.payload.readOnly, true);
     assert.equal(impact.payload.deletionEnabled, false);
     assert.equal(impact.payload.sessions.count, 1);
-    assert.equal(impact.payload.refreshTokens.count, 1);
+    assert.equal(impact.payload.sessions.refreshTokens, 1);
     assert.equal(impact.payload.comments.linkedCount, 1);
     assert.equal(impact.payload.completionProofs.count, 0);
     assert.equal(JSON.stringify(impact.payload).includes(other._id.toString()), false);
