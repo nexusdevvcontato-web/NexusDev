@@ -44,7 +44,8 @@ function createLessonDraftService({ User, now = () => new Date() } = {}) {
   }
 
   async function read(userId, challengeId) {
-    const user = await User.findById(userId).lean();
+    // Project only the requested lesson draft; never hydrate the full account or every saved draft.
+    const user = await User.findById(userId, { [`savedDraftMap.${challengeId}`]: 1 }).lean();
     const draft = user?.savedDraftMap?.[challengeId];
     if (!draft) return { revision: 0, files: null, updatedAt: null };
     if (!Number.isSafeInteger(draft.revision) || draft.revision < 1 ||
