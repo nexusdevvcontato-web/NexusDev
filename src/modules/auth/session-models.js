@@ -15,11 +15,13 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
     revokeReason: { type: String, enum: ['logout', 'logout_all', 'refresh_replay', 'expired', 'security'], default: null }
   }, { versionKey: false });
   sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  // Covers user-scoped session listing, ordered by most recent use, and logout-all.
+  sessionSchema.index({ userId: 1, revokedAt: 1, lastUsedAt: -1 });
   // Covers the user's active-session listing, ordered by most recent use, and logout-all filter.
   sessionSchema.index({ userId: 1, revokedAt: 1, lastUsedAt: -1 });
 
   const refreshTokenSchema = new Schema({
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     sessionId: { type: Schema.Types.ObjectId, ref: 'Session', required: true, index: true },
     tokenHash: { type: String, required: true, unique: true },
     csrfTokenHash: { type: String, required: true, select: false, match: /^[a-f0-9]{64}$/ },
