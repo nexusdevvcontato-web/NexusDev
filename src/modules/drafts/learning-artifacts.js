@@ -9,6 +9,83 @@ function normalizeArtifactKind(value) {
   return ARTIFACT_KINDS.includes(value) ? value : null;
 }
 
+
+function planLegacyLearningArtifactMigration({
+  userId,
+  savedDraftMap = {},
+  savedCodeMap = {},
+  isKnownLessonId
+} = {}) {
+  if (userId === undefined || userId === null || userId === '' ||
+      typeof isKnownLessonId !== 'function') {
+    throw new TypeError('Proprietário e validador de currículo são obrigatórios.');
+  }
+
+  const records = [];
+  const rejected = [];
+  const isPlainRecord = value => value && typeof value === 'object' &&
+    !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+
+  function accept(lessonId, kind, files, revision, updatedAt = null) {
+    if (typeof lessonId !== 'string' || !LESSON_ID_PATTERN.test(lessonId) ||
+        !isKnownLessonId(lessonId)) {
+      rejected.push({ lessonId: String(lessonId), kind, reason: 'unknown_lesson' });
+      return;
+    }
+    const validation = validateDraftFiles(files);
+    if (!validation.ok) {
+      rejected.push({ lessonId, kind, reason: 'invalid_files' });
+      return;
+    }
+    if (!Number.isSafeInteger(revision) || revision < 1 ||
+        revision >= Number.MAX_SAFE_INTEGER) {
+      rejected.push({ lessonId, kind, reason: 'invalid_revision' });
+      return;
+    }
+    records.push({
+      userId,
+      lessonId,
+      kind,
+      files: validation.files,
+      revision,
+      updatedAt: updatedAt instanceof Date && Number.isFinite(updatedAt.getTime())
+        ? updatedAt : null
+    });
+  }
+
+  if (!isPlainRecord(savedDraftMap)) {
+    rejected.push({ lessonId: '*', kind: 'draft', reason: 'invalid_legacy_map' });
+  } else {
+    for (const [lessonId, draft] of Object.entries(savedDraftMap)) {
+      if (!isPlainRecord(draft)) {
+        rejected.push({ lessonId, kind: 'draft', reason: 'invalid_legacy_record' });
+        continue;
+      }
+      accept(lessonId, 'draft', draft.files, draft.revision, draft.updatedAt);
+    }
+  }
+
+  if (!isPlainRecord(savedCodeMap)) {
+    rejected.push({ lessonId: '*', kind: 'saved_code', reason: 'invalid_legacy_map' });
+  } else {
+    for (const [lessonId, files] of Object.entries(savedCodeMap)) {
+      // Legacy completion stores only the submitted file map, with no revision.
+      accept(lessonId, 'saved_code', files, 1, null);
+    }
+  }
+
+  return {
+    records,
+    rejected,
+    summary: {
+      planned: records.length,
+      rejected: rejected.length,
+      drafts: records.filter(item => item.kind === 'draft').length,
+      savedCode: records.filter(item => item.kind === 'saved_code').length
+    }
+  };
+}
+
 function createLearningArtifactModel(mongoose, connection = mongoose && (mongoose.connection || mongoose)) {
   if (!mongoose || !mongoose.Schema || !connection || typeof connection.model !== 'function') {
     throw new TypeError('Dependências Mongoose inválidas.');
@@ -137,5 +214,6 @@ module.exports = {
   LESSON_ID_PATTERN,
   normalizeArtifactKind,
   createLearningArtifactModel,
-  createLearningArtifactService
+  createLearningArtifactService,
+  planLegacyLearningArtifactMigration
 };
