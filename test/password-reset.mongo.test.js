@@ -32,7 +32,9 @@ test('MongoDB replica-set password reset is atomic, single-use, and revokes sess
     passwordResetTokenHash: String,
     passwordResetExpiresAt: Date,
     passwordChangedAt: Date,
-    authVersion: { type: Number, default: 0 }
+    authVersion: { type: Number, default: 0 },
+    reauthProofHash: String,
+    reauthProofExpiresAt: Date
   }, { versionKey: false });
   const sessionSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
@@ -62,7 +64,9 @@ test('MongoDB replica-set password reset is atomic, single-use, and revokes sess
     const user = await User.create({
       email: 'student@example.test',
       name: 'Student',
-      passwordHash: 'old-hash'
+      passwordHash: 'old-hash',
+      reauthProofHash: 'stale-reauth-proof-digest',
+      reauthProofExpiresAt: new Date(fixedNow.getTime() + 5 * 60 * 1000)
     });
     await Session.create([
       { userId: user._id },
@@ -87,6 +91,8 @@ test('MongoDB replica-set password reset is atomic, single-use, and revokes sess
     assert.equal(changed.passwordResetExpiresAt, undefined);
     assert.equal(changed.passwordChangedAt.getTime(), fixedNow.getTime());
     assert.equal(changed.authVersion, 1, 'password reset increments the account authentication version');
+    assert.equal(changed.reauthProofHash, undefined, 'password reset invalidates previously issued reauthentication proofs');
+    assert.equal(changed.reauthProofExpiresAt, undefined);
     const revoked = await Session.find({ userId: user._id }).lean();
     assert.equal(revoked.length, 2);
     assert.ok(revoked.every(item => item.revokedAt instanceof Date && item.revokeReason === 'security'));
