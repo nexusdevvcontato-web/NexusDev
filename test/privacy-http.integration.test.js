@@ -89,6 +89,38 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(ownerComment.response.status, 201);
     assert.equal(otherComment.response.status, 201);
 
+    const ownerPreferences = await request('/api/privacy/preferences', { token: ownerToken });
+    const otherPreferences = await request('/api/privacy/preferences', { token: otherToken });
+    assert.equal(ownerPreferences.response.status, 200);
+    assert.deepEqual(ownerPreferences.payload.preferences, {
+      showInLeaderboard: true, showCertificateDetails: true
+    });
+    assert.deepEqual(otherPreferences.payload.preferences, {
+      showInLeaderboard: true, showCertificateDetails: true
+    });
+
+    const updatedPreferences = await request('/api/privacy/preferences', {
+      method: 'PUT', token: ownerToken,
+      body: { showInLeaderboard: false, showCertificateDetails: false }
+    });
+    assert.equal(updatedPreferences.response.status, 200);
+    assert.deepEqual(updatedPreferences.payload.preferences, {
+      showInLeaderboard: false, showCertificateDetails: false
+    });
+
+    const privilegeInjection = await request('/api/privacy/preferences', {
+      method: 'PUT', token: ownerToken,
+      body: { showInLeaderboard: true, role: 'admin' }
+    });
+    assert.equal(privilegeInjection.response.status, 400);
+
+    const otherPreferencesAfterOwnerUpdate = await request('/api/privacy/preferences', {
+      token: otherToken
+    });
+    assert.deepEqual(otherPreferencesAfterOwnerUpdate.payload.preferences, {
+      showInLeaderboard: true, showCertificateDetails: true
+    });
+
     const unauthenticatedExport = await request('/api/privacy/export');
     assert.equal(unauthenticatedExport.response.status, 401);
     assert.match(unauthenticatedExport.response.headers.get('cache-control') || '', /no-store/i);
