@@ -29,6 +29,7 @@ const { completeLessonAtomically, REPLAY_CODE } = require('./src/modules/proofs/
 const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildLeaderboard } = require('./src/modules/public-read/leaderboard-policy');
+const { isSafeHttpsUrl } = require('./src/modules/public-read/safe-https-url');
 const { buildUserDataExport } = require('./src/modules/privacy/user-export');
 const { buildDeletionImpact } = require('./src/modules/privacy/deletion-impact');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
@@ -705,16 +706,8 @@ app.post('/api/certificates/issue', (req, res, next) => {
         (typeof studentName !== 'string' || studentName.trim().length < 2 || studentName.trim().length > 100)) {
       return res.status(400).json({ error: 'Nome para o certificado inválido.' });
     }
-    const validatePortfolioUrl = (value) => {
-      if (value === undefined || value === '') return true;
-      if (typeof value !== 'string' || value.length > 2048) return false;
-      try {
-        const parsed = new URL(value);
-        return parsed.protocol === 'https:';
-      } catch {
-        return false;
-      }
-    };
+    const validatePortfolioUrl = (value) =>
+      value === undefined || value === '' || isSafeHttpsUrl(value);
     if (!validatePortfolioUrl(githubUrl) || !validatePortfolioUrl(liveUrl)) {
       return res.status(400).json({ error: 'Os links do portfólio devem ser URLs HTTPS válidas.' });
     }
