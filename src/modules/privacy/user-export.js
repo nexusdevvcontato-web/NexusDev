@@ -1,3 +1,5 @@
+const { validateDraftFiles } = require('../drafts/lesson-drafts');
+
 const EXPORT_FIELDS = Object.freeze([
   'id', 'name', 'email', 'avatar', 'role',
   'xp', 'streak', 'lastActiveDate', 'completedIds', 'savedCodeMap', 'savedDraftMap',
@@ -53,7 +55,7 @@ function buildUserDataExport(user, comments = [], sessions = [], artifacts = [])
         typeof artifact.lessonId !== 'string' ||
         !['draft', 'saved_code'].includes(artifact.kind) ||
         !Number.isSafeInteger(artifact.revision) || artifact.revision < 1 ||
-        !artifact.files || typeof artifact.files !== 'object' || Array.isArray(artifact.files)) {
+        !validateDraftFiles(artifact.files).ok) {
       throw new TypeError('Invalid learning artifact export');
     }
     if (artifact.kind === 'draft') {
