@@ -32,7 +32,7 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
 
   try {
     await connection.dropDatabase();
-    await LearningArtifact.init();
+    await LearningArtifact.createIndexes();
     const userA = new mongoose.Types.ObjectId();
     const userB = new mongoose.Types.ObjectId();
 
