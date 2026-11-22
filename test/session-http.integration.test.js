@@ -167,7 +167,6 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(injectedRoleUser.privacyPreferences.showInLeaderboard, true);
 
     // A credential-generation change invalidates existing access and refresh credentials.
-    const credentialVersionOwner = await register('credential-version@example.test');
     const credentialVersionUser = await mongoose.model('User').findOne({ email: 'credential-version@example.test' });
     await mongoose.model('User').updateOne({ _id: credentialVersionUser._id }, { $inc: { authVersion: 1 } });
     assert.equal((await request('/api/me', { token: credentialVersionOwner.accessToken })).response.status, 401);
