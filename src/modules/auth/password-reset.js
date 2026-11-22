@@ -70,12 +70,7 @@ function createPasswordResetService({
     } catch {
       await User.updateOne(
         { _id: user._id, passwordResetTokenHash: tokenHash },
-        { $unset: {
-              passwordResetTokenHash: 1,
-              passwordResetExpiresAt: 1,
-              reauthProofHash: 1,
-              reauthProofExpiresAt: 1
-            } }
+        { $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 } }
       );
     }
     return { accepted: true };
@@ -103,7 +98,12 @@ function createPasswordResetService({
           {
             $set: { passwordHash, passwordChangedAt: currentTime },
             $inc: { authVersion: 1 },
-            $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 }
+            $unset: {
+              passwordResetTokenHash: 1,
+              passwordResetExpiresAt: 1,
+              reauthProofHash: 1,
+              reauthProofExpiresAt: 1
+            }
           },
           { new: true, session: dbSession, projection: { _id: 1 } }
         );
