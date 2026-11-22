@@ -139,7 +139,10 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const register = async (email) => {
       const result = await request('/api/auth/session/register', {
         method: 'POST',
-        body: { name: 'Integration Student', email, password: 'A-strong-test-password-2026' }
+        body: {
+          name: 'Integration Student', email, password: 'A-strong-test-password-2026',
+          role: 'admin', xp: 999999, privacyPreferences: { showInLeaderboard: false }
+        }
       });
       assert.equal(result.response.status, 201, JSON.stringify(result.payload));
       assert.equal(typeof result.payload.accessToken, 'string');
@@ -155,21 +158,10 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       return { accessToken: result.payload.accessToken, refresh, csrf };
     };
 
-    // Client-supplied privilege fields must never alter the server-owned account role or XP.
-    const privilegeEscalation = await request('/api/auth/session/register', {
-      method: 'POST',
-      body: {
-        name: 'Unprivileged Student',
-        email: 'role-injection@example.test',
-        password: 'A-strong-test-password-2026',
-        role: 'admin',
-        xp: 999999,
-        privacyPreferences: { showInLeaderboard: false }
-      }
-    });
-    assert.equal(privilegeEscalation.response.status, 201, JSON.stringify(privilegeEscalation.payload));
-    assert.equal(Object.hasOwn(privilegeEscalation.payload.user, 'role'), false);
-    const injectedRoleUser = await User.findOne({ email: 'role-injection@example.test' });
+    // Registration ignores client-supplied privilege, XP, and privacy fields.
+    const credentialVersionOwner = await register('credential-version@example.test');
+    assert.equal(Object.hasOwn(credentialVersionOwner, 'role'), false);
+    const injectedRoleUser = await User.findOne({ email: 'credential-version@example.test' });
     assert.equal(injectedRoleUser.role, 'student');
     assert.equal(injectedRoleUser.xp, 0);
     assert.equal(injectedRoleUser.privacyPreferences.showInLeaderboard, true);
