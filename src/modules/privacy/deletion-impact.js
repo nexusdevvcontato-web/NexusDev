@@ -1,7 +1,7 @@
 'use strict';
 
 const COUNT_FIELDS = Object.freeze([
-  'sessions', 'refreshTokens', 'completionProofs', 'linkedComments'
+  'sessions', 'refreshTokens', 'completionProofs', 'linkedComments', 'learningArtifacts'
 ]);
 
 function nonNegativeCount(value, field) {
@@ -28,7 +28,7 @@ function buildDeletionImpact(input = {}) {
     readOnly: true,
     deletionEnabled: false,
     account: { profilePresent: hasProfileData },
-    learning: { dataPresent: hasLearningData },
+    learning: { dataPresent: hasLearningData, artifactCount: counts.learningArtifacts },
     sessions: { count: counts.sessions, refreshTokens: counts.refreshTokens },
     completionProofs: { count: counts.completionProofs },
     comments: {
