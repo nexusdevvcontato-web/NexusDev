@@ -150,3 +150,45 @@ test('exports the complete user profile, learning, draft and certificate snapsho
     assert.equal(Object.hasOwn(result.data, field), false, field);
   }
 });
+
+
+test('exports owner-scoped learning artifacts in the established legacy-compatible shape', () => {
+  const result = buildUserDataExport({
+    _id: 'synthetic-owner',
+    savedDraftMap: {
+      'mod-1-aula-1': { files: { 'index.html': 'legacy draft' }, revision: 2 }
+    },
+    savedCodeMap: {
+      'mod-1-aula-2': { 'index.html': 'legacy code' }
+    }
+  }, [], [], [
+    {
+      lessonId: 'mod-1-aula-1', kind: 'draft', revision: 5,
+      files: { 'index.html': 'new-store draft' },
+      updatedAt: '2026-11-22T00:00:00.000Z'
+    },
+    {
+      lessonId: 'mod-1-aula-3', kind: 'saved_code', revision: 1,
+      files: { 'index.html': 'new-store submitted code' }
+    }
+  ]);
+
+  assert.deepEqual(result.data.savedDraftMap, {
+    'mod-1-aula-1': {
+      files: { 'index.html': 'new-store draft' },
+      revision: 5,
+      updatedAt: '2026-11-22T00:00:00.000Z'
+    }
+  });
+  assert.deepEqual(result.data.savedCodeMap, {
+    'mod-1-aula-2': { 'index.html': 'legacy code' },
+    'mod-1-aula-3': { 'index.html': 'new-store submitted code' }
+  });
+});
+
+test('rejects malformed learning artifact export input', () => {
+  assert.throws(() => buildUserDataExport({ _id: 'owner' }, [], [], {}), /Artifacts must be an array/);
+  assert.throws(() => buildUserDataExport({ _id: 'owner' }, [], [], [{
+    lessonId: 'mod-1-aula-1', kind: 'draft', revision: 1, files: []
+  }]), /Invalid learning artifact/);
+});
