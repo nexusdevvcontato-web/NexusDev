@@ -133,6 +133,8 @@ test('reset consumes a valid token once, updates password and revokes all sessio
   assert.ok(h.passwordUpdate.$set.passwordChangedAt instanceof Date);
   assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'passwordResetTokenHash'));
   assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'passwordResetExpiresAt'));
+  assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'reauthProofHash'));
+  assert.ok(Object.hasOwn(h.passwordUpdate.$unset, 'reauthProofExpiresAt'));
   assert.equal(h.transactionCount, 1);
   assert.equal(h.sessionEnded, true);
   assert.deepEqual(await h.service.reset({ token, newPassword: 'another-password-123' }), { ok: false });
