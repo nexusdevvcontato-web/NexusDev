@@ -100,6 +100,14 @@ test('certificate HTTP issuance requires all official lessons and is immutable u
     await User.updateOne({ _id: userId }, {
       $set: { completedIds: [...officialIds, 'forged-lesson-id', officialIds[0], officialIds[0]], xp: 275 }
     });
+
+    const credentialBearingPortfolioUrl = await request('/api/certificates/issue', {
+      method: 'POST', token,
+      body: { githubUrl: 'https://student:secret@github.com/student' }
+    });
+    assert.equal(credentialBearingPortfolioUrl.response.status, 400);
+    assert.equal(await User.countDocuments({ certificateIssuedAt: { $ne: null } }), 0);
+
     const [first, concurrent] = await Promise.all([
       request('/api/certificates/issue', {
         method: 'POST', token,
