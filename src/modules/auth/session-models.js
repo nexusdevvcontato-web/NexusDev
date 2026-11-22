@@ -17,8 +17,6 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
   sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   // Covers user-scoped session listing, ordered by most recent use, and logout-all.
   sessionSchema.index({ userId: 1, revokedAt: 1, lastUsedAt: -1 });
-  // Covers the user's active-session listing, ordered by most recent use, and logout-all filter.
-  sessionSchema.index({ userId: 1, revokedAt: 1, lastUsedAt: -1 });
 
   const refreshTokenSchema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
