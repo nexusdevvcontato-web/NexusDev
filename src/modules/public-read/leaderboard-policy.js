@@ -1,15 +1,10 @@
 'use strict';
 
 const { isKnownChallengeId } = require('../curriculum/catalog');
+const { normalizeSafeHttpsUrl } = require('./safe-https-url');
 
 function normalizePublicAvatar(value) {
-  if (typeof value !== 'string' || value.length > 2048) return '';
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' ? url.toString() : '';
-  } catch {
-    return '';
-  }
+  return normalizeSafeHttpsUrl(value);
 }
 
 function buildLeaderboard(users) {
