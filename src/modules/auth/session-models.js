@@ -4,17 +4,19 @@ function createSessionModels(mongoose, connection = mongoose && (mongoose.connec
   }
   const { Schema } = mongoose;
   const sessionSchema = new Schema({
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authVersion: { type: Number, required: true, default: 0, min: 0, validate: Number.isSafeInteger },
     familyId: { type: String, required: true, unique: true, index: true },
     csrfTokenHash: { type: String, required: true, select: false, match: /^[a-f0-9]{64}$/ },
     createdAt: { type: Date, required: true, default: Date.now },
     lastUsedAt: { type: Date, required: true, default: Date.now },
     expiresAt: { type: Date, required: true },
-    revokedAt: { type: Date, default: null, index: true },
+    revokedAt: { type: Date, default: null },
     revokeReason: { type: String, enum: ['logout', 'logout_all', 'refresh_replay', 'expired', 'security'], default: null }
   }, { versionKey: false });
   sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  // Covers the user's active-session listing, ordered by most recent use, and logout-all filter.
+  sessionSchema.index({ userId: 1, revokedAt: 1, lastUsedAt: -1 });
 
   const refreshTokenSchema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
