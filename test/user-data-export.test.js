@@ -93,3 +93,60 @@ test('rejects malformed session export input', () => {
   assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [], {}), /Sessions must be an array/);
   assert.throws(() => buildUserDataExport({ _id: 'user-1' }, [], [null]), /Invalid session/);
 });
+
+
+test('exports the complete user profile, learning, draft and certificate snapshot allowlist', () => {
+  const result = buildUserDataExport({
+    _id: 'user-complete',
+    name: 'Synthetic Student',
+    email: 'synthetic@example.test',
+    avatar: 'https://cdn.example.test/avatar.png',
+    role: 'student',
+    xp: 700,
+    streak: 12,
+    lastActiveDate: '2026-11-22',
+    completedIds: ['html-00-o-que-e-web'],
+    savedCodeMap: { 'html-00-o-que-e-web': { 'index.html': '<h1>Test</h1>' } },
+    savedDraftMap: { 'html-00-o-que-e-web': { files: { 'index.html': '<p>Draft</p>' }, revision: 3 } },
+    certificateCode: 'NXD-SYNTHETIC-CERTIFICATE',
+    certificateIssuedAt: '2026-11-22T00:00:00.000Z',
+    certificateStudentName: 'Synthetic Student',
+    certificateCompletedCount: 700,
+    certificateXp: 7000,
+    certificateGithubUrl: 'https://github.com/synthetic',
+    certificateLiveUrl: 'https://synthetic.example.test',
+    githubUrl: 'https://github.com/synthetic',
+    liveUrl: 'https://synthetic.example.test',
+    privacyPreferences: { showInLeaderboard: false, showCertificateDetails: false },
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-11-22T00:00:00.000Z',
+    passwordHash: 'not-exported',
+    passwordResetTokenHash: 'not-exported',
+    passwordResetExpiresAt: 'not-exported',
+    passwordChangedAt: 'not-exported',
+    authVersion: 99,
+    googleId: 'not-exported',
+    reauthProofHash: 'not-exported',
+    reauthProofExpiresAt: 'not-exported',
+    __v: 99,
+    internalSecret: 'not-exported'
+  });
+
+  assert.deepEqual(Object.keys(result.data).sort(), [
+    'id', 'name', 'email', 'avatar', 'role', 'xp', 'streak', 'lastActiveDate',
+    'completedIds', 'savedCodeMap', 'savedDraftMap', 'certificateCode',
+    'certificateIssuedAt', 'certificateStudentName', 'certificateCompletedCount',
+    'certificateXp', 'certificateGithubUrl', 'certificateLiveUrl', 'githubUrl',
+    'liveUrl', 'privacyPreferences', 'createdAt', 'updatedAt'
+  ].sort());
+  assert.deepEqual(result.data.savedDraftMap, {
+    'html-00-o-que-e-web': { files: { 'index.html': '<p>Draft</p>' }, revision: 3 }
+  });
+  for (const field of [
+    'passwordHash', 'passwordResetTokenHash', 'passwordResetExpiresAt',
+    'passwordChangedAt', 'authVersion', 'googleId', 'reauthProofHash',
+    'reauthProofExpiresAt', '__v', 'internalSecret'
+  ]) {
+    assert.equal(Object.hasOwn(result.data, field), false, field);
+  }
+});
