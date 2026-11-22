@@ -33,8 +33,9 @@ function buildSessionExport(sessions) {
   });
 }
 
-function buildUserDataExport(user, comments = [], sessions = []) {
+function buildUserDataExport(user, comments = [], sessions = [], artifacts = []) {
   if (!user || typeof user !== 'object') throw new TypeError('User data is required');
+  if (!Array.isArray(artifacts)) throw new TypeError('Artifacts must be an array');
   const source = typeof user.toObject === 'function' ? user.toObject() : user;
   const result = {};
   for (const field of EXPORT_FIELDS) {
@@ -45,6 +46,29 @@ function buildUserDataExport(user, comments = [], sessions = []) {
       result[field] = source[field];
     }
   }
+  const savedDraftMap = { ...(result.savedDraftMap && typeof result.savedDraftMap === 'object' && !Array.isArray(result.savedDraftMap) ? result.savedDraftMap : {}) };
+  const savedCodeMap = { ...(result.savedCodeMap && typeof result.savedCodeMap === 'object' && !Array.isArray(result.savedCodeMap) ? result.savedCodeMap : {}) };
+  for (const artifact of artifacts) {
+    if (!artifact || typeof artifact !== 'object' ||
+        typeof artifact.lessonId !== 'string' ||
+        !['draft', 'saved_code'].includes(artifact.kind) ||
+        !Number.isSafeInteger(artifact.revision) || artifact.revision < 1 ||
+        !artifact.files || typeof artifact.files !== 'object' || Array.isArray(artifact.files)) {
+      throw new TypeError('Invalid learning artifact export');
+    }
+    if (artifact.kind === 'draft') {
+      savedDraftMap[artifact.lessonId] = {
+        files: artifact.files,
+        revision: artifact.revision,
+        ...(artifact.updatedAt !== undefined ? { updatedAt: artifact.updatedAt } : {})
+      };
+    } else {
+      savedCodeMap[artifact.lessonId] = artifact.files;
+    }
+  }
+  if (Object.keys(savedDraftMap).length) result.savedDraftMap = savedDraftMap;
+  if (Object.keys(savedCodeMap).length) result.savedCodeMap = savedCodeMap;
+
   return {
     schemaVersion: 2,
     exportedAt: new Date().toISOString(),
