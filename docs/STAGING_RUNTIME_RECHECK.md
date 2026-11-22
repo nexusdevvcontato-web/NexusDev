@@ -50,3 +50,23 @@ No index was created, dropped, or modified.
 ## Conclusion
 
 The staging frontend is reachable and its API rewrite reaches the live Render staging service. Atlas index key patterns match the expected schema inventory. Authenticated application routes and interactive browser flows remain unverified because deployment protection blocks the available fetch path. No production action was taken.
+
+
+## Runtime recheck — 2026-11-22 (latest staging deploy)
+
+- Render service `nexusdev-staging-v2` remains on the Free plan, branch `rebuild/v2-security`, with auto-deploy and Preview generation disabled.
+- Latest deploy: `dep-dc1652ff3r2c73bove4g`, commit `152a51b73bbf6911d9b0307b0b250ed9e04f975b`; Render event history reports build and deploy succeeded.
+- Application logs from the new instance confirm `yarn start`, `node server.js`, `Conectado ao MongoDB`, and `Servidor NexusDev v2.0 rodando na porta 10000`; Render then logged `Your service is live`.
+- Render metadata still reports `/api/health` as the configured health-check path. No matching request-log entries for `/api/health` or `/api/ready` were present in the inspected request-log window, so an independent HTTP response is not claimed in this recheck.
+- Atlas metadata confirms the separate Free cluster `NexusDevStaging` is IDLE in project `NexusDev Staging`; the connected database is `nexusdev_staging`. Only database/collection/index metadata was read; no documents were queried.
+- Live `sessions` indexes now include the expected compound key `{ userId: 1, revokedAt: 1, lastUsedAt: -1 }`, alongside `userId_1`, `familyId_1`, `revokedAt_1`, and `expiresAt_1`.
+- The remaining `sessions.userId_1` index is a likely redundant legacy index: the current Mongoose schema no longer declares it, and the compound index has `userId` as its leading key. It was not dropped because this pass was read-only at the database layer.
+- Live `refreshtokens`, `completionproofs`, `comments`, and `users` index key patterns were also inventoried. The Atlas metadata tool exposes names and key patterns but not `unique`, `sparse`, or TTL `expireAfterSeconds` options; those flags therefore remain unverified live and must not be inferred from key names.
+- Frontend CI for commit `abeb1041f040eee9e84a671a0a25863b6b538bfe` passed (run `44969027038`). Backend CI for commit `152a51b73bbf6911d9b0307b0b250ed9e04f975b` passed (run `44981022173`).
+
+### Remaining validation gates
+
+1. Obtain an approved way to issue a synthetic, unauthenticated GET to `/api/health` and `/api/ready`; do not bypass Vercel SSO or use production credentials.
+2. Inspect full Atlas `listIndexes` options for the staging database before any index cleanup. Review the extra `sessions.userId_1` index as a controlled migration candidate; do not drop it speculatively.
+3. Execute HTTP integration tests for privacy export and deletion-impact using synthetic accounts only. The export route requires recent reauthentication; no real account was used.
+4. Keep production, real user documents, secrets, and database contents untouched.
