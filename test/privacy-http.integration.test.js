@@ -39,6 +39,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const RefreshToken = mongoose.model('RefreshToken');
     const Comment = mongoose.model('Comment');
     const CompletionProof = mongoose.model('CompletionProof');
+    const LearningArtifact = mongoose.model('LearningArtifact');
     await Promise.all([
       User.init(), Session.init(), RefreshToken.init(),
       Comment.init(), CompletionProof.init()
@@ -79,6 +80,16 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const otherToken = await register('privacy-other@example.test');
     const owner = await User.findOne({ email: 'privacy-owner@example.test' });
     const other = await User.findOne({ email: 'privacy-other@example.test' });
+    await LearningArtifact.create([
+      {
+        userId: owner._id, lessonId: 'html-00-o-que-e-web', kind: 'draft',
+        files: { 'index.html': '<h1>Owner artifact</h1>' }, revision: 4
+      },
+      {
+        userId: other._id, lessonId: 'html-00-o-que-e-web', kind: 'draft',
+        files: { 'index.html': '<h1>Other artifact</h1>' }, revision: 2
+      }
+    ]);
 
     const ownerComment = await request('/api/lessons/html-00-o-que-e-web/comments', {
       method: 'POST', token: ownerToken, body: { text: 'Comentário sintético do titular A' }
@@ -143,6 +154,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(impact.payload.sessions.refreshTokens, 1);
     assert.equal(impact.payload.comments.linkedCount, 1);
     assert.equal(impact.payload.completionProofs.count, 0);
+    assert.equal(impact.payload.learning.artifactCount, 1);
     assert.equal(JSON.stringify(impact.payload).includes(other._id.toString()), false);
 
     const reauthenticated = await request('/api/auth/reauthenticate', {
@@ -161,9 +173,17 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(exported.payload.data.id, owner._id.toString());
     assert.equal(exported.payload.data.email, owner.email);
     assert.equal(exported.payload.comments.length, 1);
+    assert.deepEqual(exported.payload.data.savedDraftMap, {
+      'html-00-o-que-e-web': {
+        files: { 'index.html': '<h1>Owner artifact</h1>' },
+        revision: 4,
+        updatedAt: exported.payload.data.savedDraftMap['html-00-o-que-e-web'].updatedAt
+      }
+    });
     assert.equal(exported.payload.comments[0].text, 'Comentário sintético do titular A');
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular B'), false);
     assert.equal(JSON.stringify(exported.payload).includes(other._id.toString()), false);
+    assert.equal(JSON.stringify(exported.payload).includes('Other artifact'), false);
     for (const privateField of ['passwordHash', 'googleId', 'tokenHash', 'csrfTokenHash', 'reauthProofHash']) {
       assert.equal(JSON.stringify(exported.payload).includes(privateField), false, privateField);
     }
