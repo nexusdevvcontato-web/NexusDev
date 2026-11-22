@@ -78,6 +78,31 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.deepEqual(readiness.payload, { status: 'ready', database: 'connected' });
     assert.match(readiness.response.headers.get('cache-control') || '', /no-store/i);
 
+    // Exercise the real Express CORS middleware, not only its configuration parser.
+    const allowedPreflight = await fetch(base + '/api/me', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type,x-csrf-token'
+      }
+    });
+    assert.equal(allowedPreflight.status, 204);
+    assert.equal(allowedPreflight.headers.get('access-control-allow-origin'), origin);
+    assert.equal(allowedPreflight.headers.get('access-control-allow-credentials'), 'true');
+    assert.notEqual(allowedPreflight.headers.get('access-control-allow-origin'), '*');
+    assert.match(allowedPreflight.headers.get('access-control-allow-headers') || '', /authorization/i);
+
+    const hostilePreflight = await fetch(base + '/api/me', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://attacker.example.test',
+        'Access-Control-Request-Method': 'GET'
+      }
+    });
+    assert.ok(hostilePreflight.status >= 400);
+    assert.equal(hostilePreflight.headers.get('access-control-allow-origin'), null);
+
     // Password-reset requests are limited both by client IP and by normalized email.
     for (let attempt = 0; attempt < 3; attempt++) {
       const resetRequest = await request('/api/auth/password-reset/request', {
