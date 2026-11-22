@@ -217,3 +217,21 @@ test('legacy artifact migration planner rejects missing owner or curriculum vali
   assert.throws(() => planLegacyLearningArtifactMigration({}), /obrigatórios/);
   assert.throws(() => planLegacyLearningArtifactMigration({ userId: 'synthetic-user' }), /obrigatórios/);
 });
+
+
+test('migration dry-run is restricted to local disposable replica-set database and has no apply mode', async () => {
+  const { readFile } = require('node:fs/promises');
+  const script = await readFile(require.resolve('../scripts/plan-learning-artifact-migration'), 'utf8');
+  const { validateLocalTestUri } = require('../scripts/plan-learning-artifact-migration');
+
+  assert.throws(() => validateLocalTestUri('mongodb://example.com/prod?replicaSet=rs0'), /local/);
+  assert.throws(() => validateLocalTestUri('mongodb://127.0.0.1:27017/production?replicaSet=rs0'), /local/);
+  assert.throws(() => validateLocalTestUri('mongodb://127.0.0.1:27017/nexusdev_session_test'), /replica set/);
+  assert.equal(
+    validateLocalTestUri('mongodb://127.0.0.1:27017/nexusdev_session_test?replicaSet=rs0'),
+    'mongodb://127.0.0.1:27017/nexusdev_session_test?replicaSet=rs0'
+  );
+  assert.match(script, /mode: 'dry-run-read-only'/);
+  assert.match(script, /if \(process\.argv\.includes\('--apply'\)\)/);
+  assert.doesNotMatch(script, /\.insertMany\(|\.bulkWrite\(|\.save\(|\.deleteMany\(|\.updateMany\(/);
+});
