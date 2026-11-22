@@ -107,7 +107,7 @@ function createLearningArtifactModel(mongoose, connection = mongoose && (mongoos
       type: Number, required: true, min: 1,
       validate: Number.isSafeInteger
     }
-  }, { timestamps: true, versionKey: false, strict: 'throw' });
+  }, { timestamps: true, versionKey: false, strict: 'throw', autoIndex: false });
 
   schema.index({ userId: 1, lessonId: 1, kind: 1 }, { unique: true, name: 'uniq_user_lesson_artifact_kind' });
   schema.index({ userId: 1, updatedAt: -1 }, { name: 'user_artifacts_updated' });
