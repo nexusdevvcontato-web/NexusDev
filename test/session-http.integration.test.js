@@ -147,6 +147,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       assert.equal(result.response.status, 201, JSON.stringify(result.payload));
       assert.equal(typeof result.payload.accessToken, 'string');
       assert.equal('refreshToken' in result.payload, false);
+      assert.equal(Object.hasOwn(result.payload.user, 'role'), false);
       const refresh = result.cookieMap['__Host-nexusdev_refresh'];
       const csrf = result.cookieMap['__Host-nexusdev_csrf'];
       assert.ok(refresh);
@@ -160,7 +161,6 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     // Registration ignores client-supplied privilege, XP, and privacy fields.
     const credentialVersionOwner = await register('credential-version@example.test');
-    assert.equal(Object.hasOwn(credentialVersionOwner, 'role'), false);
     const injectedRoleUser = await User.findOne({ email: 'credential-version@example.test' });
     assert.equal(injectedRoleUser.role, 'student');
     assert.equal(injectedRoleUser.xp, 0);
