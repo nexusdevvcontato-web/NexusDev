@@ -25,6 +25,7 @@ test('avatar URLs must be HTTPS', () => {
   assert.equal(normalizePublicAvatar('http://example.com/a.png'), '');
   assert.equal(normalizePublicAvatar('javascript:alert(1)'), '');
   assert.equal(normalizePublicAvatar('https://example.com/a.png'), 'https://example.com/a.png');
+  assert.equal(normalizePublicAvatar('https://user:secret@example.com/a.png'), '');
 });
 
 test('ranking is capped at 15 visible entries and ranks are contiguous', () => {
@@ -42,4 +43,14 @@ test('opted-out users are filtered even when the builder receives unfiltered dat
   ]);
   assert.deepEqual(result.map(entry => entry.name), ['Visível', 'Legado']);
   assert.deepEqual(result.map(entry => entry.rank), [1, 2]);
+});
+ 
+test('safe HTTPS URL policy rejects credentials and non-HTTPS schemes', () => {
+  const { normalizeSafeHttpsUrl, isSafeHttpsUrl } = require('../src/modules/public-read/safe-https-url');
+  assert.equal(normalizeSafeHttpsUrl('https://example.com/profile'), 'https://example.com/profile');
+  assert.equal(normalizeSafeHttpsUrl('https://user:secret@example.com/profile'), '');
+  assert.equal(normalizeSafeHttpsUrl('http://example.com/profile'), '');
+  assert.equal(normalizeSafeHttpsUrl('javascript:alert(1)'), '');
+  assert.equal(isSafeHttpsUrl('https://user:secret@example.com/profile'), false);
+  assert.equal(isSafeHttpsUrl('https://example.com/profile'), true);
 });
