@@ -15,6 +15,8 @@ test('learning artifact model declares owner-scoped uniqueness and validation', 
   try {
     const Model = createLearningArtifactModel(mongoose, connection);
     const indexes = Model.schema.indexes();
+    assert.equal(Model.schema.options.autoIndex, false,
+      'registering the model must not create live database indexes implicitly');
     assert.ok(indexes.some(([keys, options]) =>
       keys.userId === 1 && keys.lessonId === 1 && keys.kind === 1 && options.unique === true
     ));
