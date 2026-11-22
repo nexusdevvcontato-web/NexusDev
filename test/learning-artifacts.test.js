@@ -170,3 +170,50 @@ test('stored malformed learning artifacts fail closed', async () => {
     /malformed/
   );
 });
+
+
+test('legacy artifact migration planner is dry-run, validates curriculum and preserves revisions', () => {
+  const { planLegacyLearningArtifactMigration } = require('../src/modules/drafts/learning-artifacts');
+  const owner = 'synthetic-user';
+  const allowed = new Set(['mod-1-aula-1', 'mod-1-aula-2']);
+  const plan = planLegacyLearningArtifactMigration({
+    userId: owner,
+    isKnownLessonId: lessonId => allowed.has(lessonId),
+    savedDraftMap: {
+      'mod-1-aula-1': {
+        files: { 'index.html': '<h1>draft</h1>' },
+        revision: 7,
+        updatedAt: new Date('2026-11-20T10:00:00.000Z')
+      },
+      'unknown-lesson': {
+        files: { 'index.html': 'should not migrate' },
+        revision: 1
+      },
+      'mod-1-aula-2': {
+        files: { '../unsafe': 'bad' },
+        revision: 1
+      }
+    },
+    savedCodeMap: {
+      'mod-1-aula-2': { 'index.html': '<h1>submitted</h1>' }
+    }
+  });
+
+  assert.deepEqual(plan.summary, { planned: 2, rejected: 2, drafts: 1, savedCode: 1 });
+  assert.equal(plan.records[0].userId, owner);
+  assert.equal(plan.records[0].lessonId, 'mod-1-aula-1');
+  assert.equal(plan.records[0].kind, 'draft');
+  assert.equal(plan.records[0].revision, 7);
+  assert.equal(plan.records[0].files['index.html'], '<h1>draft</h1>');
+  assert.equal(plan.records[1].kind, 'saved_code');
+  assert.equal(plan.records[1].revision, 1);
+  assert.deepEqual(plan.rejected.map(item => item.reason), ['unknown_lesson', 'invalid_files']);
+  assert.ok(plan.rejected.every(item => !Object.hasOwn(item, 'files')),
+    'rejection diagnostics must not contain source code');
+});
+
+test('legacy artifact migration planner rejects missing owner or curriculum validator', () => {
+  const { planLegacyLearningArtifactMigration } = require('../src/modules/drafts/learning-artifacts');
+  assert.throws(() => planLegacyLearningArtifactMigration({}), /obrigatórios/);
+  assert.throws(() => planLegacyLearningArtifactMigration({ userId: 'synthetic-user' }), /obrigatórios/);
+});
