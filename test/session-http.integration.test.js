@@ -155,6 +155,25 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
       return { accessToken: result.payload.accessToken, refresh, csrf };
     };
 
+    // Client-supplied privilege fields must never alter the server-owned account role or XP.
+    const privilegeEscalation = await request('/api/auth/session/register', {
+      method: 'POST',
+      body: {
+        name: 'Unprivileged Student',
+        email: 'role-injection@example.test',
+        password: 'A-strong-test-password-2026',
+        role: 'admin',
+        xp: 999999,
+        privacyPreferences: { showInLeaderboard: false }
+      }
+    });
+    assert.equal(privilegeEscalation.response.status, 201, JSON.stringify(privilegeEscalation.payload));
+    assert.equal(Object.hasOwn(privilegeEscalation.payload.user, 'role'), false);
+    const injectedRoleUser = await User.findOne({ email: 'role-injection@example.test' });
+    assert.equal(injectedRoleUser.role, 'student');
+    assert.equal(injectedRoleUser.xp, 0);
+    assert.equal(injectedRoleUser.privacyPreferences.showInLeaderboard, true);
+
     // A credential-generation change invalidates existing access and refresh credentials.
     const credentialVersionOwner = await register('credential-version@example.test');
     const credentialVersionUser = await mongoose.model('User').findOne({ email: 'credential-version@example.test' });
@@ -207,6 +226,23 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
 
     const a = await register('session-a@example.test');
     const b = await register('session-b@example.test');
+
+    // Public comment metadata is derived from the authenticated database user, not client fields.
+    const spoofedComment = await request('/api/lessons/html-00-o-que-e-web/comments', {
+      method: 'POST',
+      token: a.accessToken,
+      body: {
+        text: 'Comentário de teste de integração',
+        author: 'Administrador Falso',
+        badge: 'Mentor NexusDev',
+        authorUserId: '507f1f77bcf86cd799439099'
+      }
+    });
+    assert.equal(spoofedComment.response.status, 201, JSON.stringify(spoofedComment.payload));
+    assert.equal(spoofedComment.payload.comment.author, 'Integration Student');
+    assert.equal(spoofedComment.payload.comment.badge, 'Aluno NexusDev');
+    const persistedComment = await mongoose.model('Comment').findById(spoofedComment.payload.comment.id).lean();
+    assert.equal(persistedComment.authorUserId.toString(), (await User.findOne({ email: 'session-a@example.test' }))._id.toString());
 
     // Device management must list only safe metadata and revoke another device without
     // terminating the authenticated current session or affecting a different account.
