@@ -127,3 +127,31 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     await connection.close();
   }
 });
+
+
+test('session schemas declare owner-scoped listing, uniqueness, and TTL indexes', () => {
+  const connection = mongoose.createConnection();
+  try {
+    const { Session: SessionModel, RefreshToken: RefreshTokenModel } = createSessionModels(mongoose, connection);
+    const sessionIndexes = SessionModel.schema.indexes();
+    const refreshIndexes = RefreshTokenModel.schema.indexes();
+
+    assert.ok(sessionIndexes.some(([keys, options]) =>
+      keys.expiresAt === 1 && options.expireAfterSeconds === 0
+    ), 'expired sessions must have a TTL index');
+    assert.ok(sessionIndexes.some(([keys]) =>
+      keys.userId === 1 && keys.revokedAt === 1 && keys.lastUsedAt === -1
+    ), 'session listing and logout-all must use a compound owner/status/order index');
+    assert.ok(sessionIndexes.some(([keys, options]) =>
+      keys.familyId === 1 && options.unique === true
+    ), 'session family identifiers must remain unique');
+    assert.ok(refreshIndexes.some(([keys, options]) =>
+      keys.tokenHash === 1 && options.unique === true
+    ), 'refresh token hashes must remain unique');
+    assert.ok(refreshIndexes.some(([keys, options]) =>
+      keys.expiresAt === 1 && options.expireAfterSeconds === 0
+    ), 'expired refresh tokens must have a TTL index');
+  } finally {
+    void connection.close();
+  }
+});
