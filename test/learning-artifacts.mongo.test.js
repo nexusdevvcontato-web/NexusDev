@@ -219,6 +219,31 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
     assert.equal(afterReplay.xp, 50);
     assert.equal(artifactAfterReplay.revision, 1);
 
+    // Concurrent successful submissions for one lesson must grant XP once,
+    // consume both distinct proofs, and serialize artifact revisions.
+    const concurrentOwner = new mongoose.Types.ObjectId();
+    await CompletionUser.create({ _id: concurrentOwner });
+    const concurrentInputs = ['2','3'].map(suffix => ({
+      ...completionInput,
+      userId: concurrentOwner,
+      proof: {
+        ...completionInput.proof,
+        jti: `123e4567-e89b-42d3-a456-42661417400${suffix}`
+      },
+      files: { 'index.html': `<h1>concurrent-${suffix}</h1>` }
+    }));
+    await Promise.all(concurrentInputs.map(input => completeLessonAtomically(input)));
+    const concurrentUser = await CompletionUser.findById(concurrentOwner).lean();
+    const concurrentArtifact = await LearningArtifact.findOne({
+      userId: concurrentOwner, lessonId: 'mod-1-aula-3', kind: 'saved_code'
+    }).lean();
+    assert.equal(concurrentUser.xp, 50);
+    assert.deepEqual(concurrentUser.completedIds, ['mod-1-aula-3']);
+    assert.equal(concurrentArtifact.revision, 2);
+    assert.equal(await TestCompletionProof.countDocuments({
+      userId: concurrentOwner, challengeId: 'mod-1-aula-3'
+    }), 2);
+
     const rollbackOwner = new mongoose.Types.ObjectId();
     await CompletionUser.create({ _id: rollbackOwner });
     const originalCompletionArtifactUpdate = LearningArtifact.findOneAndUpdate;
