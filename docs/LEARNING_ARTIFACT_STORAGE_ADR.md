@@ -71,3 +71,11 @@ Nenhum documento real de usuário foi lido, migrado, alterado ou removido durant
 Os testes de integração no replica set descartável agora cobrem leitura inicial do legado, primeira gravação sincronizada, revisão obsoleta, dois escritores simultâneos na primeira gravação, isolamento entre proprietários e rollback quando a gravação do artefato falha. Esses testes usam apenas contas sintéticas.
 
 As rotas de gravação e conclusão de aula continuam usando o armazenamento legado; o novo serviço ainda não foi conectado, não há cutover nem migração efetiva. A habilitação continua bloqueada até confirmar o índice único no staging, revisar o plano de rollback e executar testes de integração no staging sem dados reais. Migração de dados continua bloqueada até backup verificável, revisão do dry-run e aprovação operacional explícita.
+
+### Integração transacional de código submetido (preparação)
+
+O helper `completeLessonAtomically` agora aceita uma dependência opcional `LearningArtifact`. Quando fornecida, ele grava `kind: saved_code` com incremento de revisão e espelha os arquivos em `savedCodeMap`, dentro da mesma transação que consome a prova, atualiza progresso e XP e registra atividade diária. Uma falha na gravação do artefato aborta a transação inteira. A proteção existente contra repetição da prova e incremento de XP somente para aulas ainda não concluídas foi preservada.
+
+A dependência é opcional e a rota de produção/staging ainda não a fornece: não houve ativação nem alteração de comportamento HTTP. A gravação depende do índice único composto `{ userId: 1, lessonId: 1, kind: 1 }`; sem ele, concorrência de upsert pode criar duplicatas. Na inspeção read-only do Atlas staging em 2026-11-23, o banco `nexusdev_staging` continha cinco coleções e ainda não possuía `learning_artifacts`; portanto não existe índice dessa coleção para verificar. Nenhuma coleção ou índice foi criada.
+
+Os testes unitários do helper cobrem dual-write na sessão transacional e abortamento quando a escrita do artefato falha. Ainda são necessários testes de integração com replica set descartável cobrindo revisão, concorrência, replay e isolamento antes de conectar a dependência à rota. A ativação continua bloqueada até criar/verificar o índice exclusivamente no staging e executar os testes de integração correspondentes.
