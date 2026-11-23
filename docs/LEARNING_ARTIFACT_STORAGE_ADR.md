@@ -79,3 +79,23 @@ O helper `completeLessonAtomically` agora aceita uma dependência opcional `Lear
 A dependência é opcional e a rota de produção/staging ainda não a fornece: não houve ativação nem alteração de comportamento HTTP. A gravação depende do índice único composto `{ userId: 1, lessonId: 1, kind: 1 }`; sem ele, concorrência de upsert pode criar duplicatas. Na inspeção read-only do Atlas staging em 2026-11-23, o banco `nexusdev_staging` continha cinco coleções e ainda não possuía `learning_artifacts`; portanto não existe índice dessa coleção para verificar. Nenhuma coleção ou índice foi criada.
 
 Os testes unitários do helper cobrem dual-write na sessão transacional e abortamento quando a escrita do artefato falha. Ainda são necessários testes de integração com replica set descartável cobrindo revisão, concorrência, replay e isolamento antes de conectar a dependência à rota. A ativação continua bloqueada até criar/verificar o índice exclusivamente no staging e executar os testes de integração correspondentes.
+
+
+### Atualização de validação — 2026-11-23
+
+Esta seção atualiza o estado dos testes descritos acima; as observações anteriores de que ainda faltavam testes de integração para revisão, concorrência, replay e isolamento foram superadas no branch de trabalho.
+
+A suíte `test/learning-artifacts.mongo.test.js` executada em replica set MongoDB descartável cobre agora:
+
+- leitura compatível com o mapa legado antes da existência de artefato;
+- gravação transacional de rascunho, espelhamento legado e incremento de revisão;
+- rejeição de revisão obsoleta e conflito entre duas primeiras gravações concorrentes;
+- isolamento entre proprietários;
+- rollback do espelho legado quando a escrita do artefato falha;
+- gravação transacional de `saved_code`, espelhamento legado e rollback;
+- replay/idempotência da conclusão e proteção contra XP duplicado;
+- duas conclusões concorrentes para o mesmo usuário/aula, verificando XP contabilizado uma vez, uma única aula concluída, revisão esperada do artefato e consumo das duas provas.
+
+A execução GitHub Actions **45283092262**, no commit `17d914e1ae4b071f619a0b67bdb81c670b802b9d`, concluiu com sucesso. O job `test` passou pelas etapas de instalação, auditoria das dependências de produção, inicialização do replica set descartável, testes de sintaxe/segurança e encerramento do MongoDB descartável.
+
+Esse resultado valida o comportamento coberto no ambiente descartável; não comprova o índice no Atlas staging nem o comportamento de uma implantação real. O bloqueio operacional permanece: a coleção `learning_artifacts` e o índice único composto ainda precisam ser criados/verificados somente no staging, com procedimento seguro e sem tocar produção. Até lá, as rotas permanecem desconectadas, sem migração ou cutover.
