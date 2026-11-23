@@ -7,6 +7,7 @@ const {
   createLearningArtifactModel,
   createLearningArtifactService
 } = require('../src/modules/drafts/learning-artifacts');
+const { createTransactionalLessonDraftService } = require('../src/modules/drafts/transactional-lesson-drafts');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = Boolean(sourceUri);
@@ -74,6 +75,76 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
     const listedB = await service.listForUser(userB);
     assert.equal(listedB.length, 1);
     assert.equal(listedB[0].files['index.html'], 'B-private');
+
+    const draftUserSchema = new mongoose.Schema({
+      savedDraftMap: { type: mongoose.Schema.Types.Mixed, default: {} }
+    }, { versionKey: false });
+    const DraftUser = connection.model('ArtifactDraftUser', draftUserSchema, 'artifact_draft_users');
+    const ownerLegacy = new mongoose.Types.ObjectId();
+    const ownerNew = new mongoose.Types.ObjectId();
+    await DraftUser.create([
+      {
+        _id: ownerLegacy,
+        savedDraftMap: {
+          'mod-1-aula-2': {
+            files: { 'index.html': 'legacy-v3' },
+            revision: 3,
+            updatedAt: new Date('2026-11-21T10:00:00.000Z')
+          }
+        }
+      },
+      { _id: ownerNew }
+    ]);
+    const transactionalDrafts = createTransactionalLessonDraftService({
+      mongoose: connection,
+      User: DraftUser,
+      LearningArtifact
+    });
+
+    assert.equal((await transactionalDrafts.read(ownerLegacy, 'mod-1-aula-2')).revision, 3);
+    const migratedWrite = await transactionalDrafts.save({
+      userId: ownerLegacy,
+      challengeId: 'mod-1-aula-2',
+      files: { 'index.html': 'new-v4' },
+      expectedRevision: 3
+    });
+    assert.equal(migratedWrite.ok, true);
+    assert.equal(migratedWrite.draft.revision, 4);
+    const legacyMirror = await DraftUser.findById(ownerLegacy).lean();
+    assert.equal(legacyMirror.savedDraftMap['mod-1-aula-2'].revision, 4);
+    assert.equal(legacyMirror.savedDraftMap['mod-1-aula-2'].files['index.html'], 'new-v4');
+    const newStore = await LearningArtifact.findOne({
+      userId: ownerLegacy, lessonId: 'mod-1-aula-2', kind: 'draft'
+    }).lean();
+    assert.equal(newStore.revision, 4);
+    assert.equal(newStore.files['index.html'], 'new-v4');
+
+    const staleWrite = await transactionalDrafts.save({
+      userId: ownerLegacy,
+      challengeId: 'mod-1-aula-2',
+      files: { 'index.html': 'stale' },
+      expectedRevision: 3
+    });
+    assert.equal(staleWrite.ok, false);
+    assert.equal(staleWrite.reason, 'conflict');
+    assert.equal(staleWrite.draft.revision, 4);
+
+    const firstWrites = await Promise.all([
+      transactionalDrafts.save({
+        userId: ownerNew, challengeId: 'mod-1-aula-1',
+        files: { 'index.html': 'writer-one' }, expectedRevision: 0
+      }),
+      transactionalDrafts.save({
+        userId: ownerNew, challengeId: 'mod-1-aula-1',
+        files: { 'index.html': 'writer-two' }, expectedRevision: 0
+      })
+    ]);
+    assert.equal(firstWrites.filter(result => result.ok).length, 1);
+    assert.equal(firstWrites.filter(result => result.reason === 'conflict').length, 1);
+    const ownerNewDraft = await transactionalDrafts.read(ownerNew, 'mod-1-aula-1');
+    assert.equal(ownerNewDraft.revision, 1);
+    assert.ok(['writer-one', 'writer-two'].includes(ownerNewDraft.files['index.html']));
+    assert.equal((await transactionalDrafts.read(ownerLegacy, 'mod-1-aula-2')).files['index.html'], 'new-v4');
 
     await assert.rejects(
       LearningArtifact.create({
