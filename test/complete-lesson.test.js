@@ -42,6 +42,30 @@ test('consumes proof and writes saved code, XP and streak inside one transaction
     if (call[0] === 'read-user') assert.equal(call[2], transactionSession);
   }
 });
+test('optional saved_code artifact is dual-written in the completion transaction', async () => {
+  const deps = setup();
+  const artifactCalls = [];
+  const LearningArtifact = { async findOneAndUpdate(filter, update, options) {
+    artifactCalls.push({ filter, update, options });
+    return { revision: 1 };
+  } };
+  await completeLessonAtomically({ ...input(deps), LearningArtifact });
+  assert.equal(artifactCalls.length, 1);
+  assert.deepEqual(artifactCalls[0].filter, {
+    userId: 'user-1', lessonId: 'html-00-o-que-e-web', kind: 'saved_code'
+  });
+  assert.deepEqual(artifactCalls[0].update.$set.files, { 'index.html': '<h1>OK</h1>' });
+  assert.equal(artifactCalls[0].update.$inc.revision, 1);
+  assert.equal(artifactCalls[0].options.session, deps.calls.find(x => Array.isArray(x) && x[0] === 'proof')[2]);
+});
+test('saved_code artifact failure aborts proof, legacy mirror and XP transaction', async () => {
+  const deps = setup();
+  const LearningArtifact = { async findOneAndUpdate() { throw new Error('artifact write failed'); } };
+  await assert.rejects(() => completeLessonAtomically({ ...input(deps), LearningArtifact }), /artifact write failed/);
+  assert.equal(deps.calls.includes('transaction:commit'), false);
+  assert.equal(deps.calls.filter(x => Array.isArray(x) && x[0] === 'xp').length, 0);
+  assert.equal(deps.calls.at(-1), 'session:end');
+});
 test('duplicate proof is rejected and transaction is not committed', async () => {
   const deps = setup({ replay: true });
   await assert.rejects(() => completeLessonAtomically(input(deps)), error => error.code === REPLAY_CODE);
@@ -60,7 +84,6 @@ test('XP increment is guarded by an atomic not-yet-completed condition', async (
   assert.deepEqual(xpCall[2], { $addToSet: { completedIds: 'html-00-o-que-e-web' }, $inc: { xp: 50 } });
   assert.deepEqual(xpCall[3], { new: true, session: xpCall[3].session });
 });
-
 test('daily streak increment is guarded by the stored activity date', async () => {
   const deps = setup();
   await completeLessonAtomically(input(deps));
@@ -77,8 +100,6 @@ test('daily streak increment is guarded by the stored activity date', async () =
     }
   }]);
 });
-
-
 test('returns the existing completion when a committed proof is retried after a lost response', async () => {
   const deps = setup({ replay: true, replayAlreadyCompleted: true });
   const user = await completeLessonAtomically(input(deps));
