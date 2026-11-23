@@ -8,6 +8,7 @@ const {
   createLearningArtifactService
 } = require('../src/modules/drafts/learning-artifacts');
 const { createTransactionalLessonDraftService } = require('../src/modules/drafts/transactional-lesson-drafts');
+const { completeLessonAtomically, REPLAY_CODE } = require('../src/modules/proofs/complete-lesson');
 
 const sourceUri = process.env.MONGO_SESSION_TEST_URI;
 const enabled = Boolean(sourceUri);
@@ -163,6 +164,86 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
     assert.equal(ownerNewDraft.revision, 1);
     assert.ok(['writer-one', 'writer-two'].includes(ownerNewDraft.files['index.html']));
     assert.equal((await transactionalDrafts.read(ownerLegacy, 'mod-1-aula-2')).files['index.html'], 'new-v4');
+
+
+    const completionUserSchema = new mongoose.Schema({
+      savedCodeMap: { type: mongoose.Schema.Types.Mixed, default: {} },
+      completedIds: { type: [String], default: [] },
+      xp: { type: Number, default: 0 },
+      lastActiveDate: { type: String, default: '2026-11-22' },
+      streak: { type: Number, default: 1 }
+    }, { versionKey: false });
+    const CompletionUser = connection.model('ArtifactCompletionUser', completionUserSchema, 'artifact_completion_users');
+    const completionProofSchema = new mongoose.Schema({
+      jti: { type: String, required: true, unique: true },
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      challengeId: { type: String, required: true },
+      filesHash: { type: String, required: true },
+      expiresAt: { type: Date, required: true }
+    }, { versionKey: false });
+    const TestCompletionProof = connection.model('ArtifactTestCompletionProof', completionProofSchema, 'artifact_test_completion_proofs');
+    await TestCompletionProof.createIndexes();
+
+    const completionOwner = new mongoose.Types.ObjectId();
+    await CompletionUser.create({ _id: completionOwner });
+    const completionInput = {
+      mongoose: connection,
+      User: CompletionUser,
+      CompletionProof: TestCompletionProof,
+      LearningArtifact,
+      userId: completionOwner,
+      proof: {
+        jti: '123e4567-e89b-42d3-a456-426614174000',
+        exp: 1900000000,
+        challengeId: 'mod-1-aula-3',
+        filesHash: 'a'.repeat(64)
+      },
+      challengeId: 'mod-1-aula-3',
+      files: { 'index.html': '<h1>submitted</h1>' },
+      today: '2026-11-23'
+    };
+    await completeLessonAtomically(completionInput);
+    const completedOwner = await CompletionUser.findById(completionOwner).lean();
+    const completedArtifact = await LearningArtifact.findOne({
+      userId: completionOwner, lessonId: 'mod-1-aula-3', kind: 'saved_code'
+    }).lean();
+    assert.equal(completedOwner.xp, 50);
+    assert.deepEqual(completedOwner.savedCodeMap['mod-1-aula-3'], { 'index.html': '<h1>submitted</h1>' });
+    assert.equal(completedArtifact.revision, 1);
+    assert.equal(completedArtifact.files['index.html'], '<h1>submitted</h1>');
+
+    await assert.rejects(
+      () => completeLessonAtomically(completionInput),
+      error => error?.code === REPLAY_CODE
+    );
+    const afterReplay = await CompletionUser.findById(completionOwner).lean();
+    const artifactAfterReplay = await LearningArtifact.findById(completedArtifact._id).lean();
+    assert.equal(afterReplay.xp, 50);
+    assert.equal(artifactAfterReplay.revision, 1);
+
+    const rollbackOwner = new mongoose.Types.ObjectId();
+    await CompletionUser.create({ _id: rollbackOwner });
+    const originalCompletionArtifactUpdate = LearningArtifact.findOneAndUpdate;
+    LearningArtifact.findOneAndUpdate = async () => { throw new Error('synthetic artifact write failure'); };
+    try {
+      await assert.rejects(
+        () => completeLessonAtomically({
+          ...completionInput,
+          userId: rollbackOwner,
+          proof: { ...completionInput.proof, jti: '123e4567-e89b-42d3-a456-426614174001' }
+        }),
+        /synthetic artifact write failure/
+      );
+    } finally {
+      LearningArtifact.findOneAndUpdate = originalCompletionArtifactUpdate;
+    }
+    const rolledBackUser = await CompletionUser.findById(rollbackOwner).lean();
+    const rolledBackProof = await TestCompletionProof.findOne({
+      jti: '123e4567-e89b-42d3-a456-426614174001'
+    }).lean();
+    assert.equal(rolledBackUser.xp, 0);
+    assert.equal(rolledBackUser.savedCodeMap['mod-1-aula-3'], undefined);
+    assert.equal(rolledBackProof, null);
 
     await assert.rejects(
       LearningArtifact.create({
