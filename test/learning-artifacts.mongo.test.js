@@ -240,7 +240,10 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
       jti: '123e4567-e89b-42d3-a456-426614174001'
     }).lean();
     assert.equal(rolledBackUser.xp, 0);
-    assert.equal(rolledBackUser.savedCodeMap['mod-1-aula-3'], undefined);
+    assert.equal(rolledBackUser.savedCodeMap?.['mod-1-aula-3'], undefined);
+    assert.equal(await LearningArtifact.countDocuments({
+      userId: rollbackOwner, lessonId: 'mod-1-aula-3', kind: 'saved_code'
+    }), 0);
     assert.equal(rolledBackProof, null);
 
     await assert.rejects(
