@@ -129,6 +129,24 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
     assert.equal(staleWrite.reason, 'conflict');
     assert.equal(staleWrite.draft.revision, 4);
 
+    const originalArtifactUpdate = LearningArtifact.findOneAndUpdate;
+    LearningArtifact.findOneAndUpdate = async () => null;
+    try {
+      const failedMirror = await transactionalDrafts.save({
+        userId: ownerLegacy,
+        challengeId: 'mod-1-aula-2',
+        files: { 'index.html': 'must-rollback' },
+        expectedRevision: 4
+      });
+      assert.equal(failedMirror.ok, false);
+      assert.equal(failedMirror.reason, 'conflict');
+    } finally {
+      LearningArtifact.findOneAndUpdate = originalArtifactUpdate;
+    }
+    const afterAbortedMirror = await DraftUser.findById(ownerLegacy).lean();
+    assert.equal(afterAbortedMirror.savedDraftMap['mod-1-aula-2'].revision, 4);
+    assert.equal(afterAbortedMirror.savedDraftMap['mod-1-aula-2'].files['index.html'], 'new-v4');
+
     const firstWrites = await Promise.all([
       transactionalDrafts.save({
         userId: ownerNew, challengeId: 'mod-1-aula-1',
