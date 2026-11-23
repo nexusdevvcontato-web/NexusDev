@@ -3,8 +3,14 @@
 const { consumeCompletionProof, REPLAY_CODE } = require('./completion-proof-store');
 const { buildDailyActivityUpdate } = require('../users/daily-activity');
 
-async function completeLessonAtomically({ mongoose, User, CompletionProof, userId, proof, challengeId, files, today }) {
-  if (!mongoose || typeof mongoose.startSession !== 'function' || !User || !CompletionProof) throw new TypeError('Dependências de conclusão inválidas.');
+async function completeLessonAtomically({
+  mongoose, User, CompletionProof, LearningArtifact = null,
+  userId, proof, challengeId, files, today
+}) {
+  if (!mongoose || typeof mongoose.startSession !== 'function' || !User || !CompletionProof ||
+      (LearningArtifact && typeof LearningArtifact.findOneAndUpdate !== 'function')) {
+    throw new TypeError('Dependências de conclusão inválidas.');
+  }
   const session = await mongoose.startSession();
   let updatedUser = null;
   try {
@@ -14,6 +20,28 @@ async function completeLessonAtomically({ mongoose, User, CompletionProof, userI
         const savedCodeField = 'savedCodeMap.' + challengeId;
         const saved = await User.updateOne({ _id: userId }, { $set: { [savedCodeField]: files } }, { session });
         if (saved.matchedCount === 0) throw new Error('Usuário não encontrado durante a conclusão.');
+
+        // Optional staged dual-write. Keep it disabled at the route until the
+        // unique (userId, lessonId, kind) index is verified in staging.
+        if (LearningArtifact) {
+          const artifact = await LearningArtifact.findOneAndUpdate(
+            { userId, lessonId: challengeId, kind: 'saved_code' },
+            {
+              $set: { files, updatedAt: new Date() },
+              $inc: { revision: 1 },
+              $setOnInsert: { createdAt: new Date() }
+            },
+            {
+              upsert: true,
+              new: true,
+              runValidators: true,
+              setDefaultsOnInsert: true,
+              session
+            }
+          );
+          if (!artifact) throw new Error('Não foi possível persistir o código enviado.');
+        }
+
         await User.findOneAndUpdate(
           { _id: userId, completedIds: { $ne: challengeId } },
           { $addToSet: { completedIds: challengeId }, $inc: { xp: 50 } },
