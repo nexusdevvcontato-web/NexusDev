@@ -212,10 +212,8 @@ test('MongoDB replica-set learning artifact uniqueness, concurrency and owner is
     assert.equal(completedArtifact.revision, 1);
     assert.equal(completedArtifact.files['index.html'], '<h1>submitted</h1>');
 
-    await assert.rejects(
-      () => completeLessonAtomically(completionInput),
-      error => error?.code === REPLAY_CODE
-    );
+    const replayResult = await completeLessonAtomically(completionInput);
+    assert.equal(String(replayResult._id), String(completionOwner));
     const afterReplay = await CompletionUser.findById(completionOwner).lean();
     const artifactAfterReplay = await LearningArtifact.findById(completedArtifact._id).lean();
     assert.equal(afterReplay.xp, 50);
