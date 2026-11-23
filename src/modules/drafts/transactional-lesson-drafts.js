@@ -136,8 +136,10 @@ function createTransactionalLessonDraftService({
           }
         );
         if (!artifactUpdated) {
-          outcome = { ok: false, reason: 'conflict' };
-          return;
+          // Abort the transaction so the legacy mirror cannot commit alone.
+          const conflict = new Error('Learning artifact revision conflict.');
+          conflict.code = 'DRAFT_CONFLICT';
+          throw conflict;
         }
 
         outcome = { ok: true, draft: nextDraft };
@@ -145,7 +147,7 @@ function createTransactionalLessonDraftService({
     } catch (error) {
       // A simultaneous first insert can race on the required unique key.
       // Never hide other transaction failures.
-      if (error?.code !== 11000) throw error;
+      if (error?.code !== 11000 && error?.code !== 'DRAFT_CONFLICT') throw error;
       outcome = { ok: false, reason: 'conflict' };
     } finally {
       await session.endSession();
