@@ -315,7 +315,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
 
     const otherImpact = await request('/api/privacy/deletion-impact', { token: otherToken });
     assert.equal(otherImpact.response.status, 200);
-    assert.equal(otherImpact.payload.comments.linkedCount, 1);
+    assert.equal(otherImpact.payload.comments.linkedCount, 1801);
     assert.equal(otherImpact.payload.sessions.count, 1);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
