@@ -30,7 +30,7 @@ const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildLeaderboard } = require('./src/modules/public-read/leaderboard-policy');
 const { isSafeHttpsUrl } = require('./src/modules/public-read/safe-https-url');
-const { buildUserDataExport } = require('./src/modules/privacy/user-export');
+const { buildUserDataExport, buildCommentExport, buildSessionExport } = require('./src/modules/privacy/user-export');
 const { buildDeletionImpact } = require('./src/modules/privacy/deletion-impact');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
 const { createSessionModels } = require('./src/modules/auth/session-models');
@@ -572,6 +572,8 @@ app.get('/api/privacy/export', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 }, requireAuth, privacyExportLimiter, async (req, res) => {
+  let commentCursor;
+  let sessionCursor;
   try {
     // Exportação contém dados pessoais e exige uma prova recente de identidade, além da sessão.
     if (!REAUTH_TOKEN_SECRET) {
@@ -587,25 +589,74 @@ app.get('/api/privacy/export', (req, res, next) => {
       return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
     }
 
-    // Scope every query to the authenticated database identity; never accept an owner ID from the client.
-    const [comments, sessions, learningArtifacts] = await Promise.all([
-      Comment.find({ authorUserId: req.user._id })
-        .sort({ createdAt: 1, _id: 1 })
-        .select('_id lessonId author badge text createdAt updatedAt')
-        .lean(),
-      Session.find({ userId: req.user._id })
-        .sort({ createdAt: 1, _id: 1 })
-        .select('_id createdAt lastUsedAt expiresAt revokedAt revokeReason')
-        .lean(),
-      LearningArtifact.find({ userId: req.user._id })
-        .sort({ updatedAt: 1, _id: 1 })
-        .select('lessonId kind files revision updatedAt')
-        .lean()
-    ]);
+    // Learning artifacts are merged into the legacy-compatible profile maps.
+    // Comments and sessions use MongoDB cursors so their complete result sets are
+    // not accumulated in server memory before the response starts.
+    const learningArtifacts = await LearningArtifact.find({ userId: req.user._id })
+      .sort({ updatedAt: 1, _id: 1 })
+      .select('lessonId kind files revision updatedAt')
+      .lean();
+    const snapshot = buildUserDataExport(req.user, [], [], learningArtifacts);
+
+    res.set('Content-Type', 'application/json; charset=utf-8');
     res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
-    return res.json(buildUserDataExport(req.user, comments, sessions, learningArtifacts));
+
+    const writeChunk = async (chunk) => {
+      if (res.destroyed) throw new Error('Export response closed');
+      if (!res.write(chunk)) {
+        await new Promise((resolve, reject) => {
+          const onDrain = () => { cleanup(); resolve(); };
+          const onClose = () => { cleanup(); reject(new Error('Export response closed')); };
+          const cleanup = () => {
+            res.off('drain', onDrain);
+            res.off('close', onClose);
+          };
+          res.once('drain', onDrain);
+          res.once('close', onClose);
+        });
+      }
+    };
+
+    await writeChunk(JSON.stringify({
+      schemaVersion: snapshot.schemaVersion,
+      exportedAt: snapshot.exportedAt,
+      data: snapshot.data
+    }).slice(0, -1) + ',"comments":[');
+
+    commentCursor = Comment.find({ authorUserId: req.user._id })
+      .sort({ createdAt: 1, _id: 1 })
+      .select('_id lessonId author badge text createdAt updatedAt')
+      .lean()
+      .cursor({ batchSize: 100 });
+    let firstComment = true;
+    for await (const comment of commentCursor) {
+      const safeComment = buildCommentExport([comment])[0];
+      await writeChunk((firstComment ? '' : ',') + JSON.stringify(safeComment));
+      firstComment = false;
+    }
+
+    await writeChunk('],"sessions":[');
+    sessionCursor = Session.find({ userId: req.user._id })
+      .sort({ createdAt: 1, _id: 1 })
+      .select('_id createdAt lastUsedAt expiresAt revokedAt revokeReason')
+      .lean()
+      .cursor({ batchSize: 100 });
+    let firstSession = true;
+    for await (const session of sessionCursor) {
+      const safeSession = buildSessionExport([session])[0];
+      await writeChunk((firstSession ? '' : ',') + JSON.stringify(safeSession));
+      firstSession = false;
+    }
+    await writeChunk(']}');
+    return res.end();
   } catch {
+    if (res.headersSent) return res.destroy();
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
+  } finally {
+    await Promise.all([
+      commentCursor?.close().catch(() => {}),
+      sessionCursor?.close().catch(() => {})
+    ]);
   }
 });
 
