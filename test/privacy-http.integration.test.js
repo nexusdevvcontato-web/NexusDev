@@ -212,7 +212,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(impact.payload.deletionEnabled, false);
     assert.equal(impact.payload.sessions.count, 1);
     assert.equal(impact.payload.sessions.refreshTokens, 1);
-    assert.equal(impact.payload.comments.linkedCount, 1);
+    assert.equal(impact.payload.comments.linkedCount, 2);
     assert.equal(impact.payload.completionProofs.count, 0);
     assert.equal(impact.payload.learning.artifactCount, 1);
     assert.equal(JSON.stringify(impact.payload).includes(other._id.toString()), false);
@@ -232,7 +232,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.match(exported.response.headers.get('content-disposition') || '', /attachment/i);
     assert.equal(exported.payload.data.id, owner._id.toString());
     assert.equal(exported.payload.data.email, owner.email);
-    assert.equal(exported.payload.comments.length, 1);
+    assert.equal(exported.payload.comments.length, 2);
     assert.deepEqual(exported.payload.data.savedDraftMap, {
       'html-00-o-que-e-web': {
         files: { 'index.html': '<h1>Owner artifact</h1>' },
@@ -240,7 +240,8 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
         updatedAt: exported.payload.data.savedDraftMap['html-00-o-que-e-web'].updatedAt
       }
     });
-    assert.equal(exported.payload.comments[0].text, 'Comentário sintético do titular A');
+    assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular A'), true);
+    assert.equal(exported.payload.comments.some(item => item.text === 'Comentário com tentativa de falsificação'), true);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular B'), false);
     assert.equal(JSON.stringify(exported.payload).includes(other._id.toString()), false);
     assert.equal(JSON.stringify(exported.payload).includes('Other artifact'), false);
