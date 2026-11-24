@@ -30,7 +30,7 @@ const { validateTutorRequest } = require('./src/modules/tutor/request-policy');
 const { normalizeCertificateLookupCode, isPublicLessonLookupAllowed } = require('./src/modules/public-read/policy');
 const { buildLeaderboard } = require('./src/modules/public-read/leaderboard-policy');
 const { isSafeHttpsUrl } = require('./src/modules/public-read/safe-https-url');
-const { buildUserDataExport, buildCommentExport, buildSessionExport } = require('./src/modules/privacy/user-export');
+const { buildUserExportProfile, buildLearningArtifactExport, buildCommentExport, buildSessionExport } = require('./src/modules/privacy/user-export');
 const { buildDeletionImpact } = require('./src/modules/privacy/deletion-impact');
 const { normalizePrivacyPreferences, validatePrivacyPreferenceUpdate } = require('./src/modules/privacy/preferences');
 const { createSessionModels } = require('./src/modules/auth/session-models');
@@ -572,8 +572,7 @@ app.get('/api/privacy/export', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 }, requireAuth, privacyExportLimiter, async (req, res) => {
-  let commentCursor;
-  let sessionCursor;
+  const cursors = [];
   try {
     // Exportação contém dados pessoais e exige uma prova recente de identidade, além da sessão.
     if (!REAUTH_TOKEN_SECRET) {
@@ -589,14 +588,27 @@ app.get('/api/privacy/export', (req, res, next) => {
       return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
     }
 
-    // Learning artifacts are merged into the legacy-compatible profile maps.
-    // Comments and sessions use MongoDB cursors so their complete result sets are
-    // not accumulated in server memory before the response starts.
-    const learningArtifacts = await LearningArtifact.find({ userId: req.user._id })
-      .sort({ updatedAt: 1, _id: 1 })
-      .select('lessonId kind files revision updatedAt')
-      .lean();
-    const snapshot = buildUserDataExport(req.user, [], [], learningArtifacts);
+    // A primeira passagem identifica as chaves substituídas, sem carregar os arquivos.
+    // As duas passagens seguintes transmitem os mapas em lotes/cursor, preservando
+    // a precedência dos artefatos sobre os mapas legados.
+    const artifactKeys = { draft: new Set(), saved_code: new Set() };
+    const keyCursor = LearningArtifact.find({ userId: req.user._id })
+      .select('lessonId kind')
+      .lean()
+      .cursor({ batchSize: 100 });
+    cursors.push(keyCursor);
+    for await (const artifact of keyCursor) {
+      if (typeof artifact.lessonId !== 'string' ||
+          !Object.hasOwn(artifactKeys, artifact.kind)) {
+        throw new TypeError('Invalid learning artifact export metadata');
+      }
+      artifactKeys[artifact.kind].add(artifact.lessonId);
+    }
+
+    const snapshot = buildUserExportProfile(req.user);
+    const dataWithoutMaps = { ...snapshot.data };
+    delete dataWithoutMaps.savedDraftMap;
+    delete dataWithoutMaps.savedCodeMap;
 
     res.set('Content-Type', 'application/json; charset=utf-8');
     res.set('Content-Disposition', 'attachment; filename="nexusdev-dados-pessoais.json"');
@@ -620,14 +632,51 @@ app.get('/api/privacy/export', (req, res, next) => {
     await writeChunk(JSON.stringify({
       schemaVersion: snapshot.schemaVersion,
       exportedAt: snapshot.exportedAt,
-      data: snapshot.data
-    }).slice(0, -1) + ',"comments":[');
+      data: dataWithoutMaps
+    }).slice(0, -1));
 
-    commentCursor = Comment.find({ authorUserId: req.user._id })
+    const streamMap = async (field, kind, legacyMap, overriddenLessons, includeMap) => {
+      if (!includeMap) return;
+      await writeChunk((Object.keys(dataWithoutMaps).length ? ',' : ',') + JSON.stringify(field) + ':{');
+      let first = true;
+      for (const [lessonId, value] of Object.entries(legacyMap)) {
+        if (overriddenLessons.has(lessonId)) continue;
+        await writeChunk((first ? '' : ',') + JSON.stringify(lessonId) + ':' + JSON.stringify(value));
+        first = false;
+      }
+
+      const cursor = LearningArtifact.find({ userId: req.user._id, kind })
+        .sort({ updatedAt: 1, _id: 1 })
+        .select('lessonId kind files revision updatedAt')
+        .lean()
+        .cursor({ batchSize: 100 });
+      cursors.push(cursor);
+      for await (const artifact of cursor) {
+        const safeArtifact = buildLearningArtifactExport(artifact);
+        await writeChunk((first ? '' : ',') + JSON.stringify(safeArtifact.lessonId) + ':' + JSON.stringify(safeArtifact.value));
+        first = false;
+      }
+      await writeChunk('}');
+    };
+
+    const legacyDrafts = snapshot.data.savedDraftMap || {};
+    const legacyCode = snapshot.data.savedCodeMap || {};
+    await streamMap(
+      'savedDraftMap', 'draft', legacyDrafts, artifactKeys.draft,
+      Object.hasOwn(snapshot.data, 'savedDraftMap') || artifactKeys.draft.size > 0
+    );
+    await streamMap(
+      'savedCodeMap', 'saved_code', legacyCode, artifactKeys.saved_code,
+      Object.hasOwn(snapshot.data, 'savedCodeMap') || artifactKeys.saved_code.size > 0
+    );
+
+    await writeChunk('},"comments":[');
+    const commentCursor = Comment.find({ authorUserId: req.user._id })
       .sort({ createdAt: 1, _id: 1 })
       .select('_id lessonId author badge text createdAt updatedAt')
       .lean()
       .cursor({ batchSize: 100 });
+    cursors.push(commentCursor);
     let firstComment = true;
     for await (const comment of commentCursor) {
       const safeComment = buildCommentExport([comment])[0];
@@ -636,11 +685,12 @@ app.get('/api/privacy/export', (req, res, next) => {
     }
 
     await writeChunk('],"sessions":[');
-    sessionCursor = Session.find({ userId: req.user._id })
+    const sessionCursor = Session.find({ userId: req.user._id })
       .sort({ createdAt: 1, _id: 1 })
       .select('_id createdAt lastUsedAt expiresAt revokedAt revokeReason')
       .lean()
       .cursor({ batchSize: 100 });
+    cursors.push(sessionCursor);
     let firstSession = true;
     for await (const session of sessionCursor) {
       const safeSession = buildSessionExport([session])[0];
@@ -653,10 +703,7 @@ app.get('/api/privacy/export', (req, res, next) => {
     if (res.headersSent) return res.destroy();
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
   } finally {
-    await Promise.all([
-      commentCursor?.close().catch(() => {}),
-      sessionCursor?.close().catch(() => {})
-    ]);
+    await Promise.all(cursors.map(cursor => cursor?.close().catch(() => {})));
   }
 });
 
