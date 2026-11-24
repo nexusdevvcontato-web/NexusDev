@@ -7,6 +7,48 @@ const EXPORT_FIELDS = Object.freeze([
   'createdAt', 'updatedAt'
 ]);
 
+function cloneLegacyMap(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
+}
+
+function buildUserExportProfile(user) {
+  if (!user || typeof user !== 'object') throw new TypeError('User data is required');
+  const source = typeof user.toObject === 'function' ? user.toObject() : user;
+  const result = {};
+  for (const field of EXPORT_FIELDS) {
+    if (field === 'id') {
+      const id = source._id ?? source.id;
+      if (id !== undefined && id !== null) result.id = String(id);
+    } else if (field === 'savedDraftMap' || field === 'savedCodeMap') {
+      if (source[field] !== undefined) result[field] = cloneLegacyMap(source[field]);
+    } else if (source[field] !== undefined) {
+      result[field] = source[field];
+    }
+  }
+  return { schemaVersion: 2, exportedAt: new Date().toISOString(), data: result };
+}
+
+function buildLearningArtifactExport(artifact) {
+  if (!artifact || typeof artifact !== 'object' ||
+      typeof artifact.lessonId !== 'string' ||
+      !['draft', 'saved_code'].includes(artifact.kind) ||
+      !Number.isSafeInteger(artifact.revision) || artifact.revision < 1 ||
+      !validateDraftFiles(artifact.files).ok) {
+    throw new TypeError('Invalid learning artifact export');
+  }
+  return {
+    lessonId: artifact.lessonId,
+    kind: artifact.kind,
+    value: artifact.kind === 'draft'
+      ? {
+          files: artifact.files,
+          revision: artifact.revision,
+          ...(artifact.updatedAt !== undefined ? { updatedAt: artifact.updatedAt } : {})
+        }
+      : artifact.files
+  };
+}
+
 function buildCommentExport(comments) {
   if (!Array.isArray(comments)) throw new TypeError('Comments must be an array');
   return comments.map((comment) => {
@@ -36,48 +78,33 @@ function buildSessionExport(sessions) {
 }
 
 function buildUserDataExport(user, comments = [], sessions = [], artifacts = []) {
-  if (!user || typeof user !== 'object') throw new TypeError('User data is required');
   if (!Array.isArray(artifacts)) throw new TypeError('Artifacts must be an array');
-  const source = typeof user.toObject === 'function' ? user.toObject() : user;
-  const result = {};
-  for (const field of EXPORT_FIELDS) {
-    if (field === 'id') {
-      const id = source._id ?? source.id;
-      if (id !== undefined && id !== null) result.id = String(id);
-    } else if (source[field] !== undefined) {
-      result[field] = source[field];
-    }
-  }
-  const savedDraftMap = { ...(result.savedDraftMap && typeof result.savedDraftMap === 'object' && !Array.isArray(result.savedDraftMap) ? result.savedDraftMap : {}) };
-  const savedCodeMap = { ...(result.savedCodeMap && typeof result.savedCodeMap === 'object' && !Array.isArray(result.savedCodeMap) ? result.savedCodeMap : {}) };
+  const snapshot = buildUserExportProfile(user);
+  const savedDraftMap = cloneLegacyMap(snapshot.data.savedDraftMap);
+  const savedCodeMap = cloneLegacyMap(snapshot.data.savedCodeMap);
   for (const artifact of artifacts) {
-    if (!artifact || typeof artifact !== 'object' ||
-        typeof artifact.lessonId !== 'string' ||
-        !['draft', 'saved_code'].includes(artifact.kind) ||
-        !Number.isSafeInteger(artifact.revision) || artifact.revision < 1 ||
-        !validateDraftFiles(artifact.files).ok) {
-      throw new TypeError('Invalid learning artifact export');
-    }
-    if (artifact.kind === 'draft') {
-      savedDraftMap[artifact.lessonId] = {
-        files: artifact.files,
-        revision: artifact.revision,
-        ...(artifact.updatedAt !== undefined ? { updatedAt: artifact.updatedAt } : {})
-      };
-    } else {
-      savedCodeMap[artifact.lessonId] = artifact.files;
-    }
+    const safeArtifact = buildLearningArtifactExport(artifact);
+    if (safeArtifact.kind === 'draft') savedDraftMap[safeArtifact.lessonId] = safeArtifact.value;
+    else savedCodeMap[safeArtifact.lessonId] = safeArtifact.value;
   }
-  if (Object.keys(savedDraftMap).length) result.savedDraftMap = savedDraftMap;
-  if (Object.keys(savedCodeMap).length) result.savedCodeMap = savedCodeMap;
-
+  if (Object.keys(savedDraftMap).length || Object.hasOwn(snapshot.data, 'savedDraftMap')) {
+    snapshot.data.savedDraftMap = savedDraftMap;
+  }
+  if (Object.keys(savedCodeMap).length || Object.hasOwn(snapshot.data, 'savedCodeMap')) {
+    snapshot.data.savedCodeMap = savedCodeMap;
+  }
   return {
-    schemaVersion: 2,
-    exportedAt: new Date().toISOString(),
-    data: result,
+    ...snapshot,
+    data: snapshot.data,
     comments: buildCommentExport(comments),
     sessions: buildSessionExport(sessions)
   };
 }
 
-module.exports = { buildUserDataExport, buildCommentExport, buildSessionExport };
+module.exports = {
+  buildUserDataExport,
+  buildUserExportProfile,
+  buildLearningArtifactExport,
+  buildCommentExport,
+  buildSessionExport
+};
