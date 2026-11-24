@@ -60,6 +60,21 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     assert.equal(revoked.revokeReason, 'refresh_replay');
     assert.ok(revoked.revokedAt);
 
+    // Expired refresh credentials must not rotate, even before MongoDB TTL cleanup runs.
+    const expiring = await store.create({ userId, ttlMs: 1_000 });
+    const afterExpiry = new Date(expiring.expiresAt.getTime() + 1);
+    const expiredRefresh = await store.rotate({
+      refreshToken: expiring.refreshToken,
+      now: afterExpiry
+    });
+    assert.equal(expiredRefresh.status, 'invalid');
+    const expiredSession = await Session.findById(expiring.session._id).lean();
+    assert.ok(expiredSession.expiresAt <= afterExpiry);
+    assert.equal(await RefreshToken.countDocuments({
+      sessionId: expiring.session._id,
+      usedAt: null
+    }), 1, 'expired refresh token must not be consumed or rotated');
+
     const second = await store.create({ userId, ttlMs: 60_000 });
     const concurrent = await Promise.all([
       store.rotate({ refreshToken: second.refreshToken }),
