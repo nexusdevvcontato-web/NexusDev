@@ -254,6 +254,25 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     });
     assert.equal(replayedProof.response.status, 403);
 
+    const secondReauthentication = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: ownerToken, body: { password }
+    });
+    assert.equal(secondReauthentication.response.status, 200);
+    const concurrentExports = await Promise.all([
+      request('/api/privacy/export', {
+        token: ownerToken, reauthToken: secondReauthentication.payload.reauthToken
+      }),
+      request('/api/privacy/export', {
+        token: ownerToken, reauthToken: secondReauthentication.payload.reauthToken
+      })
+    ]);
+    assert.deepEqual(
+      concurrentExports.map(result => result.response.status).sort((a, b) => a - b),
+      [200, 403]
+    );
+    const successfulConcurrentExport = concurrentExports.find(result => result.response.status === 200);
+    assert.equal(successfulConcurrentExport.payload.data.id, owner._id.toString());
+
     // Deletion remains unavailable: the impact preview is read-only and no execution route exists.
     for (const [method, route] of [
       ['DELETE', '/api/privacy/deletion-impact'],
