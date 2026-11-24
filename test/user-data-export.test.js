@@ -192,3 +192,79 @@ test('rejects malformed learning artifact export input', () => {
     lessonId: 'mod-1-aula-1', kind: 'draft', revision: 1, files: []
   }]), /Invalid learning artifact/);
 });
+
+
+test('preserves legacy drafts and code while new artifacts override only matching lessons', () => {
+  const legacyDraft = {
+    files: { 'index.html': '<p>legacy draft</p>' },
+    revision: 2
+  };
+  const legacyCode = { 'index.html': '<p>legacy code</p>' };
+  const result = buildUserDataExport({
+    _id: 'synthetic-owner-a',
+    savedDraftMap: {
+      'html-00-o-que-e-web': legacyDraft,
+      'css-01-seletores': { files: { 'index.html': '<p>keep draft</p>' }, revision: 1 }
+    },
+    savedCodeMap: {
+      'html-00-o-que-e-web': legacyCode,
+      'css-01-seletores': { 'index.html': '<p>keep code</p>' }
+    }
+  }, [], [], [
+    {
+      lessonId: 'html-00-o-que-e-web',
+      kind: 'draft',
+      revision: 7,
+      files: { 'index.html': '<p>new draft</p>' },
+      updatedAt: new Date('2026-11-23T12:00:00.000Z')
+    },
+    {
+      lessonId: 'html-00-o-que-e-web',
+      kind: 'saved_code',
+      revision: 1,
+      files: { 'index.html': '<p>new submitted code</p>' }
+    }
+  ]);
+
+  assert.deepEqual(result.data.savedDraftMap, {
+    'html-00-o-que-e-web': {
+      files: { 'index.html': '<p>new draft</p>' },
+      revision: 7,
+      updatedAt: new Date('2026-11-23T12:00:00.000Z')
+    },
+    'css-01-seletores': { files: { 'index.html': '<p>keep draft</p>' }, revision: 1 }
+  });
+  assert.deepEqual(result.data.savedCodeMap, {
+    'html-00-o-que-e-web': { 'index.html': '<p>new submitted code</p>' },
+    'css-01-seletores': { 'index.html': '<p>keep code</p>' }
+  });
+});
+
+test('serializes the version 2 export as valid JSON without losing legacy-compatible maps', () => {
+  const result = buildUserDataExport({
+    _id: 'synthetic-owner-json',
+    savedDraftMap: {
+      'html-00-o-que-e-web': {
+        files: { 'index.html': '<h1>Rascunho</h1>' },
+        revision: 3
+      }
+    },
+    savedCodeMap: {
+      'html-00-o-que-e-web': { 'index.html': '<h1>Enviado</h1>' }
+    }
+  }, [
+    { _id: 'comment-json', lessonId: 'html-00-o-que-e-web', author: 'Synthetic', text: 'Comentário' }
+  ], [
+    { _id: 'session-json', revokeReason: null }
+  ]);
+
+  const serialized = JSON.stringify(result);
+  const parsed = JSON.parse(serialized);
+  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.data.id, 'synthetic-owner-json');
+  assert.deepEqual(parsed.data.savedDraftMap, result.data.savedDraftMap);
+  assert.deepEqual(parsed.data.savedCodeMap, result.data.savedCodeMap);
+  assert.deepEqual(parsed.comments, [{ id: 'comment-json', lessonId: 'html-00-o-que-e-web', author: 'Synthetic', text: 'Comentário' }]);
+  assert.deepEqual(parsed.sessions, [{ id: 'session-json', revokeReason: null }]);
+  assert.equal(typeof parsed.exportedAt, 'string');
+});
