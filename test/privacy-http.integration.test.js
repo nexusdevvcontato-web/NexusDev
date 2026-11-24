@@ -157,7 +157,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
       false
     );
 
-    const invalidPublicComments = await request('/api/lessons/../users/comments');
+    const invalidPublicComments = await request('/api/lessons/%2E%2E%2Fusers/comments');
     assert.equal(invalidPublicComments.response.status, 400);
 
     const ownerPreferences = await request('/api/privacy/preferences', { token: ownerToken });
