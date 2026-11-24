@@ -672,7 +672,7 @@ app.get('/api/privacy/export', (req, res, next) => {
       Object.hasOwn(snapshot.data, 'savedCodeMap') || artifactKeys.saved_code.size > 0
     );
 
-    await writeChunk('},"comments":[');
+    await writeChunk('}},"comments":[');
     const commentCursor = Comment.find({ authorUserId: req.user._id })
       .sort({ createdAt: 1, _id: 1 })
       .select('_id lessonId author badge text createdAt updatedAt')
