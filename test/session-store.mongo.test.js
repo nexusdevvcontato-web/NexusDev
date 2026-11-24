@@ -90,7 +90,10 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     assert.equal((await store.rotate({ refreshToken: third.refreshToken })).status, 'invalid');
 
     const fourth = await store.create({ userId, ttlMs: 60_000 });
-    assert.equal(await store.revokeAll({ userId }), 1);
+    const activeSessionsBeforeLogoutAll = await Session.countDocuments({ userId, revokedAt: null });
+    assert.ok(activeSessionsBeforeLogoutAll >= 1);
+    assert.equal(await store.revokeAll({ userId }), activeSessionsBeforeLogoutAll);
+    assert.equal(await Session.countDocuments({ userId, revokedAt: null }), 0);
     assert.equal((await store.rotate({ refreshToken: fourth.refreshToken })).status, 'invalid');
 
     // A global logout racing with refresh must leave the session revoked regardless
