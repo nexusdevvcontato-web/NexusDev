@@ -246,10 +246,31 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     const sessionsBeforeRevoke = await request('/api/auth/session/sessions', { token: a.accessToken });
     assert.equal(sessionsBeforeRevoke.response.status, 200);
     assert.equal(sessionsBeforeRevoke.payload.sessions.length, 2);
-    assert.ok(sessionsBeforeRevoke.payload.sessions.every(item =>
-      typeof item.id === 'string' && typeof item.current === 'boolean' &&
-      !Object.hasOwn(item, 'tokenHash') && !Object.hasOwn(item, 'csrfTokenHash')
-    ));
+    const safeSessionFields = ['id', 'createdAt', 'lastUsedAt', 'expiresAt', 'current'].sort();
+    assert.ok(sessionsBeforeRevoke.payload.sessions.every(item => {
+      assert.deepEqual(Object.keys(item).sort(), safeSessionFields);
+      assert.equal(typeof item.id, 'string');
+      assert.equal(typeof item.current, 'boolean');
+      assert.ok(item.createdAt && item.lastUsedAt && item.expiresAt);
+      return true;
+    }));
+    const serializedSessionList = JSON.stringify(sessionsBeforeRevoke.payload);
+    for (const forbidden of [
+      'refreshToken', 'accessToken', 'tokenHash', 'csrfTokenHash',
+      'userId', 'email', 'ipAddress', 'userAgent', 'deviceFingerprint'
+    ]) assert.equal(serializedSessionList.includes(forbidden), false, forbidden);
+
+    // A different account must receive only its own session metadata.
+    const sessionsForAccountB = await request('/api/auth/session/sessions', { token: b.accessToken });
+    assert.equal(sessionsForAccountB.response.status, 200);
+    assert.equal(sessionsForAccountB.payload.sessions.length, 1);
+    assert.deepEqual(Object.keys(sessionsForAccountB.payload.sessions[0]).sort(), safeSessionFields);
+    assert.equal(sessionsForAccountB.payload.sessions[0].current, true);
+    assert.equal(
+      sessionsBeforeRevoke.payload.sessions.some(item => item.id === sessionsForAccountB.payload.sessions[0].id),
+      false
+    );
+
     const otherDevice = sessionsBeforeRevoke.payload.sessions.find(item => !item.current);
     assert.ok(otherDevice);
     const revokeOtherDevice = await request('/api/auth/session/sessions/' + otherDevice.id, {
