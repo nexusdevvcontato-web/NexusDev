@@ -254,6 +254,17 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     });
     assert.equal(replayedProof.response.status, 403);
 
+    // Deletion remains unavailable: the impact preview is read-only and no execution route exists.
+    for (const [method, route] of [
+      ['DELETE', '/api/privacy/deletion-impact'],
+      ['POST', '/api/privacy/deletion-impact'],
+      ['DELETE', '/api/privacy/delete'],
+      ['DELETE', '/api/account/delete']
+    ]) {
+      const deletionAttempt = await request(route, { method, token: ownerToken });
+      assert.equal(deletionAttempt.response.status, 404, `${method} ${route} must remain unavailable`);
+    }
+
     const otherImpact = await request('/api/privacy/deletion-impact', { token: otherToken });
     assert.equal(otherImpact.response.status, 200);
     assert.equal(otherImpact.payload.comments.linkedCount, 1);
