@@ -276,20 +276,20 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     // Aborting a large synthetic export must terminate the HTTP stream cleanly.
     await Comment.insertMany(Array.from({ length: 1800 }, (_, index) => ({
       lessonId: 'html-00-o-que-e-web',
-      authorUserId: owner._id,
-      author: owner.name,
+      authorUserId: other._id,
+      author: other.name,
       badge: 'Aluno NexusDev',
       text: `Synthetic streaming interruption fixture ${index} ${'x'.repeat(850)}`
     })));
     const interruptionReauthentication = await request('/api/auth/reauthenticate', {
-      method: 'POST', token: ownerToken, body: { password }
+      method: 'POST', token: otherToken, body: { password }
     });
     assert.equal(interruptionReauthentication.response.status, 200);
     const abortController = new AbortController();
     const interruptedResponse = await fetch(base + '/api/privacy/export', {
       headers: {
         Origin: origin,
-        Authorization: `Bearer ${ownerToken}`,
+        Authorization: `Bearer ${otherToken}`,
         'X-Reauth-Token': interruptionReauthentication.payload.reauthToken
       },
       signal: abortController.signal
