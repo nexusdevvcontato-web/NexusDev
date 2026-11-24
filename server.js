@@ -588,24 +588,31 @@ app.get('/api/privacy/export', (req, res, next) => {
       return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
     }
 
-    // A primeira passagem identifica as chaves substituídas, sem carregar os arquivos.
-    // As duas passagens seguintes transmitem os mapas em lotes/cursor, preservando
-    // a precedência dos artefatos sobre os mapas legados.
-    const artifactKeys = { draft: new Set(), saved_code: new Set() };
-    const keyCursor = LearningArtifact.find({ userId: req.user._id })
-      .select('lessonId kind')
-      .lean()
-      .cursor({ batchSize: 100 });
-    cursors.push(keyCursor);
-    for await (const artifact of keyCursor) {
-      if (typeof artifact.lessonId !== 'string' ||
-          !Object.hasOwn(artifactKeys, artifact.kind)) {
-        throw new TypeError('Invalid learning artifact export metadata');
-      }
-      artifactKeys[artifact.kind].add(artifact.lessonId);
-    }
-
+    // Only find artifact keys that can replace a legacy entry. This bounds the
+    // override set by legacy-map size instead of total artifact count.
     const snapshot = buildUserExportProfile(req.user);
+    const legacyDrafts = snapshot.data.savedDraftMap || {};
+    const legacyCode = snapshot.data.savedCodeMap || {};
+    const findOverriddenLegacyKeys = async (kind, legacyMap) => {
+      const lessonIds = Object.keys(legacyMap);
+      const overridden = new Set();
+      for (let offset = 0; offset < lessonIds.length; offset += 500) {
+        const cursor = LearningArtifact.find({
+          userId: req.user._id,
+          kind,
+          lessonId: { $in: lessonIds.slice(offset, offset + 500) }
+        })
+          .select('lessonId')
+          .lean()
+          .cursor({ batchSize: 100 });
+        cursors.push(cursor);
+        for await (const artifact of cursor) overridden.add(artifact.lessonId);
+      }
+      return overridden;
+    };
+    const overriddenDrafts = await findOverriddenLegacyKeys('draft', legacyDrafts);
+    const overriddenCode = await findOverriddenLegacyKeys('saved_code', legacyCode);
+
     const dataWithoutMaps = { ...snapshot.data };
     delete dataWithoutMaps.savedDraftMap;
     delete dataWithoutMaps.savedCodeMap;
@@ -661,18 +668,17 @@ app.get('/api/privacy/export', (req, res, next) => {
       await writeChunk('}');
     };
 
-    const legacyDrafts = snapshot.data.savedDraftMap || {};
-    const legacyCode = snapshot.data.savedCodeMap || {};
     await streamMap(
-      'savedDraftMap', 'draft', legacyDrafts, artifactKeys.draft,
-      Object.hasOwn(snapshot.data, 'savedDraftMap') || artifactKeys.draft.size > 0
+      'savedDraftMap', 'draft', legacyDrafts, overriddenDrafts,
+      Object.hasOwn(snapshot.data, 'savedDraftMap')
     );
     await streamMap(
-      'savedCodeMap', 'saved_code', legacyCode, artifactKeys.saved_code,
-      Object.hasOwn(snapshot.data, 'savedCodeMap') || artifactKeys.saved_code.size > 0
+      'savedCodeMap', 'saved_code', legacyCode, overriddenCode,
+      Object.hasOwn(snapshot.data, 'savedCodeMap')
     );
 
-    await writeChunk('}},"comments":[');
+    // Close only data; comments and sessions are siblings within the root object.
+    await writeChunk('},"comments":[');
     const commentCursor = Comment.find({ authorUserId: req.user._id })
       .sort({ createdAt: 1, _id: 1 })
       .select('_id lessonId author badge text createdAt updatedAt')
