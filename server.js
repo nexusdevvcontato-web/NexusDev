@@ -668,13 +668,21 @@ app.get('/api/privacy/export', (req, res, next) => {
       await writeChunk('}');
     };
 
+    const [hasDraftArtifacts, hasCodeArtifacts] = await Promise.all([
+      Object.hasOwn(snapshot.data, 'savedDraftMap')
+        ? true
+        : LearningArtifact.exists({ userId: req.user._id, kind: 'draft' }),
+      Object.hasOwn(snapshot.data, 'savedCodeMap')
+        ? true
+        : LearningArtifact.exists({ userId: req.user._id, kind: 'saved_code' })
+    ]);
     await streamMap(
       'savedDraftMap', 'draft', legacyDrafts, overriddenDrafts,
-      Object.hasOwn(snapshot.data, 'savedDraftMap')
+      Boolean(hasDraftArtifacts)
     );
     await streamMap(
       'savedCodeMap', 'saved_code', legacyCode, overriddenCode,
-      Object.hasOwn(snapshot.data, 'savedCodeMap')
+      Boolean(hasCodeArtifacts)
     );
 
     // Close only data; comments and sessions are siblings within the root object.
