@@ -53,12 +53,23 @@ test('logout all revokes only sessions belonging to authenticated user',async()=
   assert.equal(c.res.statusCode,204);
   assert.deepEqual(c.calls[0][1],{userId:'u1',revokedAt:null});
 });
-test('session listing exposes safe metadata and marks current session',async()=>{
+test('session listing scopes active unexpired records to the authenticated user and is non-cacheable',async()=>{
   const c=setup(); await c.service.listSessions(c.req,c.res);
   assert.equal(c.res.body.sessions.length,2);
   assert.equal(c.res.body.sessions[0].current,true);
   assert.equal(c.res.body.sessions[1].current,false);
-  assert.equal('tokenHash' in c.res.body.sessions[0],false);
+  assert.deepEqual(c.calls[0], ['find', {
+    userId: 'u1',
+    revokedAt: null,
+    expiresAt: { $gt: new Date('2026-11-20T04:00:00Z') }
+  }]);
+  assert.deepEqual(c.res.headers, { 'Cache-Control': 'no-store' });
+  const expectedFields = ['id', 'createdAt', 'lastUsedAt', 'expiresAt', 'current'].sort();
+  for (const session of c.res.body.sessions) {
+    assert.deepEqual(Object.keys(session).sort(), expectedFields);
+    assert.equal('tokenHash' in session, false);
+    assert.equal('csrfTokenHash' in session, false);
+  }
 });
 test('individual revocation scopes query to authenticated user',async()=>{
   const c=setup(); await c.service.revokeOne(c.req,c.res);
