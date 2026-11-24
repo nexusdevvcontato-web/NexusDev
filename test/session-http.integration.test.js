@@ -974,6 +974,22 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.equal(replay.response.status, 401);
     assert.match(replay.payload.error || '', /reutilização|replay/i);
     assert.equal((await request('/api/me', { token: rotated.payload.accessToken })).response.status, 401);
+
+    // Session-list reads are rate-limited per authenticated account, not globally by user identity.
+    const rateLimitedOwner = await register('session-list-rate-limit@example.test');
+    const otherRateLimitOwner = await register('session-list-rate-limit-other@example.test');
+    let lastSessionList;
+    for (let attempt = 0; attempt < 61; attempt++) {
+      lastSessionList = await request('/api/auth/session/sessions', { token: rateLimitedOwner.accessToken });
+    }
+    assert.equal(lastSessionList.response.status, 429);
+    assert.match(lastSessionList.response.headers.get('ratelimit') || '', /limit=60/i);
+    assert.match(lastSessionList.payload.error || '', /Muitas consultas de sessões/i);
+    const independentAccountList = await request('/api/auth/session/sessions', {
+      token: otherRateLimitOwner.accessToken
+    });
+    assert.equal(independentAccountList.response.status, 200, JSON.stringify(independentAccountList.payload));
+    assert.equal(independentAccountList.payload.sessions.length, 1);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     if (mongoose.connection.readyState === 1) {
