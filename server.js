@@ -158,6 +158,16 @@ const lessonDraftLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Muitas alterações de rascunho. Aguarde um instante.' }
 });
+const sessionManagementLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator(req) {
+    return String(req.user._id);
+  },
+  message: { error: 'Muitas consultas de sessões. Aguarde 15 minutos antes de tentar novamente.' }
+});
 app.use('/api/', apiLimiter);
 
 // ============================================================================
@@ -380,11 +390,11 @@ app.post('/api/auth/session/logout-all', (req, res, next) => {
 app.get('/api/auth/session/sessions', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionAccess(req, res, next);
-}, (req, res) => sessionManagementService.listSessions(req, res));
+}, sessionManagementLimiter, (req, res) => sessionManagementService.listSessions(req, res));
 app.delete('/api/auth/session/sessions/:sessionId', (req, res, next) => {
   if (!sessionAuthEnabled) return sessionUnavailable(req, res);
   return requireSessionCsrf(req, res, next);
-}, requireSessionAccess, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
+}, requireSessionAccess, sessionManagementLimiter, requireMatchingSession, (req, res) => sessionManagementService.revokeOne(req, res));
 
 app.post('/api/auth/password-reset/request', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, passwordResetRequestLimiter, passwordResetEmailLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
