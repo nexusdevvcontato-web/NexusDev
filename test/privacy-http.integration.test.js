@@ -273,6 +273,35 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const successfulConcurrentExport = concurrentExports.find(result => result.response.status === 200);
     assert.equal(successfulConcurrentExport.payload.data.id, owner._id.toString());
 
+    // Aborting a large synthetic export must terminate the HTTP stream cleanly.
+    await Comment.insertMany(Array.from({ length: 1800 }, (_, index) => ({
+      lessonId: 'html-00-o-que-e-web',
+      authorUserId: owner._id,
+      author: owner.name,
+      badge: 'Aluno NexusDev',
+      text: `Synthetic streaming interruption fixture ${index} ${'x'.repeat(850)}`
+    })));
+    const interruptionReauthentication = await request('/api/auth/reauthenticate', {
+      method: 'POST', token: ownerToken, body: { password }
+    });
+    assert.equal(interruptionReauthentication.response.status, 200);
+    const abortController = new AbortController();
+    const interruptedResponse = await fetch(base + '/api/privacy/export', {
+      headers: {
+        Origin: origin,
+        Authorization: `Bearer ${ownerToken}`,
+        'X-Reauth-Token': interruptionReauthentication.payload.reauthToken
+      },
+      signal: abortController.signal
+    });
+    assert.equal(interruptedResponse.status, 200);
+    const exportReader = interruptedResponse.body.getReader();
+    const firstExportChunk = await exportReader.read();
+    assert.equal(firstExportChunk.done, false);
+    assert.ok(firstExportChunk.value.byteLength > 0);
+    abortController.abort();
+    await exportReader.cancel().catch(() => {});
+
     // Deletion remains unavailable: the impact preview is read-only and no execution route exists.
     for (const [method, route] of [
       ['DELETE', '/api/privacy/deletion-impact'],
