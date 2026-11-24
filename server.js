@@ -633,11 +633,13 @@ app.get('/api/privacy/export', (req, res, next) => {
       schemaVersion: snapshot.schemaVersion,
       exportedAt: snapshot.exportedAt,
       data: dataWithoutMaps
-    }).slice(0, -1));
+    }).slice(0, -2));
 
+    let firstDataField = Object.keys(dataWithoutMaps).length === 0;
     const streamMap = async (field, kind, legacyMap, overriddenLessons, includeMap) => {
       if (!includeMap) return;
-      await writeChunk((Object.keys(dataWithoutMaps).length ? ',' : ',') + JSON.stringify(field) + ':{');
+      await writeChunk((firstDataField ? '' : ',') + JSON.stringify(field) + ':{');
+      firstDataField = false;
       let first = true;
       for (const [lessonId, value] of Object.entries(legacyMap)) {
         if (overriddenLessons.has(lessonId)) continue;
