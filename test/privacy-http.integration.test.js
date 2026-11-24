@@ -100,6 +100,66 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(ownerComment.response.status, 201);
     assert.equal(otherComment.response.status, 201);
 
+    const anonymousComment = await request('/api/lessons/html-00-o-que-e-web/comments', {
+      method: 'POST', body: { text: 'Publicação anônima não permitida' }
+    });
+    assert.equal(anonymousComment.response.status, 401);
+    assert.match(anonymousComment.response.headers.get('cache-control') || '', /no-store/i);
+
+    const spoofedComment = await request('/api/lessons/html-00-o-que-e-web/comments', {
+      method: 'POST',
+      token: ownerToken,
+      body: {
+        text: 'Comentário com tentativa de falsificação',
+        author: 'Autor falsificado',
+        authorUserId: other._id.toString(),
+        badge: 'Mentor NexusDev',
+        xp: 999999
+      }
+    });
+    assert.equal(spoofedComment.response.status, 201, JSON.stringify(spoofedComment.payload));
+    assert.match(spoofedComment.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(spoofedComment.payload.comment.author, owner.name);
+    assert.equal(spoofedComment.payload.comment.badge, 'Aluno NexusDev');
+    assert.equal(spoofedComment.payload.comment.text, 'Comentário com tentativa de falsificação');
+    assert.deepEqual(
+      Object.keys(spoofedComment.payload.comment).sort(),
+      ['badge', 'id', 'text', 'time', 'author'].sort()
+    );
+    const storedSpoofedComment = await Comment.findById(spoofedComment.payload.comment.id).lean();
+    assert.equal(storedSpoofedComment.authorUserId.toString(), owner._id.toString());
+    assert.equal(storedSpoofedComment.author, owner.name);
+    assert.equal(storedSpoofedComment.badge, 'Aluno NexusDev');
+
+    const publicComments = await request('/api/lessons/html-00-o-que-e-web/comments');
+    assert.equal(publicComments.response.status, 200);
+    assert.match(publicComments.response.headers.get('cache-control') || '', /no-store/i);
+    assert.equal(publicComments.payload.comments.length, 3);
+    for (const comment of publicComments.payload.comments) {
+      assert.deepEqual(
+        Object.keys(comment).sort(),
+        ['id', 'author', 'badge', 'time', 'text'].sort()
+      );
+      assert.equal(Object.hasOwn(comment, 'authorUserId'), false);
+      assert.equal(Object.hasOwn(comment, 'email'), false);
+      assert.equal(Object.hasOwn(comment, 'xp'), false);
+    }
+    assert.equal(
+      publicComments.payload.comments.some(comment => comment.author === 'Autor falsificado'),
+      false
+    );
+    assert.equal(
+      JSON.stringify(publicComments.payload).includes(owner.email),
+      false
+    );
+    assert.equal(
+      JSON.stringify(publicComments.payload).includes(owner._id.toString()),
+      false
+    );
+
+    const invalidPublicComments = await request('/api/lessons/../users/comments');
+    assert.equal(invalidPublicComments.response.status, 400);
+
     const ownerPreferences = await request('/api/privacy/preferences', { token: ownerToken });
     const otherPreferences = await request('/api/privacy/preferences', { token: otherToken });
     assert.equal(ownerPreferences.response.status, 200);
