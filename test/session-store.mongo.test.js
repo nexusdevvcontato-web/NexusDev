@@ -89,6 +89,16 @@ test('MongoDB replica-set session lifecycle integration', { skip: !enabled }, as
     assert.equal(await store.revoke({ sessionId: third.session._id, userId }), true);
     assert.equal((await store.rotate({ refreshToken: third.refreshToken })).status, 'invalid');
 
+    // Revoking one device/session must not revoke another session owned by the same user.
+    const independentA = await store.create({ userId, ttlMs: 60_000 });
+    const independentB = await store.create({ userId, ttlMs: 60_000 });
+    assert.equal(await store.revoke({ sessionId: independentA.session._id, userId }), true);
+    assert.equal((await store.rotate({ refreshToken: independentA.refreshToken })).status, 'invalid');
+    const independentBRecord = await Session.findById(independentB.session._id).lean();
+    assert.equal(independentBRecord.revokedAt, null, 'revoking session A must leave session B active');
+    assert.equal((await store.rotate({ refreshToken: independentB.refreshToken })).status, 'rotated',
+      'the independent session B refresh token must remain usable');
+
     const fourth = await store.create({ userId, ttlMs: 60_000 });
     const activeSessionsBeforeLogoutAll = await Session.countDocuments({ userId, revokedAt: null });
     assert.ok(activeSessionsBeforeLogoutAll >= 1);
