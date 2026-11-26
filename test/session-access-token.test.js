@@ -56,6 +56,31 @@ test('session access middleware checks active session and reloads user', async (
   assert.equal(req.session.authVersion, 2);
 });
 
+test('privacy export authentication excludes legacy maps from the loaded user profile', async () => {
+  const now = new Date('2026-11-20T04:00:00.000Z');
+  const token = issueSessionAccessToken({ userId, sessionId, secret, now: Math.floor(now.getTime() / 1000) });
+  let selected = null;
+  const user = { _id: userId, name: 'Teste', authVersion: 2 };
+  const query = {
+    select(fields) { selected = fields; return this; },
+    then(resolve, reject) { return Promise.resolve(user).then(resolve, reject); }
+  };
+  const req = {
+    method: 'GET',
+    path: '/api/privacy/export',
+    headers: { authorization: `Bearer ${token}` }
+  };
+  const res = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  const middleware = createSessionAccessMiddleware({
+    User: { findById(id) { assert.equal(id, userId); return query; } },
+    Session: { findOne() { return { lean: async () => ({ _id: sessionId, userId, authVersion: 2, expiresAt: new Date(now.getTime() + 60_000) }) }; } },
+    secret, now: () => now
+  });
+  await middleware(req, res, () => {});
+  assert.equal(selected, '-savedDraftMap -savedCodeMap');
+  assert.equal(req.user, user);
+});
+
 test('session access middleware rejects sessions issued before a password reset', async () => {
   const now = new Date('2026-11-20T04:00:00.000Z');
   const token = issueSessionAccessToken({ userId, sessionId, secret, now: Math.floor(now.getTime() / 1000) });
