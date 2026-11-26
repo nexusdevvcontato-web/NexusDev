@@ -11,11 +11,12 @@ function cloneLegacyMap(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
 }
 
-function buildUserExportProfile(user) {
+function buildUserExportProfile(user, { includeLegacyMaps = true } = {}) {
   if (!user || typeof user !== 'object') throw new TypeError('User data is required');
   const source = typeof user.toObject === 'function' ? user.toObject() : user;
   const result = {};
   for (const field of EXPORT_FIELDS) {
+    if (!includeLegacyMaps && (field === 'savedDraftMap' || field === 'savedCodeMap')) continue;
     if (field === 'id') {
       const id = source._id ?? source.id;
       if (id !== undefined && id !== null) result.id = String(id);
