@@ -590,9 +590,16 @@ app.get('/api/privacy/export', (req, res, next) => {
 
     // Only find artifact keys that can replace a legacy entry. This bounds the
     // override set by legacy-map size instead of total artifact count.
-    const snapshot = buildUserExportProfile(req.user);
-    const legacyDrafts = snapshot.data.savedDraftMap || {};
-    const legacyCode = snapshot.data.savedCodeMap || {};
+    // The auth middleware excludes these potentially large legacy maps on this route.
+    // Fetch only the two legacy fields once; the profile snapshot stays small.
+    const legacyProfile = await User.findById(req.user._id)
+      .select('savedDraftMap savedCodeMap')
+      .lean();
+    const snapshot = buildUserExportProfile(req.user, { includeLegacyMaps: false });
+    const legacyDrafts = legacyProfile?.savedDraftMap && typeof legacyProfile.savedDraftMap === 'object'
+      ? legacyProfile.savedDraftMap : {};
+    const legacyCode = legacyProfile?.savedCodeMap && typeof legacyProfile.savedCodeMap === 'object'
+      ? legacyProfile.savedCodeMap : {};
     const findOverriddenLegacyKeys = async (kind, legacyMap) => {
       const lessonIds = Object.keys(legacyMap);
       const overridden = new Set();
@@ -669,10 +676,10 @@ app.get('/api/privacy/export', (req, res, next) => {
     };
 
     const [hasDraftArtifacts, hasCodeArtifacts] = await Promise.all([
-      Object.hasOwn(snapshot.data, 'savedDraftMap')
+      Object.hasOwn(legacyProfile || {}, 'savedDraftMap')
         ? true
         : LearningArtifact.exists({ userId: req.user._id, kind: 'draft' }),
-      Object.hasOwn(snapshot.data, 'savedCodeMap')
+      Object.hasOwn(legacyProfile || {}, 'savedCodeMap')
         ? true
         : LearningArtifact.exists({ userId: req.user._id, kind: 'saved_code' })
     ]);
