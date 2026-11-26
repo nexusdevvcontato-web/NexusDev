@@ -1,6 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildUserDataExport } = require('../src/modules/privacy/user-export');
+const { buildUserDataExport, buildUserExportProfile } = require('../src/modules/privacy/user-export');
+
+test('builds a privacy export profile without materializing legacy maps', () => {
+  const result = buildUserExportProfile({
+    _id: 'user-789',
+    name: 'Caio',
+    savedDraftMap: { lesson: { files: { 'index.html': '<p>legacy</p>' } } },
+    savedCodeMap: { lesson: { 'index.html': '<h1>legacy</h1>' } }
+  }, { includeLegacyMaps: false });
+  assert.equal(result.data.id, 'user-789');
+  assert.equal(result.data.name, 'Caio');
+  assert.equal(Object.hasOwn(result.data, 'savedDraftMap'), false);
+  assert.equal(Object.hasOwn(result.data, 'savedCodeMap'), false);
+});
 
 test('exports the authenticated user data using an explicit allowlist', () => {
   const result = buildUserDataExport({
