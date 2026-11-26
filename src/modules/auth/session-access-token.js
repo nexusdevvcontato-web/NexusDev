@@ -81,7 +81,14 @@ function createSessionAccessMiddleware({ User, Session, secret, now = () => new 
         expiresAt: { $gt: currentTime }
       }).lean();
       if (!session) return res.status(401).json({ error: 'Sessão revogada ou expirada.' });
-      const user = await User.findById(claims.userId);
+      let userQuery = User.findById(claims.userId);
+      // Privacy export does not need the legacy maps during authentication.
+      // Excluding them here avoids loading a second copy with the full profile.
+      if (req.method === 'GET' && req.path === '/api/privacy/export' &&
+          userQuery && typeof userQuery.select === 'function') {
+        userQuery = userQuery.select('-savedDraftMap -savedCodeMap');
+      }
+      const user = await userQuery;
       if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
       const sessionAuthVersion = session.authVersion ?? 0;
       const userAuthVersion = user.authVersion ?? 0;
