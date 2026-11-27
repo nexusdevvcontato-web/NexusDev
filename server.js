@@ -732,7 +732,8 @@ app.get('/api/privacy/export', (req, res, next) => {
     }
     await writeChunk(']}');
     return res.end();
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV === 'test') console.error('[privacy-export-test-error]', error?.name, error?.message);
     if (res.headersSent) return res.destroy();
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
   } finally {
