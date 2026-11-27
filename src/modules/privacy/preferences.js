@@ -1,6 +1,6 @@
 const DEFAULT_PRIVACY_PREFERENCES = Object.freeze({
   showInLeaderboard: true,
-  showCertificateDetails: true
+  showCertificateDetails: false
 });
 
 const ALLOWED_PREFERENCE_KEYS = new Set(Object.keys(DEFAULT_PRIVACY_PREFERENCES));
@@ -9,7 +9,7 @@ function normalizePrivacyPreferences(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   return {
     showInLeaderboard: source.showInLeaderboard !== false,
-    showCertificateDetails: source.showCertificateDetails !== false
+    showCertificateDetails: source.showCertificateDetails === true
   };
 }
 
