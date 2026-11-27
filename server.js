@@ -50,7 +50,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL, LEARNING_ARTIFACTS_ENABLED } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -213,7 +213,23 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model('User', userSchema);
 // Metadata-only registration; automatic indexes remain disabled pending reviewed migration.
 const LearningArtifact = createLearningArtifactModel(mongoose);
-const lessonDraftService = createLessonDraftService({ User });
+const lessonDraftService = createLessonDraftService({
+  User,
+  LearningArtifact: LEARNING_ARTIFACTS_ENABLED ? LearningArtifact : null
+});
+
+async function assertLearningArtifactIndexes() {
+  const indexes = await LearningArtifact.collection.indexes();
+  const uniqueOwnerLessonKind = indexes.some(index =>
+    index.unique === true &&
+    index.key?.userId === 1 &&
+    index.key?.lessonId === 1 &&
+    index.key?.kind === 1
+  );
+  if (!uniqueOwnerLessonKind) {
+    throw new Error('Learning artifacts enabled without the required unique owner/lesson/kind index.');
+  }
+}
 
 const commentSchema = new mongoose.Schema(
   {
@@ -821,7 +837,7 @@ app.post('/api/progress/complete', (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     let user;
     try {
-      user = await completeLessonAtomically({ mongoose, User, CompletionProof, userId: req.user._id, proof: evaluationResult.proof, challengeId, files, today });
+      user = await completeLessonAtomically({ mongoose, User, CompletionProof, LearningArtifact: LEARNING_ARTIFACTS_ENABLED ? LearningArtifact : null, userId: req.user._id, proof: evaluationResult.proof, challengeId, files, today });
     } catch (error) {
       if (error?.code === REPLAY_CODE) return res.status(403).json({ error: 'Este comprovante já foi utilizado.' });
       throw error;
@@ -1045,6 +1061,8 @@ app.use(apiErrorHandler);
 async function startServer() {
   try {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+    // Verify artifact uniqueness before enabling artifact writes; never create production indexes implicitly.
+    if (LEARNING_ARTIFACTS_ENABLED) await assertLearningArtifactIndexes();
     // Ensure TTL and ownership indexes exist before accepting authenticated traffic.
     await Promise.all([Session.init(), RefreshToken.init(), CompletionProof.init()]);
     console.log('✅ Conectado ao MongoDB');
