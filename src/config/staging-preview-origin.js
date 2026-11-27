@@ -1,7 +1,13 @@
-function parseStagingPreviewOrigin(rawOrigin, nodeEnv = process.env.NODE_ENV || 'development') {
+function parseStagingPreviewOrigin(
+  rawOrigin,
+  nodeEnv = process.env.NODE_ENV || 'development',
+  renderGitBranch = process.env.RENDER_GIT_BRANCH || ''
+) {
   if (!rawOrigin) return null;
-  if (nodeEnv === 'production') {
-    throw new Error('STAGING_PREVIEW_ORIGIN não pode ser configurada em produção.');
+  // Render runs Node services with NODE_ENV=production, including staging.
+  // Permit this narrowly only on the dedicated staging branch; never on main.
+  if (nodeEnv === 'production' && renderGitBranch !== 'rebuild/v2-security') {
+    throw new Error('STAGING_PREVIEW_ORIGIN só pode ser configurada no branch dedicado de staging.');
   }
 
   let parsed;
