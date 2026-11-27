@@ -38,12 +38,16 @@ function normalizeRevision(value) {
     ? value : null;
 }
 
-function createLessonDraftService({ User, now = () => new Date() } = {}) {
+function createLessonDraftService({ User, LearningArtifact = null, now = () => new Date() } = {}) {
   if (!User || typeof User.findOneAndUpdate !== 'function' || typeof User.findById !== 'function') {
     throw new TypeError('Dependências de rascunho inválidas.');
   }
 
-  async function read(userId, challengeId) {
+  const artifactService = LearningArtifact
+    ? require('./learning-artifacts').createLearningArtifactService({ LearningArtifact, now })
+    : null;
+
+  async function readLegacy(userId, challengeId) {
     // Project only the requested lesson draft; never hydrate the full account or every saved draft.
     const user = await User.findById(userId, { [`savedDraftMap.${challengeId}`]: 1 }).lean();
     const draft = user?.savedDraftMap?.[challengeId];
@@ -57,7 +61,50 @@ function createLessonDraftService({ User, now = () => new Date() } = {}) {
     return { revision: draft.revision, files: draft.files, updatedAt: draft.updatedAt || null };
   }
 
+  async function read(userId, challengeId) {
+    if (artifactService) {
+      const artifact = await artifactService.read({ userId, lessonId: challengeId, kind: 'draft' });
+      if (artifact.files) return artifact;
+    }
+    return readLegacy(userId, challengeId);
+  }
+
   async function save({ userId, challengeId, files, expectedRevision }) {
+    if (artifactService) {
+      // Legacy maps remain readable during rollout. Seed their current revision
+      // into the artifact store before applying the caller's compare-and-swap.
+      const currentArtifact = await artifactService.read({
+        userId, lessonId: challengeId, kind: 'draft'
+      });
+      if (!currentArtifact.files) {
+        const legacy = await readLegacy(userId, challengeId);
+        if (legacy.files) {
+          try {
+            await LearningArtifact.findOneAndUpdate(
+              { userId, lessonId: challengeId, kind: 'draft', revision: { $exists: false } },
+              {
+                $setOnInsert: {
+                  files: legacy.files,
+                  revision: legacy.revision,
+                  createdAt: legacy.updatedAt || now(),
+                  updatedAt: legacy.updatedAt || now()
+                }
+              },
+              { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
+            );
+          } catch (error) {
+            // Another request may have seeded the same unique owner/lesson/kind key.
+            if (error?.code !== 11000) throw error;
+          }
+        }
+      }
+      const result = await artifactService.save({
+        userId, lessonId: challengeId, kind: 'draft', files, expectedRevision
+      });
+      return result.ok
+        ? { ok: true, draft: result.artifact }
+        : { ok: false, reason: result.reason, draft: result.artifact };
+    }
     const revision = normalizeRevision(expectedRevision);
     if (revision === null) return { ok: false, reason: 'invalid_revision' };
     const path = `savedDraftMap.${challengeId}`;
