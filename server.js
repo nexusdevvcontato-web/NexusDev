@@ -43,6 +43,7 @@ const { createPasswordResetService, normalizeEmail } = require('./src/modules/au
 const { createGmailPasswordResetMailer } = require('./src/modules/auth/gmail-mailer');
 const { validateDraftFiles, createLessonDraftService } = require('./src/modules/drafts/lesson-drafts');
 const { createLearningArtifactModel } = require('./src/modules/drafts/learning-artifacts');
+const { createTransactionalLessonDraftService } = require('./src/modules/drafts/transactional-lesson-drafts');
 
 const app = express();
 // Render terminates the public connection at one trusted proxy hop.
@@ -213,10 +214,9 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model('User', userSchema);
 // Metadata-only registration; automatic indexes remain disabled pending reviewed migration.
 const LearningArtifact = createLearningArtifactModel(mongoose);
-const lessonDraftService = createLessonDraftService({
-  User,
-  LearningArtifact: LEARNING_ARTIFACTS_ENABLED ? LearningArtifact : null
-});
+const lessonDraftService = LEARNING_ARTIFACTS_ENABLED
+  ? createTransactionalLessonDraftService({ mongoose, User, LearningArtifact })
+  : createLessonDraftService({ User });
 
 async function assertLearningArtifactIndexes() {
   const indexes = await LearningArtifact.collection.indexes();
