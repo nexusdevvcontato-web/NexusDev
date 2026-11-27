@@ -267,7 +267,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.deepEqual(exported.payload.data.savedCodeMap['css-01-seletores'], {
       'index.html': '<h1>Owner submitted code</h1>'
     });
-    assert.equal(exported.raw.match(/"html-00-o-que-e-web"\\s*:/g)?.length, 1);
+    assert.equal(exported.raw.match(/"html-00-o-que-e-web"\s*:/g)?.length, 1);
     assert.equal(exported.raw.includes('Legacy draft must be overridden'), false);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular A'), true);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário com tentativa de falsificação'), true);
