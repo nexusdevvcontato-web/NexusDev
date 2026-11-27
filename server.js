@@ -204,7 +204,7 @@ const userSchema = new mongoose.Schema(
     certificateLiveUrl: { type: String, default: undefined },
     privacyPreferences: {
       showInLeaderboard: { type: Boolean, default: true },
-      showCertificateDetails: { type: Boolean, default: true }
+      showCertificateDetails: { type: Boolean, default: false }
     }
   },
   { timestamps: true }
