@@ -6,7 +6,8 @@ const {
   validatePrivacyPreferenceUpdate
 } = require('../src/modules/privacy/preferences');
 
-test('legacy accounts retain current public behavior until they choose otherwise', () => {
+test('missing preferences default to private certificate details', () => {
+  assert.deepEqual(DEFAULT_PRIVACY_PREFERENCES, { showInLeaderboard: true, showCertificateDetails: false });
   assert.deepEqual(normalizePrivacyPreferences(undefined), DEFAULT_PRIVACY_PREFERENCES);
   assert.deepEqual(normalizePrivacyPreferences({}), DEFAULT_PRIVACY_PREFERENCES);
 });
