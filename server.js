@@ -6,6 +6,7 @@ require('dotenv').config();
 const express = require('express');
 const { createApiErrorHandlers } = require('./src/http/api-error-handlers');
 const { getReadiness } = require('./src/http/readiness');
+const { createVercelProxyAuthMiddleware } = require('./src/http/vercel-proxy-auth');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -51,7 +52,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL, LEARNING_ARTIFACTS_ENABLED } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL, LEARNING_ARTIFACTS_ENABLED, ENFORCE_VERCEL_PROXY, VERCEL_PROXY_SECRET } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -63,6 +64,9 @@ app.use(cors({
   },
   credentials: true
 }));
+// CORS handles preflight first; reject unauthorized API traffic before parsing request bodies.
+// Render liveness remains exempted by the middleware itself.
+app.use('/api/', createVercelProxyAuthMiddleware({ enabled: ENFORCE_VERCEL_PROXY, secret: VERCEL_PROXY_SECRET }));
 app.use(express.json({ limit: '100kb', strict: true }));
 
 // express-rate-limit's default MemoryStore is process-local; keep one API instance until a shared store is configured.
