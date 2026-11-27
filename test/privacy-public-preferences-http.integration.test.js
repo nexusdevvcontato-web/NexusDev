@@ -86,6 +86,15 @@ test('privacy preferences persist and control public leaderboard and certificate
     });
     await User.updateOne({ _id: other._id }, { $set: { xp: 500, streak: 2 } });
 
+    const defaultCertificate = await request(`/api/certificates/${certificateCode}`);
+    assert.equal(defaultCertificate.response.status, 200, JSON.stringify(defaultCertificate.payload));
+    assert.deepEqual(defaultCertificate.payload, { valid: true, code: certificateCode, publicDetails: false });
+
+    const defaultPreferences = await request('/api/privacy/preferences', { token: ownerToken });
+    assert.deepEqual(defaultPreferences.payload.preferences, {
+      showInLeaderboard: true, showCertificateDetails: false
+    });
+
     const optOut = await request('/api/privacy/preferences', {
       method: 'PUT', token: ownerToken,
       body: { showInLeaderboard: false, showCertificateDetails: false }
@@ -146,7 +155,7 @@ test('privacy preferences persist and control public leaderboard and certificate
 
     const otherPreferences = await request('/api/privacy/preferences', { token: otherToken });
     assert.deepEqual(otherPreferences.payload.preferences, {
-      showInLeaderboard: true, showCertificateDetails: true
+      showInLeaderboard: true, showCertificateDetails: false
     });
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
