@@ -64,7 +64,10 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
         body: body === undefined ? undefined : JSON.stringify(body),
         redirect: 'manual'
       });
-      return { response, payload: await response.json().catch(() => ({})) };
+      const raw = await response.text();
+      let payload = {};
+      try { payload = raw ? JSON.parse(raw) : {}; } catch {}
+      return { response, payload, raw };
     };
 
     const register = async (email) => {
@@ -80,6 +83,20 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const otherToken = await register('privacy-other@example.test');
     const owner = await User.findOne({ email: 'privacy-owner@example.test' });
     const other = await User.findOne({ email: 'privacy-other@example.test' });
+    const legacyDraftMap = Object.fromEntries(Array.from({ length: 1200 }, (_, index) => [
+      `legacy-draft-${String(index).padStart(4, '0')}`,
+      { files: { 'index.html': `<p>Legacy draft ${index}</p>` }, revision: 1 }
+    ]));
+    legacyDraftMap['html-00-o-que-e-web'] = {
+      files: { 'index.html': '<p>Legacy draft must be overridden</p>' }, revision: 1
+    };
+    const legacyCodeMap = Object.fromEntries(Array.from({ length: 1200 }, (_, index) => [
+      `legacy-code-${String(index).padStart(4, '0')}`,
+      { 'index.html': `<p>Legacy code ${index}</p>` }
+    ]));
+    await User.updateOne({ _id: owner._id }, {
+      $set: { savedDraftMap: legacyDraftMap, savedCodeMap: legacyCodeMap }
+    });
     await LearningArtifact.create([
       {
         userId: owner._id, lessonId: 'html-00-o-que-e-web', kind: 'draft',
@@ -88,6 +105,10 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
       {
         userId: other._id, lessonId: 'html-00-o-que-e-web', kind: 'draft',
         files: { 'index.html': '<h1>Other artifact</h1>' }, revision: 2
+      },
+      {
+        userId: owner._id, lessonId: 'css-01-seletores', kind: 'saved_code',
+        files: { 'index.html': '<h1>Owner submitted code</h1>' }, revision: 1
       }
     ]);
 
@@ -233,13 +254,21 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(exported.payload.data.id, owner._id.toString());
     assert.equal(exported.payload.data.email, owner.email);
     assert.equal(exported.payload.comments.length, 2);
-    assert.deepEqual(exported.payload.data.savedDraftMap, {
-      'html-00-o-que-e-web': {
-        files: { 'index.html': '<h1>Owner artifact</h1>' },
-        revision: 4,
-        updatedAt: exported.payload.data.savedDraftMap['html-00-o-que-e-web'].updatedAt
-      }
+    assert.equal(Object.keys(exported.payload.data.savedDraftMap).length, 1201);
+    assert.deepEqual(exported.payload.data.savedDraftMap['html-00-o-que-e-web'], {
+      files: { 'index.html': '<h1>Owner artifact</h1>' },
+      revision: 4,
+      updatedAt: exported.payload.data.savedDraftMap['html-00-o-que-e-web'].updatedAt
     });
+    assert.deepEqual(exported.payload.data.savedDraftMap['legacy-draft-0000'], {
+      files: { 'index.html': '<p>Legacy draft 0</p>' }, revision: 1
+    });
+    assert.equal(Object.keys(exported.payload.data.savedCodeMap).length, 1201);
+    assert.deepEqual(exported.payload.data.savedCodeMap['css-01-seletores'], {
+      'index.html': '<h1>Owner submitted code</h1>'
+    });
+    assert.equal(exported.raw.match(/"html-00-o-que-e-web"\\s*:/g)?.length, 1);
+    assert.equal(exported.raw.includes('Legacy draft must be overridden'), false);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular A'), true);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário com tentativa de falsificação'), true);
     assert.equal(exported.payload.comments.some(item => item.text === 'Comentário sintético do titular B'), false);
@@ -273,7 +302,15 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const successfulConcurrentExport = concurrentExports.find(result => result.response.status === 200);
     assert.equal(successfulConcurrentExport.payload.data.id, owner._id.toString());
 
-    // Aborting a large synthetic export must terminate the HTTP stream cleanly.
+    // Abort while the large legacy map cursor is actively streaming synthetic entries.
+    await User.updateOne({ _id: other._id }, {
+      $set: {
+        savedDraftMap: Object.fromEntries(Array.from({ length: 1200 }, (_, index) => [
+          `legacy-interrupt-${String(index).padStart(4, '0')}`,
+          { files: { 'index.html': `<p>Interrupt fixture ${index}</p>` }, revision: 1 }
+        ]))
+      }
+    });
     await Comment.insertMany(Array.from({ length: 1800 }, (_, index) => ({
       lessonId: 'html-00-o-que-e-web',
       authorUserId: other._id,
@@ -296,9 +333,16 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     });
     assert.equal(interruptedResponse.status, 200);
     const exportReader = interruptedResponse.body.getReader();
-    const firstExportChunk = await exportReader.read();
-    assert.equal(firstExportChunk.done, false);
-    assert.ok(firstExportChunk.value.byteLength > 0);
+    const decoder = new TextDecoder();
+    let streamedText = '';
+    let sawLegacyMapEntry = false;
+    while (!sawLegacyMapEntry) {
+      const chunk = await exportReader.read();
+      if (chunk.done) break;
+      streamedText += decoder.decode(chunk.value, { stream: true });
+      sawLegacyMapEntry = streamedText.includes('"legacy-interrupt-0000"');
+    }
+    assert.equal(sawLegacyMapEntry, true, 'export must reach a legacy map entry before interruption');
     abortController.abort();
     await exportReader.cancel().catch(() => {});
 
