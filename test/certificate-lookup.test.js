@@ -29,7 +29,15 @@ test('unknown or not-yet-issued codes are never reported as valid', async () => 
   }
 });
 
-test('private certificate returns only validity and opaque code without loading profile details', async () => {
+test('missing visibility preference defaults to private and returns only validity and opaque code', async () => {
+  const User = modelWith([{ _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: new Date() }]);
+  const result = await lookupPublicCertificate(User, 'NXD-X');
+  assert.deepEqual(result, { status: 200, body: { valid: true, code: 'NXD-X', publicDetails: false } });
+  assert.equal(User.calls.length, 1);
+  assert.doesNotMatch(User.calls[0].projection, /name|completedIds|xp|githubUrl/);
+});
+
+test('explicitly private certificate returns only validity and opaque code without loading profile details', async () => {
   const User = modelWith([{ _id: 'u1', certificateCode: 'NXD-X', certificateIssuedAt: new Date(), privacyPreferences: { showCertificateDetails: false } }]);
   const result = await lookupPublicCertificate(User, 'NXD-X');
   assert.deepEqual(result, { status: 200, body: { valid: true, code: 'NXD-X', publicDetails: false } });
@@ -51,7 +59,7 @@ test('public certificate returns the allowlisted public details only', async () 
     githubUrl: 'https://github.com/issued', liveUrl: 'https://issued.example'
   });
   assert.equal(User.calls.length, 2);
-  assert.equal(User.calls[1].filter['privacyPreferences.showCertificateDetails'].$ne, false);
+  assert.equal(User.calls[1].filter['privacyPreferences.showCertificateDetails'], true);
   assert.doesNotMatch(User.calls[1].projection, /email|passwordHash/);
   assert.match(User.calls[1].projection, /certificateStudentName.*certificateCompletedCount.*certificateXp/);
 });
