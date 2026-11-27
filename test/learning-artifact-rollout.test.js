@@ -124,11 +124,11 @@ test('new artifact-backed draft starts at revision one without writing legacy ma
   assert.equal(result.draft.revision, 1);
 });
 
-test('server gates artifact writes behind the rollout flag and checks the unique index first', async () => {
+test('server enables transactional artifact drafts only behind the guarded rollout flag', async () => {
   const { readFile } = require('node:fs/promises');
   const server = await readFile(require.resolve('../server'), 'utf8');
-  assert.match(server, /LearningArtifact: LEARNING_ARTIFACTS_ENABLED \? LearningArtifact : null/);
-  assert.match(server, /if \(LEARNING_ARTIFACTS_ENABLED\) await assertLearningArtifactIndexes\(\)/);
+  assert.match(server, /LEARNING_ARTIFACTS_ENABLED\\s*\\?\\s*createTransactionalLessonDraftService\\(\\{ mongoose, User, LearningArtifact \\}\\)/);
+  assert.match(server, /if \\(LEARNING_ARTIFACTS_ENABLED\\) await assertLearningArtifactIndexes\\(\\)/);
   assert.match(server, /uniqueOwnerLessonKind/);
-  assert.match(server, /completeLessonAtomically\(\{[\s\S]*?LearningArtifact: LEARNING_ARTIFACTS_ENABLED \? LearningArtifact : null/);
+  assert.match(server, /completeLessonAtomically\\(\\{[\\s\\S]*?LearningArtifact: LEARNING_ARTIFACTS_ENABLED \\? LearningArtifact : null/);
 });
