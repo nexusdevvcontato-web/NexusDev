@@ -1,4 +1,6 @@
 const NODE_ENV = process.env.NODE_ENV || 'development';
+// Artifact storage stays opt-in until the required unique index is verified in that environment.
+const LEARNING_ARTIFACTS_ENABLED = process.env.LEARNING_ARTIFACTS_ENABLED === 'true';
 const PORT = Number(process.env.PORT || 5000);
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -70,6 +72,7 @@ const ALLOWED_ORIGINS = configuredOrigins.length
 
 module.exports = Object.freeze({
   NODE_ENV,
+  LEARNING_ARTIFACTS_ENABLED,
   PORT,
   MONGO_URI,
   JWT_SECRET,
