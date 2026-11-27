@@ -588,6 +588,11 @@ app.get('/api/privacy/export', (req, res, next) => {
       return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
     }
 
+    const exportUser = await User.findById(req.user._id)
+      .select('-savedDraftMap -savedCodeMap')
+      .lean();
+    const snapshot = buildUserExportProfile(exportUser, { includeLegacyMaps: false });
+
     // Read legacy map entries inside MongoDB and stream them in batches.
     // $lookup removes keys already represented by the newer artifact store.
     // The large Mixed maps never cross the database/application boundary as a whole.
@@ -732,8 +737,7 @@ app.get('/api/privacy/export', (req, res, next) => {
     }
     await writeChunk(']}');
     return res.end();
-  } catch (error) {
-    if (process.env.NODE_ENV === 'test') console.error('[privacy-export-test-error]', error?.name, error?.message);
+  } catch {
     if (res.headersSent) return res.destroy();
     return res.status(500).json({ error: 'Não foi possível exportar os dados da conta.' });
   } finally {
