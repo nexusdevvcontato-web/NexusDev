@@ -1,6 +1,11 @@
 const NODE_ENV = process.env.NODE_ENV || 'development';
 // Artifact storage stays opt-in until the required unique index is verified in that environment.
 const LEARNING_ARTIFACTS_ENABLED = process.env.LEARNING_ARTIFACTS_ENABLED === 'true';
+const ENFORCE_VERCEL_PROXY = process.env.ENFORCE_VERCEL_PROXY === 'true';
+const VERCEL_PROXY_SECRET = process.env.VERCEL_PROXY_SECRET || '';
+if (ENFORCE_VERCEL_PROXY && VERCEL_PROXY_SECRET.length < 32) {
+  throw new Error('VERCEL_PROXY_SECRET must contain at least 32 characters when proxy enforcement is enabled.');
+}
 const PORT = Number(process.env.PORT || 5000);
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -73,6 +78,8 @@ const ALLOWED_ORIGINS = configuredOrigins.length
 module.exports = Object.freeze({
   NODE_ENV,
   LEARNING_ARTIFACTS_ENABLED,
+  ENFORCE_VERCEL_PROXY,
+  VERCEL_PROXY_SECRET,
   PORT,
   MONGO_URI,
   JWT_SECRET,
