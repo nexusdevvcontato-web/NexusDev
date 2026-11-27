@@ -8,6 +8,9 @@ function harness(legacyDraft = null) {
   const records = new Map();
   const key = (userId, lessonId, kind) => [String(userId), lessonId, kind].join('|');
   const LearningArtifact = {
+    find() {
+      return { select() { return this; }, sort() { return this; }, lean: async () => [] };
+    },
     findOne(filter) {
       return {
         select() { return this; },
