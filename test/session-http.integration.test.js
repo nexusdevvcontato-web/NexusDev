@@ -461,7 +461,7 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     assert.match(preferences.response.headers.get('cache-control') || '', /no-store/i);
     assert.deepEqual(preferences.payload.preferences, {
       showInLeaderboard: true,
-      showCertificateDetails: true
+      showCertificateDetails: false
     });
     const updatePreferences = await request('/api/privacy/preferences', {
       method: 'PUT', token: a.accessToken,
@@ -722,11 +722,15 @@ test('session HTTP flow: register, authenticate, bind cookie to bearer, logout a
     await User.updateOne({ _id: (await request('/api/me', { token: b.accessToken })).payload.id }, {
       $set: { certificateCode: bCertificateCode, certificateIssuedAt: new Date() }
     });
+    const privateByDefaultCertificate = await request('/api/certificates/' + bCertificateCode);
+    assert.equal(privateByDefaultCertificate.payload.valid, true);
+    assert.equal(privateByDefaultCertificate.payload.publicDetails, false);
+    const bId = (await request('/api/me', { token: b.accessToken })).payload.id;
+    await User.updateOne({ _id: bId }, { $set: { 'privacyPreferences.showCertificateDetails': true } });
     const publicCertificate = await request('/api/certificates/' + bCertificateCode);
     assert.equal(publicCertificate.payload.valid, true);
     assert.equal(publicCertificate.payload.publicDetails, true);
     assert.equal(publicCertificate.payload.studentName, 'Integration Student');
-    const bId = (await request('/api/me', { token: b.accessToken })).payload.id;
     await User.updateOne({ _id: bId }, { $set: { 'privacyPreferences.showCertificateDetails': false } });
     const optedOutCertificate = await request('/api/certificates/' + bCertificateCode);
     assert.equal(optedOutCertificate.payload.valid, true);
