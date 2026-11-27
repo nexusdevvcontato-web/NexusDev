@@ -64,9 +64,10 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '100kb', strict: true }));
-// Enable only after the matching private Vercel Function secret is configured in this environment.
+// CORS handles preflight first; reject unauthorized API traffic before parsing request bodies.
+// Render liveness remains exempted by the middleware itself.
 app.use('/api/', createVercelProxyAuthMiddleware({ enabled: ENFORCE_VERCEL_PROXY, secret: VERCEL_PROXY_SECRET }));
+app.use(express.json({ limit: '100kb', strict: true }));
 
 // express-rate-limit's default MemoryStore is process-local; keep one API instance until a shared store is configured.
 const passwordResetRequestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas solicitações. Tente novamente mais tarde.' } });
