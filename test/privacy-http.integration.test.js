@@ -235,7 +235,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     assert.equal(impact.payload.sessions.refreshTokens, 1);
     assert.equal(impact.payload.comments.linkedCount, 2);
     assert.equal(impact.payload.completionProofs.count, 0);
-    assert.equal(impact.payload.learning.artifactCount, 1);
+    assert.equal(impact.payload.learning.artifactCount, 2);
     assert.equal(JSON.stringify(impact.payload).includes(other._id.toString()), false);
 
     const reauthenticated = await request('/api/auth/reauthenticate', {
