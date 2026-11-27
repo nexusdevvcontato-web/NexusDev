@@ -1,4 +1,5 @@
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const { parseStagingPreviewOrigin } = require('./staging-preview-origin');
 // Artifact storage stays opt-in until the required unique index is verified in that environment.
 const LEARNING_ARTIFACTS_ENABLED = process.env.LEARNING_ARTIFACTS_ENABLED === 'true';
 const ENFORCE_VERCEL_PROXY = process.env.ENFORCE_VERCEL_PROXY === 'true';
@@ -40,6 +41,8 @@ const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL 
     return parsed.origin;
   });
 
+const STAGING_PREVIEW_ORIGIN = parseStagingPreviewOrigin(process.env.STAGING_PREVIEW_ORIGIN || '', NODE_ENV);
+
 const jwtDuration = /^(?:[1-9]\d{0,5})(s|m|h|d)$/.exec(JWT_EXPIRES_IN);
 const jwtUnitsInSeconds = { s: 1, m: 60, h: 3600, d: 86400 };
 const jwtLifetimeSeconds = jwtDuration
@@ -71,9 +74,10 @@ if (!jwtDuration || jwtLifetimeSeconds > 365 * 24 * 60 * 60) {
 if (NODE_ENV === 'production' && configuredOrigins.length === 0) {
   throw new Error('CORS_ORIGINS é obrigatória em produção e deve listar as origens autorizadas.');
 }
-const ALLOWED_ORIGINS = configuredOrigins.length
-  ? configuredOrigins
-  : ['http://localhost:5173'];
+const ALLOWED_ORIGINS = [...new Set([
+  ...(configuredOrigins.length ? configuredOrigins : ['http://localhost:5173']),
+  ...(STAGING_PREVIEW_ORIGIN ? [STAGING_PREVIEW_ORIGIN] : [])
+])];
 
 module.exports = Object.freeze({
   NODE_ENV,
@@ -92,6 +96,7 @@ module.exports = Object.freeze({
   GMAIL_REFRESH_TOKEN,
   GMAIL_FROM_EMAIL,
   FRONTEND_URL,
+  STAGING_PREVIEW_ORIGIN,
   LESSON_PROOF_PUBLIC_KEY,
   ALLOWED_ORIGINS,
   isProduction: NODE_ENV === 'production'
