@@ -185,10 +185,10 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
     const otherPreferences = await request('/api/privacy/preferences', { token: otherToken });
     assert.equal(ownerPreferences.response.status, 200);
     assert.deepEqual(ownerPreferences.payload.preferences, {
-      showInLeaderboard: true, showCertificateDetails: true
+      showInLeaderboard: true, showCertificateDetails: false
     });
     assert.deepEqual(otherPreferences.payload.preferences, {
-      showInLeaderboard: true, showCertificateDetails: true
+      showInLeaderboard: true, showCertificateDetails: false
     });
 
     const updatedPreferences = await request('/api/privacy/preferences', {
@@ -210,7 +210,7 @@ test('privacy HTTP routes enforce reauthentication and isolate each synthetic ac
       token: otherToken
     });
     assert.deepEqual(otherPreferencesAfterOwnerUpdate.payload.preferences, {
-      showInLeaderboard: true, showCertificateDetails: true
+      showInLeaderboard: true, showCertificateDetails: false
     });
 
     const unauthenticatedExport = await request('/api/privacy/export');
