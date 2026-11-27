@@ -588,37 +588,53 @@ app.get('/api/privacy/export', (req, res, next) => {
       return res.status(403).json({ error: 'Confirme sua identidade novamente antes de exportar seus dados.' });
     }
 
-    // Only find artifact keys that can replace a legacy entry. This bounds the
-    // override set by legacy-map size instead of total artifact count.
-    // The auth middleware excludes these potentially large legacy maps on this route.
-    // Fetch only the two legacy fields once; the profile snapshot stays small.
-    const legacyProfile = await User.findById(req.user._id)
-      .select('savedDraftMap savedCodeMap')
-      .lean();
-    const snapshot = buildUserExportProfile(req.user, { includeLegacyMaps: false });
-    const legacyDrafts = legacyProfile?.savedDraftMap && typeof legacyProfile.savedDraftMap === 'object'
-      ? legacyProfile.savedDraftMap : {};
-    const legacyCode = legacyProfile?.savedCodeMap && typeof legacyProfile.savedCodeMap === 'object'
-      ? legacyProfile.savedCodeMap : {};
-    const findOverriddenLegacyKeys = async (kind, legacyMap) => {
-      const lessonIds = Object.keys(legacyMap);
-      const overridden = new Set();
-      for (let offset = 0; offset < lessonIds.length; offset += 500) {
-        const cursor = LearningArtifact.find({
-          userId: req.user._id,
-          kind,
-          lessonId: { $in: lessonIds.slice(offset, offset + 500) }
-        })
-          .select('lessonId')
-          .lean()
-          .cursor({ batchSize: 100 });
-        cursors.push(cursor);
-        for await (const artifact of cursor) overridden.add(artifact.lessonId);
-      }
-      return overridden;
-    };
-    const overriddenDrafts = await findOverriddenLegacyKeys('draft', legacyDrafts);
-    const overriddenCode = await findOverriddenLegacyKeys('saved_code', legacyCode);
+    // Read legacy map entries inside MongoDB and stream them in batches.
+    // $lookup removes keys already represented by the newer artifact store.
+    // The large Mixed maps never cross the database/application boundary as a whole.
+    const legacyMapPipeline = (field, kind) => [
+      { $match: { _id: req.user._id } },
+      {
+        $project: {
+          entries: {
+            $objectToArray: {
+              $cond: [
+                { $eq: [{ $type: `$${field}` }, 'object'] },
+                `$${field}`,
+                {}
+              ]
+            }
+          }
+        }
+      },
+      { $unwind: '$entries' },
+      {
+        $lookup: {
+          from: LearningArtifact.collection.name,
+          let: { ownerId: '$_id', lessonId: '$entries.k' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$userId', '$$ownerId'] },
+                    { $eq: ['$lessonId', '$$lessonId'] },
+                    { $eq: ['$kind', kind] }
+                  ]
+                }
+              }
+            },
+            { $limit: 1 },
+            { $project: { _id: 1 } }
+          ],
+          as: 'overrides'
+        }
+      },
+      { $match: { $expr: { $eq: [{ $size: '$overrides' }, 0] } } },
+      { $project: { _id: 0, lessonId: '$entries.k', value: '$entries.v' } }
+    ];
+    const createLegacyMapCursor = (field, kind) => User.aggregate(
+      legacyMapPipeline(field, kind)
+    ).allowDiskUse(false).cursor({ batchSize: 100 });
 
     const dataWithoutMaps = { ...snapshot.data };
     delete dataWithoutMaps.savedDraftMap;
@@ -650,14 +666,16 @@ app.get('/api/privacy/export', (req, res, next) => {
     }).slice(0, -2));
 
     let firstDataField = Object.keys(dataWithoutMaps).length === 0;
-    const streamMap = async (field, kind, legacyMap, overriddenLessons, includeMap) => {
+    const streamMap = async (field, kind, includeMap) => {
       if (!includeMap) return;
       await writeChunk((firstDataField ? '' : ',') + JSON.stringify(field) + ':{');
       firstDataField = false;
       let first = true;
-      for (const [lessonId, value] of Object.entries(legacyMap)) {
-        if (overriddenLessons.has(lessonId)) continue;
-        await writeChunk((first ? '' : ',') + JSON.stringify(lessonId) + ':' + JSON.stringify(value));
+
+      const legacyCursor = createLegacyMapCursor(field, kind);
+      cursors.push(legacyCursor);
+      for await (const entry of legacyCursor) {
+        await writeChunk((first ? '' : ',') + JSON.stringify(entry.lessonId) + ':' + JSON.stringify(entry.value));
         first = false;
       }
 
@@ -675,22 +693,14 @@ app.get('/api/privacy/export', (req, res, next) => {
       await writeChunk('}');
     };
 
-    const [hasDraftArtifacts, hasCodeArtifacts] = await Promise.all([
-      Object.hasOwn(legacyProfile || {}, 'savedDraftMap')
-        ? true
-        : LearningArtifact.exists({ userId: req.user._id, kind: 'draft' }),
-      Object.hasOwn(legacyProfile || {}, 'savedCodeMap')
-        ? true
-        : LearningArtifact.exists({ userId: req.user._id, kind: 'saved_code' })
+    const [hasLegacyDraftMap, hasLegacyCodeMap, hasDraftArtifacts, hasCodeArtifacts] = await Promise.all([
+      User.exists({ _id: req.user._id, savedDraftMap: { $exists: true } }),
+      User.exists({ _id: req.user._id, savedCodeMap: { $exists: true } }),
+      LearningArtifact.exists({ userId: req.user._id, kind: 'draft' }),
+      LearningArtifact.exists({ userId: req.user._id, kind: 'saved_code' })
     ]);
-    await streamMap(
-      'savedDraftMap', 'draft', legacyDrafts, overriddenDrafts,
-      Boolean(hasDraftArtifacts)
-    );
-    await streamMap(
-      'savedCodeMap', 'saved_code', legacyCode, overriddenCode,
-      Boolean(hasCodeArtifacts)
-    );
+    await streamMap('savedDraftMap', 'draft', Boolean(hasLegacyDraftMap || hasDraftArtifacts));
+    await streamMap('savedCodeMap', 'saved_code', Boolean(hasLegacyCodeMap || hasCodeArtifacts));
 
     // Close only data; comments and sessions are siblings within the root object.
     await writeChunk('},"comments":[');
