@@ -6,6 +6,7 @@ require('dotenv').config();
 const express = require('express');
 const { createApiErrorHandlers } = require('./src/http/api-error-handlers');
 const { getReadiness } = require('./src/http/readiness');
+const { createVercelProxyAuthMiddleware } = require('./src/http/vercel-proxy-auth');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -51,7 +52,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const config = require('./src/config');
-const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL, LEARNING_ARTIFACTS_ENABLED } = config;
+const { PORT, MONGO_URI, JWT_SECRET, REAUTH_TOKEN_SECRET, SESSION_ACCESS_TOKEN_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID, LESSON_PROOF_PUBLIC_KEY, ALLOWED_ORIGINS, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_FROM_EMAIL, FRONTEND_URL, LEARNING_ARTIFACTS_ENABLED, ENFORCE_VERCEL_PROXY, VERCEL_PROXY_SECRET } = config;
 
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
@@ -64,6 +65,8 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json({ limit: '100kb', strict: true }));
+// Enable only after the matching private Vercel Function secret is configured in this environment.
+app.use('/api/', createVercelProxyAuthMiddleware({ enabled: ENFORCE_VERCEL_PROXY, secret: VERCEL_PROXY_SECRET }));
 
 // express-rate-limit's default MemoryStore is process-local; keep one API instance until a shared store is configured.
 const passwordResetRequestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Muitas solicitações. Tente novamente mais tarde.' } });
