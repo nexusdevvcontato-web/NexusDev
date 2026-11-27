@@ -13,7 +13,7 @@ async function lookupPublicCertificate(UserModel, code) {
   if (!certificate || !certificate.certificateIssuedAt) {
     return { status: 404, body: { valid: false, error: 'Código de certificado não encontrado.' } };
   }
-  if (certificate.privacyPreferences?.showCertificateDetails === false) {
+  if (certificate.privacyPreferences?.showCertificateDetails !== true) {
     return { status: 200, body: { valid: true, code: certificate.certificateCode, publicDetails: false } };
   }
 
@@ -23,7 +23,7 @@ async function lookupPublicCertificate(UserModel, code) {
       _id: certificate._id,
       certificateCode: code,
       certificateIssuedAt: { $ne: null },
-      'privacyPreferences.showCertificateDetails': { $ne: false }
+      'privacyPreferences.showCertificateDetails': true
     },
     'certificateCode certificateIssuedAt privacyPreferences name completedIds xp githubUrl liveUrl certificateStudentName certificateCompletedCount certificateXp certificateGithubUrl certificateLiveUrl'
   );
