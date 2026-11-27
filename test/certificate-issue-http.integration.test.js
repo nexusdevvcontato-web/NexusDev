@@ -139,6 +139,16 @@ test('certificate HTTP issuance requires all official lessons and is immutable u
     assert.equal(retry.payload.githubUrl, first.payload.githubUrl);
     assert.equal(retry.payload.xp, 275);
 
+    const privateLookup = await request('/api/certificates/' + first.payload.code);
+    assert.equal(privateLookup.response.status, 200);
+    assert.deepEqual(privateLookup.payload, { valid: true, code: first.payload.code, publicDetails: false });
+
+    const optIn = await request('/api/privacy/preferences', {
+      method: 'PUT', token, body: { showCertificateDetails: true }
+    });
+    assert.equal(optIn.response.status, 200);
+    assert.equal(optIn.payload.preferences.showCertificateDetails, true);
+
     const publicLookup = await request('/api/certificates/' + first.payload.code);
     assert.equal(publicLookup.response.status, 200);
     assert.equal(publicLookup.payload.valid, true);
