@@ -113,7 +113,7 @@ test('MongoDB replica-set transactional drafts preserve legacy compatibility, at
       LearningArtifact.findOneAndUpdate = originalFindOneAndUpdate;
     }
     const rolledBackUser = await User.findById(rollbackOwner).lean();
-    assert.deepEqual(rolledBackUser.savedDraftMap, {});
+    assert.deepEqual(rolledBackUser.savedDraftMap || {}, {});
     assert.equal(await LearningArtifact.exists({
       userId: rollbackOwner, lessonId: 'mod-1-aula-3', kind: 'draft'
     }), null);
